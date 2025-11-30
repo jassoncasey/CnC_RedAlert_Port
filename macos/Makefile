@@ -64,10 +64,28 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 
 # Clean
 clean:
-	rm -rf $(BUILD_DIR) $(APP_BUNDLE)
+	rm -rf $(BUILD_DIR) $(APP_BUNDLE) $(APP_NAME).zip $(APP_NAME).dmg
 
 # Run
 run: $(APP_BUNDLE)
 	./$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 
-.PHONY: all clean run
+# Distribution package (ad-hoc signed zip)
+dist: $(APP_BUNDLE)
+	@echo "Signing app bundle (ad-hoc)..."
+	codesign --force --deep --sign - $(APP_BUNDLE)
+	@echo "Creating zip archive..."
+	zip -r $(APP_NAME).zip $(APP_BUNDLE)
+	@echo "Created $(APP_NAME).zip"
+	@ls -lh $(APP_NAME).zip
+
+# DMG distribution (prettier, with background)
+dmg: $(APP_BUNDLE)
+	@echo "Signing app bundle (ad-hoc)..."
+	codesign --force --deep --sign - $(APP_BUNDLE)
+	@echo "Creating DMG..."
+	hdiutil create -volname "Red Alert" -srcfolder $(APP_BUNDLE) -ov -format UDZO $(APP_NAME).dmg
+	@echo "Created $(APP_NAME).dmg"
+	@ls -lh $(APP_NAME).dmg
+
+.PHONY: all clean run dist dmg
