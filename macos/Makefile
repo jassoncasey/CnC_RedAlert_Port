@@ -25,7 +25,7 @@ FRAMEWORKS = -framework Cocoa -framework Metal -framework MetalKit -framework Qu
 LDFLAGS = $(ARCH) $(MIN_VERSION) $(FRAMEWORKS)
 
 # Sources (add as we go)
-OBJCXX_SOURCES = $(SRC_DIR)/main.mm $(SRC_DIR)/graphics/metal/renderer.mm
+OBJCXX_SOURCES = $(SRC_DIR)/main.mm $(SRC_DIR)/graphics/metal/renderer.mm $(SRC_DIR)/input/input.mm
 CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_DIR)/platform/assets.cpp
 
 # Objects
