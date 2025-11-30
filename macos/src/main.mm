@@ -12,6 +12,7 @@
 #include "input/input.h"
 #include "game/gameloop.h"
 #include "compat/assets.h"
+#include <cmath>
 
 // Game window dimensions (original Red Alert resolution)
 static constexpr int WINDOW_WIDTH = 640;
@@ -73,6 +74,26 @@ void GameUpdate(uint32_t frame, float deltaTime) {
     }
 }
 
+// Test sprite data (16x16 simple icon)
+static const uint8_t g_testSprite[16 * 16] = {
+    0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,
+    0,0,0,4,4,4,12,12,12,12,4,4,4,0,0,0,
+    0,0,4,4,12,12,12,15,15,12,12,12,4,4,0,0,
+    0,4,4,12,12,15,15,15,15,15,15,12,12,4,4,0,
+    0,4,12,12,15,15,15,15,15,15,15,15,12,12,4,0,
+    4,4,12,15,15,15,15,15,15,15,15,15,15,12,4,4,
+    4,12,12,15,15,15,0,0,0,0,15,15,15,12,12,4,
+    4,12,15,15,15,15,0,0,0,0,15,15,15,15,12,4,
+    4,12,15,15,15,15,0,0,0,0,15,15,15,15,12,4,
+    4,12,12,15,15,15,0,0,0,0,15,15,15,12,12,4,
+    4,4,12,15,15,15,15,15,15,15,15,15,15,12,4,4,
+    0,4,12,12,15,15,15,15,15,15,15,15,12,12,4,0,
+    0,4,4,12,12,15,15,15,15,15,15,12,12,4,4,0,
+    0,0,4,4,12,12,12,15,15,12,12,12,4,4,0,0,
+    0,0,0,4,4,4,12,12,12,12,4,4,4,0,0,0,
+    0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,
+};
+
 // Called every render frame (60 FPS)
 void GameRender(void) {
     const FrameStats* stats = GameLoop_GetStats();
@@ -80,63 +101,114 @@ void GameRender(void) {
     // Clear to dark gray
     Renderer_Clear(8);
 
-    // Draw bouncing box (changes color based on game frame)
-    uint8_t boxColor = 1 + (stats->gameFrame % 14);  // Cycle through colors 1-14
-    Renderer_FillRect(g_bounceX, g_bounceY, 50, 50, boxColor);
+    // === MILESTONE 9: Drawing Primitives Demo ===
 
-    // Draw static colored rectangles
-    Renderer_FillRect(50, 50, 80, 60, 4);    // Dark red
-    Renderer_FillRect(150, 50, 80, 60, 2);   // Dark green
-    Renderer_FillRect(250, 50, 80, 60, 1);   // Dark blue
-    Renderer_FillRect(350, 50, 80, 60, 14);  // Yellow
+    // Draw title text
+    Renderer_DrawText("RED ALERT MACOS PORT", 200, 10, 15, 0);
+    Renderer_DrawText("MILESTONE 9: RENDERING", 195, 25, 14, 0);
 
-    // Draw mouse cursor
+    // Draw lines radiating from center
+    int cx = 100, cy = 100;
+    for (int angle = 0; angle < 360; angle += 30) {
+        float rad = angle * 3.14159f / 180.0f;
+        int ex = cx + (int)(50 * cosf(rad));
+        int ey = cy + (int)(50 * sinf(rad));
+        uint8_t color = 1 + (angle / 30) % 14;
+        Renderer_DrawLine(cx, cy, ex, ey, color);
+    }
+
+    // Draw circles
+    Renderer_DrawCircle(250, 100, 40, 12);  // Red outline
+    Renderer_FillCircle(250, 100, 30, 4);   // Dark red fill
+    Renderer_DrawCircle(350, 100, 40, 10);  // Green outline
+    Renderer_FillCircle(350, 100, 30, 2);   // Dark green fill
+    Renderer_DrawCircle(450, 100, 40, 9);   // Blue outline
+    Renderer_FillCircle(450, 100, 30, 1);   // Dark blue fill
+
+    // Draw rectangle outlines
+    Renderer_DrawRect(520, 60, 60, 80, 14);  // Yellow outline
+    Renderer_DrawRect(525, 65, 50, 70, 6);   // Cyan outline
+
+    // Draw horizontal and vertical lines
+    Renderer_HLine(50, 590, 160, 7);   // Gray horizontal
+    Renderer_VLine(320, 170, 240, 7);  // Gray vertical center
+
+    // Draw sprites with transparency (index 0 = transparent)
+    Renderer_Blit(g_testSprite, 16, 16, 50, 180, TRUE);
+    Renderer_Blit(g_testSprite, 16, 16, 80, 180, TRUE);
+    Renderer_Blit(g_testSprite, 16, 16, 110, 180, TRUE);
+
+    // Draw scaled sprite
+    Renderer_ScaleBlit(g_testSprite, 16, 16, 150, 170, 48, 48, TRUE);
+
+    // Bouncing box (changes color based on game frame)
+    uint8_t boxColor = 1 + (stats->gameFrame % 14);
+    Renderer_FillRect(g_bounceX, g_bounceY, 30, 30, boxColor);
+    Renderer_DrawRect(g_bounceX - 2, g_bounceY - 2, 34, 34, 15);
+
+    // Draw mouse cursor with crosshair
     int mx = Input_GetMouseX();
     int my = Input_GetMouseY();
-    Renderer_FillRect(mx - 3, my - 3, 6, 6, 15);  // White cursor
+    Renderer_DrawLine(mx - 10, my, mx + 10, my, 15);
+    Renderer_DrawLine(mx, my - 10, mx, my + 10, 15);
+    Renderer_FillCircle(mx, my, 3, 12);
 
-    // Draw mouse button indicators
+    // Mouse button indicators
     uint8_t buttons = Input_GetMouseButtons();
-    Renderer_FillRect(50, 250, 30, 25, (buttons & INPUT_MOUSE_LEFT) ? 12 : 4);
-    Renderer_FillRect(90, 250, 30, 25, (buttons & INPUT_MOUSE_RIGHT) ? 9 : 1);
-    Renderer_FillRect(130, 250, 30, 25, (buttons & INPUT_MOUSE_MIDDLE) ? 10 : 2);
+    Renderer_FillCircle(60, 260, 12, (buttons & INPUT_MOUSE_LEFT) ? 12 : 4);
+    Renderer_FillCircle(100, 260, 12, (buttons & INPUT_MOUSE_RIGHT) ? 9 : 1);
+    Renderer_FillCircle(140, 260, 12, (buttons & INPUT_MOUSE_MIDDLE) ? 10 : 2);
+    Renderer_DrawText("L", 56, 255, 15, 0);
+    Renderer_DrawText("R", 96, 255, 15, 0);
+    Renderer_DrawText("M", 135, 255, 15, 0);
 
-    // Draw speed indicator (bar graph)
+    // Speed indicator with text
     int speed = GameLoop_GetSpeed();
+    Renderer_DrawText("SPEED:", 450, 180, 15, 0);
     for (int i = 0; i <= 7; i++) {
-        uint8_t barColor = (i <= speed) ? 10 : 2;  // Green if active
-        Renderer_FillRect(450 + i * 20, 250, 15, 25, barColor);
+        uint8_t barColor = (i <= speed) ? 10 : 2;
+        Renderer_FillRect(450 + i * 15, 195, 12, 20, barColor);
     }
 
-    // Draw pause indicator
+    // Pause indicator with text
     if (GameLoop_IsPaused()) {
-        // Draw "PAUSED" indicator (two bars)
-        Renderer_FillRect(280, 180, 20, 60, 15);
-        Renderer_FillRect(320, 180, 20, 60, 15);
+        Renderer_FillRect(260, 130, 120, 30, 0);
+        Renderer_DrawRect(260, 130, 120, 30, 15);
+        Renderer_DrawText("PAUSED", 285, 140, 15, 0);
     }
 
-    // Draw WASD keys
-    int keyY = 300;
-    Renderer_FillRect(270, keyY, 30, 25, Input_IsKeyDown('W') ? 15 : 7);
-    Renderer_FillRect(230, keyY + 30, 30, 25, Input_IsKeyDown('A') ? 15 : 7);
-    Renderer_FillRect(270, keyY + 30, 30, 25, Input_IsKeyDown('S') ? 15 : 7);
-    Renderer_FillRect(310, keyY + 30, 30, 25, Input_IsKeyDown('D') ? 15 : 7);
-
-    // Space bar
-    Renderer_FillRect(370, keyY + 30, 80, 25, Input_IsKeyDown(VK_SPACE) ? 15 : 7);
+    // Key indicators
+    int keyY = 290;
+    Renderer_DrawText("WASD:", 220, keyY - 15, 7, 0);
+    Renderer_FillRect(270, keyY, 25, 20, Input_IsKeyDown('W') ? 15 : 2);
+    Renderer_FillRect(235, keyY + 25, 25, 20, Input_IsKeyDown('A') ? 15 : 2);
+    Renderer_FillRect(270, keyY + 25, 25, 20, Input_IsKeyDown('S') ? 15 : 2);
+    Renderer_FillRect(305, keyY + 25, 25, 20, Input_IsKeyDown('D') ? 15 : 2);
+    Renderer_DrawText("W", 278, keyY + 5, 0, 0);
+    Renderer_DrawText("A", 243, keyY + 30, 0, 0);
+    Renderer_DrawText("S", 278, keyY + 30, 0, 0);
+    Renderer_DrawText("D", 313, keyY + 30, 0, 0);
 
     // Arrow keys
-    Renderer_FillRect(520, keyY, 30, 25, Input_IsKeyDown(VK_UP) ? 15 : 7);
-    Renderer_FillRect(480, keyY + 30, 30, 25, Input_IsKeyDown(VK_LEFT) ? 15 : 7);
-    Renderer_FillRect(520, keyY + 30, 30, 25, Input_IsKeyDown(VK_DOWN) ? 15 : 7);
-    Renderer_FillRect(560, keyY + 30, 30, 25, Input_IsKeyDown(VK_RIGHT) ? 15 : 7);
+    Renderer_DrawText("ARROWS:", 460, keyY - 15, 7, 0);
+    Renderer_FillRect(510, keyY, 25, 20, Input_IsKeyDown(VK_UP) ? 15 : 2);
+    Renderer_FillRect(475, keyY + 25, 25, 20, Input_IsKeyDown(VK_LEFT) ? 15 : 2);
+    Renderer_FillRect(510, keyY + 25, 25, 20, Input_IsKeyDown(VK_DOWN) ? 15 : 2);
+    Renderer_FillRect(545, keyY + 25, 25, 20, Input_IsKeyDown(VK_RIGHT) ? 15 : 2);
 
-    // FPS display area (just a box, no text yet)
-    Renderer_FillRect(10, 10, 80, 25, 0);
+    // Space bar
+    Renderer_FillRect(370, keyY + 25, 80, 20, Input_IsKeyDown(VK_SPACE) ? 15 : 2);
+    Renderer_DrawText("SPACE", 385, keyY + 30, 0, 0);
 
-    // Frame counter visualization (bar that fills based on render frame)
-    int barWidth = (stats->frameCount % 60) * 2;
-    Renderer_FillRect(100, 10, barWidth, 10, 10);
+    // FPS display
+    Renderer_FillRect(10, 370, 120, 20, 0);
+    Renderer_DrawText("FPS:", 15, 375, 15, 0);
+    char fpsText[16];
+    snprintf(fpsText, sizeof(fpsText), "%.1f", stats->currentFPS);
+    Renderer_DrawText(fpsText, 55, 375, 10, 0);
+
+    // Controls help
+    Renderer_DrawText("ESC=QUIT  P=PAUSE  +/-=SPEED", 350, 375, 7, 0);
 }
 
 #pragma mark - Custom View for Input
@@ -284,7 +356,7 @@ void GameRender(void) {
                                                 backing:NSBackingStoreBuffered
                                                   defer:NO];
 
-    [self.window setTitle:@"Red Alert - Game Loop Test"];
+    [self.window setTitle:@"Red Alert - Rendering Test"];
     [self.window center];
 
     // Set up Metal view

@@ -81,6 +81,87 @@ void Renderer_PutPixel(int x, int y, uint8_t colorIndex);
  */
 uint8_t Renderer_GetPixel(int x, int y);
 
+/**
+ * Draw a line (Bresenham's algorithm)
+ */
+void Renderer_DrawLine(int x1, int y1, int x2, int y2, uint8_t colorIndex);
+
+/**
+ * Draw a rectangle outline
+ */
+void Renderer_DrawRect(int x, int y, int width, int height, uint8_t colorIndex);
+
+/**
+ * Draw a horizontal line (optimized)
+ */
+void Renderer_HLine(int x1, int x2, int y, uint8_t colorIndex);
+
+/**
+ * Draw a vertical line (optimized)
+ */
+void Renderer_VLine(int x, int y1, int y2, uint8_t colorIndex);
+
+/**
+ * Draw a circle outline
+ */
+void Renderer_DrawCircle(int cx, int cy, int radius, uint8_t colorIndex);
+
+/**
+ * Draw a filled circle
+ */
+void Renderer_FillCircle(int cx, int cy, int radius, uint8_t colorIndex);
+
+/**
+ * Blit a sprite (with optional transparency)
+ * Transparency: palette index 0 is transparent if trans=TRUE
+ *
+ * @param srcData   Source sprite data (palette indices)
+ * @param srcWidth  Source width
+ * @param srcHeight Source height
+ * @param destX     Destination X
+ * @param destY     Destination Y
+ * @param trans     If TRUE, color index 0 is transparent
+ */
+void Renderer_Blit(const uint8_t* srcData, int srcWidth, int srcHeight,
+                   int destX, int destY, BOOL trans);
+
+/**
+ * Blit a portion of a sprite
+ */
+void Renderer_BlitRegion(const uint8_t* srcData, int srcWidth, int srcHeight,
+                         int srcX, int srcY, int regionWidth, int regionHeight,
+                         int destX, int destY, BOOL trans);
+
+/**
+ * Scale and blit a sprite
+ */
+void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
+                        int destX, int destY, int destWidth, int destHeight,
+                        BOOL trans);
+
+/**
+ * Apply a color remap to a region
+ * @param remap  256-byte remap table
+ */
+void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap);
+
+/**
+ * Draw text (simple bitmap font)
+ * Returns width of rendered text in pixels.
+ * Note: This is a stub - real font rendering requires font data.
+ */
+int Renderer_DrawText(const char* text, int x, int y, uint8_t fgColor, uint8_t bgColor);
+
+/**
+ * Set clipping rectangle
+ */
+void Renderer_SetClipRect(int x, int y, int width, int height);
+
+/**
+ * Reset clipping to full screen
+ */
+void Renderer_ResetClip(void);
+
 #ifdef __cplusplus
 }
 #endif
