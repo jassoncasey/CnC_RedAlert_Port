@@ -11,6 +11,7 @@
 #include "graphics/metal/renderer.h"
 #include "input/input.h"
 #include "game/gameloop.h"
+#include "audio/audio.h"
 #include "compat/assets.h"
 #include <cmath>
 
@@ -24,6 +25,10 @@ static int g_bounceX = 100;
 static int g_bounceY = 100;
 static int g_bounceVX = 3;
 static int g_bounceVY = 2;
+
+// Audio test tones
+static AudioSample* g_testTones[4] = {nullptr, nullptr, nullptr, nullptr};
+static const uint32_t g_toneFreqs[4] = {262, 330, 392, 523}; // C4, E4, G4, C5
 
 #pragma mark - Game Callbacks
 
@@ -65,11 +70,36 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         GameLoop_Pause(!GameLoop_IsPaused());
     }
 
+    // Audio test keys (1-4 play tones, M mutes)
+    for (int i = 0; i < 4; i++) {
+        if (Input_WasKeyPressed('1' + i) && g_testTones[i]) {
+            Audio_Play(g_testTones[i], 200, 0, FALSE);
+        }
+    }
+    if (Input_WasKeyPressed('M')) {
+        static bool muted = false;
+        muted = !muted;
+        Audio_SetMasterVolume(muted ? 0 : 255);
+    }
+
+    // Volume controls ([ and ])
+    if (Input_WasKeyPressed('[')) {
+        uint8_t vol = Audio_GetMasterVolume();
+        if (vol >= 32) Audio_SetMasterVolume(vol - 32);
+        else Audio_SetMasterVolume(0);
+    }
+    if (Input_WasKeyPressed(']')) {
+        uint8_t vol = Audio_GetMasterVolume();
+        if (vol <= 223) Audio_SetMasterVolume(vol + 32);
+        else Audio_SetMasterVolume(255);
+    }
+
     // Log every 60 game frames (roughly every 4 seconds at speed 4)
     if (frame % 60 == 0) {
         const FrameStats* stats = GameLoop_GetStats();
-        NSLog(@"Game frame %u, Render FPS: %.1f, Speed: %d%s",
+        NSLog(@"Game frame %u, Render FPS: %.1f, Speed: %d, Audio: %d playing%s",
               frame, stats->currentFPS, GameLoop_GetSpeed(),
+              Audio_GetPlayingCount(),
               GameLoop_IsPaused() ? " [PAUSED]" : "");
     }
 }
@@ -207,8 +237,35 @@ void GameRender(void) {
     snprintf(fpsText, sizeof(fpsText), "%.1f", stats->currentFPS);
     Renderer_DrawText(fpsText, 55, 375, 10, 0);
 
+    // Audio section
+    Renderer_DrawText("AUDIO:", 10, 230, 15, 0);
+
+    // Volume bar
+    uint8_t vol = Audio_GetMasterVolume();
+    int volBarWidth = (vol * 60) / 255;
+    Renderer_FillRect(10, 245, 60, 10, 2);
+    Renderer_FillRect(10, 245, volBarWidth, 10, 10);
+    Renderer_DrawRect(10, 245, 60, 10, 7);
+
+    // Sound buttons (1-4)
+    Renderer_DrawText("1234=PLAY", 10, 260, 7, 0);
+    for (int i = 0; i < 4; i++) {
+        uint8_t btnColor = Input_IsKeyDown('1' + i) ? 14 : 6;
+        Renderer_FillRect(80 + i * 20, 258, 15, 12, btnColor);
+        char num[2] = {static_cast<char>('1' + i), '\0'};
+        Renderer_DrawText(num, 84 + i * 20, 260, 0, 0);
+    }
+
+    // Audio info
+    char audioText[32];
+    snprintf(audioText, sizeof(audioText), "VOL:%d", vol);
+    Renderer_DrawText(audioText, 10, 275, 7, 0);
+    snprintf(audioText, sizeof(audioText), "PLAYING:%d", Audio_GetPlayingCount());
+    Renderer_DrawText(audioText, 80, 275, 7, 0);
+
     // Controls help
-    Renderer_DrawText("ESC=QUIT  P=PAUSE  +/-=SPEED", 350, 375, 7, 0);
+    Renderer_DrawText("ESC=QUIT P=PAUSE +/-=SPEED", 200, 375, 7, 0);
+    Renderer_DrawText("1234=SOUND M=MUTE []=VOL", 200, 385, 7, 0);
 }
 
 #pragma mark - Custom View for Input
@@ -356,7 +413,7 @@ void GameRender(void) {
                                                 backing:NSBackingStoreBuffered
                                                   defer:NO];
 
-    [self.window setTitle:@"Red Alert - Rendering Test"];
+    [self.window setTitle:@"Red Alert - Audio Test"];
     [self.window center];
 
     // Set up Metal view
@@ -390,6 +447,16 @@ void GameRender(void) {
         return;
     }
 
+    // Initialize audio
+    if (!Audio_Init()) {
+        NSLog(@"Warning: Audio initialization failed");
+    }
+
+    // Create test tones for audio demo
+    for (int i = 0; i < 4; i++) {
+        g_testTones[i] = Audio_CreateTestTone(g_toneFreqs[i], 200);
+    }
+
     // Set up game loop callbacks
     GameLoop_SetUpdateCallback(GameUpdate);
     GameLoop_SetRenderCallback(GameRender);
@@ -414,7 +481,17 @@ void GameRender(void) {
 
 - (void)applicationWillTerminate:(NSNotification *)notification {
     (void)notification;
+
+    // Free test tones
+    for (int i = 0; i < 4; i++) {
+        if (g_testTones[i]) {
+            Audio_FreeTestTone(g_testTones[i]);
+            g_testTones[i] = nullptr;
+        }
+    }
+
     GameLoop_Shutdown();
+    Audio_Shutdown();
     Renderer_Shutdown();
     Input_Shutdown();
     StubAssets_Shutdown();

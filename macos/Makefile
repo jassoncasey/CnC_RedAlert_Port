@@ -19,13 +19,13 @@ OBJCXXFLAGS = $(CXXFLAGS) -fobjc-arc
 INCLUDES = -I$(SRC_DIR) -Iinclude
 
 # Frameworks
-FRAMEWORKS = -framework Cocoa -framework Metal -framework MetalKit -framework QuartzCore
+FRAMEWORKS = -framework Cocoa -framework Metal -framework MetalKit -framework QuartzCore -framework AudioToolbox -framework AVFoundation
 
 # Linker flags
 LDFLAGS = $(ARCH) $(MIN_VERSION) $(FRAMEWORKS)
 
 # Sources (add as we go)
-OBJCXX_SOURCES = $(SRC_DIR)/main.mm $(SRC_DIR)/graphics/metal/renderer.mm $(SRC_DIR)/input/input.mm
+OBJCXX_SOURCES = $(SRC_DIR)/main.mm $(SRC_DIR)/graphics/metal/renderer.mm $(SRC_DIR)/input/input.mm $(SRC_DIR)/audio/audio.mm
 CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_DIR)/platform/assets.cpp $(SRC_DIR)/game/gameloop.cpp
 
 # Objects
