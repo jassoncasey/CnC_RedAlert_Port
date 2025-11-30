@@ -52,6 +52,51 @@ make dmg    # Creates DMG image
 
 ---
 
+## Game Assets
+
+**This repository contains only the game engine - no game assets are included.**
+
+The game and assets are distributed separately:
+- **Game Binary:** This repository (GPL v3, ~5 MB)
+- **Game Assets:** User must obtain separately (~950 MB)
+
+### Asset Setup
+
+See **[ASSETS.md](ASSETS.md)** for detailed setup instructions.
+
+**Quick version:**
+
+1. Download the freeware ISOs from [Internet Archive](https://archive.org/details/command-and-conquer-red-alert)
+2. Extract MIX files to one of these locations:
+   - `~/Library/Application Support/RedAlert/assets/`
+   - `./assets/` (next to the app bundle)
+3. Run the game
+
+### Asset Search Paths
+
+The game searches for assets in this order:
+1. `~/Library/Application Support/RedAlert/assets/`
+2. `./assets/` (relative to app bundle)
+3. `../assets/` (for development)
+4. `/Volumes/CD1/INSTALL/` (mounted ISO)
+
+### Required Files
+
+| File | Size | Source | Notes |
+|------|------|--------|-------|
+| REDALERT.MIX | 24 MB | CD1/INSTALL/ | Core game data (encrypted) |
+| MAIN.MIX | 434-500 MB | CD1/ or CD2/ | Campaign data (encrypted) |
+| AUD.MIX | 1.4 MB | CD1/SETUP/ | Audio (unencrypted) |
+| SETUP.MIX | 12 MB | CD1/SETUP/ | Graphics (unencrypted) |
+
+### Legal Status
+
+- **Source Code:** GPL v3 - Released by EA, February 2025
+- **Game Assets:** Freeware - Released by EA, August 2008
+- Assets are freely redistributable but not included here to keep repository size small
+
+---
+
 ## Target Platform
 
 - **OS:** macOS 14+ (Sonoma)
@@ -66,11 +111,13 @@ make dmg    # Creates DMG image
 ```
 CnC_Red_Alert/
 ├── README.md              # This file
+├── ASSETS.md              # Asset setup instructions
 ├── PORTING_PLAN.md        # Detailed milestone plan
 ├── archeology.md          # Original source analysis
 ├── LICENSE.md             # GPL v3
 │
-├── downloads/             # Game assets (not in repo)
+├── assets/                # Game assets (not in git, ~950 MB)
+├── downloads/             # ISO downloads (not in git, ~1.3 GB)
 │
 ├── original/              # Original Windows source (read-only)
 │   ├── CODE/             # Main game logic (~520 files)
@@ -91,23 +138,6 @@ CnC_Red_Alert/
     │   └── ui/           # Menu system
     └── resources/        # App bundle resources
 ```
-
----
-
-## Game Assets
-
-**Assets are NOT included in this repository.**
-
-The original game was released as freeware by EA in August 2008. Download from:
-
-- [Internet Archive](https://archive.org/details/command-and-conquer-red-alert) - ISO images
-- [CnC Communications Center](https://cnc-comm.com/red-alert/downloads/the-game) - Windows installers
-
-Required MIX files from the ISOs:
-- `REDALERT.MIX` - Core game data
-- `CONQUER.MIX` - Main assets
-- `SOUNDS.MIX` - Sound effects
-- `SCORES.MIX` - Music
 
 ---
 
@@ -165,6 +195,7 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for complete details.
 
 ## Documentation
 
+- [ASSETS.md](ASSETS.md) - Game asset setup instructions
 - [PORTING_PLAN.md](PORTING_PLAN.md) - Complete milestone plan with effort estimates
 - [archeology.md](archeology.md) - Analysis of original source code
 - [original/research.md](original/research.md) - Overview of original codebase

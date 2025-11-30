@@ -123,6 +123,12 @@ assets/                    # Not in git (~950 MB)
 └── SETUP.MIX             # Setup graphics (unencrypted) ✓
 ```
 
+**Verification:**
+```bash
+cd macos && make test_assets
+# Expected: "File count: 47" for AUD.MIX
+```
+
 ---
 
 ### Phase 2: Core Game Engine (Current)
@@ -144,6 +150,15 @@ Port pure data files (platform-independent):
 
 These are mostly static arrays - minimal adaptation needed.
 
+**Verification:**
+```bash
+make test_data_tables
+# Creates test that:
+# - Compiles all data tables
+# - Verifies array sizes match original
+# - Prints sample values (e.g., "Rifle Infantry: Cost=100, Speed=4")
+```
+
 #### Milestone 16: Object Class Hierarchy
 **Priority:** P1 | **Effort:** 80-100 hours
 
@@ -157,6 +172,16 @@ Port base classes in order:
 
 Each builds on previous. Test incrementally.
 
+**Verification:**
+```bash
+make test_objects
+# Creates test that:
+# - Instantiates each class type
+# - Tests virtual method dispatch
+# - Verifies inheritance chain
+# - Tests object pool allocation
+```
+
 #### Milestone 17: INI & Rules System
 **Priority:** P1 | **Effort:** 40-60 hours
 
@@ -165,6 +190,16 @@ Essential for loading game data:
 - [ ] CCINI.CPP/H - C&C-specific INI handling
 - [ ] RULES.CPP/H - RULES.INI processing
 - [ ] Integrate with type definitions
+
+**Verification:**
+```bash
+make test_ini
+# Creates test that:
+# - Parses RULES.INI from REDALERT.MIX
+# - Prints unit costs, build times
+# - Verifies section count matches original (~150 sections)
+# - Tests Get/Put for various data types
+```
 
 #### Milestone 18: Map & Cell System
 **Priority:** P1 | **Effort:** 60-80 hours
@@ -175,6 +210,16 @@ Replace demo procedural map with real system:
 - [ ] TERRAIN.CPP/H - Terrain types
 - [ ] FINDPATH.CPP/H - A* pathfinding
 
+**Verification:**
+```bash
+make test_map
+# Creates test that:
+# - Loads a scenario map (e.g., SCG01EA.INI)
+# - Verifies map dimensions
+# - Tests cell passability queries
+# - Runs pathfinding benchmark (1000 paths in <1 second)
+```
+
 #### Milestone 19: Entity Implementation
 **Priority:** P1 | **Effort:** 100-120 hours
 
@@ -184,6 +229,23 @@ Implement game objects:
 - [ ] BUILDING.CPP/H - Structures
 - [ ] AIRCRAFT.CPP/H - Air units
 - [ ] VESSEL.CPP/H - Naval units
+
+**Verification:**
+```bash
+make test_entities
+# Creates test that:
+# - Creates one of each entity type
+# - Tests rendering (draws sprite at correct position)
+# - Tests basic movement
+# - Tests state machine transitions
+```
+
+**Phase 2 Integration Test:**
+```bash
+make test_phase2
+# Runs all Phase 2 tests in sequence
+# Final test: Load SCG01EA, spawn units, verify they render
+```
 
 ---
 
@@ -198,6 +260,17 @@ Implement game objects:
 - [ ] WARHEAD.CPP - Damage types
 - [ ] Integrate with units
 
+**Verification:**
+```bash
+make test_combat
+# Creates test that:
+# - Spawns two opposing units
+# - Commands attack
+# - Verifies damage calculation
+# - Verifies unit death when HP reaches 0
+# - Tests weapon range and cooldown
+```
+
 #### Milestone 21: AI & Teams
 **Priority:** P2 | **Effort:** 80-100 hours
 
@@ -206,6 +279,16 @@ Implement game objects:
 - [ ] TEAMTYPE.CPP - Team templates
 - [ ] Basic computer opponent
 
+**Verification:**
+```bash
+make test_ai
+# Creates test that:
+# - Creates AI house with starting units
+# - Runs 100 game ticks
+# - Verifies AI issues orders (move, attack, build)
+# - Verifies team formation
+```
+
 #### Milestone 22: Scenarios & Triggers
 **Priority:** P2 | **Effort:** 60-80 hours
 
@@ -213,6 +296,26 @@ Implement game objects:
 - [ ] TRIGGER.CPP - Event triggers
 - [ ] Load original campaign missions
 - [ ] Victory/defeat conditions
+
+**Verification:**
+```bash
+make test_scenarios
+# Creates test that:
+# - Loads SCG01EA (first Allied mission)
+# - Verifies starting units match original
+# - Verifies trigger count
+# - Tests victory condition detection
+```
+
+**Phase 3 Integration Test:**
+```bash
+make test_phase3
+# Full combat test:
+# - Load scenario
+# - AI controls enemy
+# - Player units auto-attack
+# - Victory/defeat triggers fire
+```
 
 ---
 
@@ -226,6 +329,16 @@ Implement game objects:
 - [ ] Power system
 - [ ] Credits/money
 
+**Verification:**
+```bash
+make test_sidebar
+# Creates test that:
+# - Renders sidebar
+# - Tests build button clicks
+# - Verifies production queue timing
+# - Tests power/credit display
+```
+
 #### Milestone 24: Minimap & Radar
 **Priority:** P2 | **Effort:** 40-60 hours
 
@@ -233,12 +346,32 @@ Implement game objects:
 - [ ] Fog of war
 - [ ] Shroud system
 
+**Verification:**
+```bash
+make test_radar
+# Creates test that:
+# - Renders minimap at 160x160
+# - Verifies unit dots appear
+# - Tests shroud reveal
+# - Tests click-to-scroll
+```
+
 #### Milestone 25: Save/Load
 **Priority:** P2 | **Effort:** 40-60 hours
 
 - [ ] SAVELOAD.CPP - Game state serialization
 - [ ] Save file format
 - [ ] Load game menu
+
+**Verification:**
+```bash
+make test_saveload
+# Creates test that:
+# - Saves game state to file
+# - Loads game state
+# - Verifies unit positions match
+# - Verifies credits/power match
+```
 
 #### Milestone 26: Animations & Effects
 **Priority:** P3 | **Effort:** 40-60 hours
@@ -248,6 +381,15 @@ Implement game objects:
 - [ ] Death animations
 - [ ] Special effects
 
+**Verification:**
+```bash
+make test_animations
+# Creates test that:
+# - Plays explosion animation
+# - Verifies frame count and timing
+# - Tests animation pooling
+```
+
 #### Milestone 27: Campaigns
 **Priority:** P3 | **Effort:** 60-80 hours
 
@@ -255,6 +397,26 @@ Implement game objects:
 - [ ] Soviet campaign (14 missions)
 - [ ] Mission briefings
 - [ ] Story progression
+
+**Verification:**
+```bash
+make test_campaigns
+# Creates test that:
+# - Loads each campaign mission
+# - Verifies mission briefing text
+# - Verifies starting conditions
+# - Tests mission completion flow
+```
+
+**Phase 4 Integration Test:**
+```bash
+make test_phase4
+# Full game test:
+# - Start new game
+# - Complete first mission
+# - Save/load mid-mission
+# - Verify sidebar and minimap
+```
 
 ---
 
@@ -264,30 +426,42 @@ Implement game objects:
 - [ ] FFmpeg integration for VQA
 - [ ] Cutscenes between missions
 
+**Verification:**
+```bash
+make test_video
+# Plays intro.vqa, verifies frame rate
+```
+
 #### Milestone 29: Music
 - [ ] CoreMIDI for MIDI playback
 - [ ] Music tracks from SCORES.MIX
+
+**Verification:**
+```bash
+make test_music
+# Plays HELLMARCH.AUD, verifies audio output
+```
 
 ---
 
 ## Recommended Order
 
-| Order | Milestone | Why First |
-|-------|-----------|-----------|
-| 0 | M14.5: Asset Verification | Verify MIX reader works with real assets |
-| 1 | M15: Data Tables | Foundation - no dependencies |
-| 2 | M17: INI/Rules | Needed to load game data |
-| 3 | M16: Object Hierarchy | Core abstractions for everything |
-| 4 | M18: Map/Cell | Needed before entities |
-| 5 | M19: Entities | Main game objects |
-| 6 | M20: Combat | Makes gameplay functional |
-| 7 | M21: AI | Computer opponent |
-| 8 | M22: Scenarios | Load real missions |
-| 9 | M23: Sidebar | Build units/structures |
-| 10 | M24: Minimap | Navigation aid |
-| 11 | M25: Save/Load | Game persistence |
-| 12 | M26: Animations | Visual polish |
-| 13 | M27: Campaigns | Full game content |
+| Order | Milestone | Why First | Verification |
+|-------|-----------|-----------|--------------|
+| 0 | M14.5: Asset Verification | Verify MIX reader works with real assets | `make test_assets` |
+| 1 | M15: Data Tables | Foundation - no dependencies | `make test_data_tables` |
+| 2 | M17: INI/Rules | Needed to load game data | `make test_ini` |
+| 3 | M16: Object Hierarchy | Core abstractions for everything | `make test_objects` |
+| 4 | M18: Map/Cell | Needed before entities | `make test_map` |
+| 5 | M19: Entities | Main game objects | `make test_entities` |
+| 6 | M20: Combat | Makes gameplay functional | `make test_combat` |
+| 7 | M21: AI | Computer opponent | `make test_ai` |
+| 8 | M22: Scenarios | Load real missions | `make test_scenarios` |
+| 9 | M23: Sidebar | Build units/structures | `make test_sidebar` |
+| 10 | M24: Minimap | Navigation aid | `make test_radar` |
+| 11 | M25: Save/Load | Game persistence | `make test_saveload` |
+| 12 | M26: Animations | Visual polish | `make test_animations` |
+| 13 | M27: Campaigns | Full game content | `make test_campaigns` |
 
 ---
 
@@ -318,13 +492,13 @@ Implement game objects:
 ```
 CnC_Red_Alert/
 ├── README.md                 # Project overview
+├── ASSETS.md                 # Asset setup instructions
 ├── PORTING_PLAN.md          # This document
 ├── archeology.md            # Original source analysis
 ├── LICENSE.md               # GPL v3
 │
-├── downloads/               # Game assets (gitignored)
-│   ├── CD1_ALLIED_DISC.ISO
-│   └── CD2_SOVIET_DISC.ISO
+├── assets/                  # Game assets (gitignored, ~950 MB)
+├── downloads/               # ISO downloads (gitignored, ~1.3 GB)
 │
 ├── original/                # Original source (read-only)
 │   ├── CODE/               # Main game logic
@@ -342,6 +516,7 @@ CnC_Red_Alert/
     │   ├── input/
     │   ├── assets/
     │   ├── game/
+    │   ├── tests/          # Verification tests
     │   └── ui/
     └── resources/
 ```
@@ -352,34 +527,32 @@ CnC_Red_Alert/
 
 **Game assets are NOT in this repository.**
 
-The ISOs from the 2008 freeware release contain:
-- `REDALERT.MIX` - Core game data
-- `CONQUER.MIX` - Main assets
-- `LOCAL.MIX` - Localized strings
-- `GENERAL.MIX` - General assets
-- `INTERIOR.MIX` - Building interiors
-- `SCORES.MIX` - Music
-- `SOUNDS.MIX` - Sound effects
-- `MOVIES.MIX` - Video cutscenes
+See [ASSETS.md](ASSETS.md) for complete setup instructions.
+
+The game searches for assets in multiple locations:
+1. `~/Library/Application Support/RedAlert/assets/`
+2. `./assets/` (relative to app bundle)
+3. `../assets/` (for development)
+4. `/Volumes/CD1/INSTALL/` (mounted ISO)
 
 ---
 
 ## Completed Milestones (Phase 1)
 
-| Milestone | Status | Description |
-|-----------|--------|-------------|
-| 0. Repo Setup | ✓ | Directory structure |
-| 1. Minimal Build | ✓ | AppKit window, Metal view |
-| 2. Compat Layer | ✓ | Windows API stubs |
-| 3. File I/O | ✓ | POSIX abstraction |
-| 4. Timing | ✓ | Game timer |
-| 5. Stub Assets | ✓ | Placeholder graphics/audio |
-| 6. Graphics | ✓ | Metal renderer |
-| 7. Input | ✓ | Keyboard/mouse |
-| 8. Game Loop | ✓ | Core loop |
-| 9. Rendering | ✓ | Drawing primitives |
-| 10. Audio | ✓ | CoreAudio |
-| 11. Menus | ✓ | Navigation system |
-| 12. Real Assets | ✓ | MIX/SHP/PAL/AUD loaders |
-| 13. Gameplay | ✓ | Demo mission |
-| 14. Polish | ✓ | App bundle, icon, fullscreen |
+| Milestone | Status | Description | Verification |
+|-----------|--------|-------------|--------------|
+| 0. Repo Setup | ✓ | Directory structure | Files exist |
+| 1. Minimal Build | ✓ | AppKit window, Metal view | Window opens |
+| 2. Compat Layer | ✓ | Windows API stubs | Compiles |
+| 3. File I/O | ✓ | POSIX abstraction | `make test_file` |
+| 4. Timing | ✓ | Game timer | `make test_timing` |
+| 5. Stub Assets | ✓ | Placeholder graphics/audio | Demo renders |
+| 6. Graphics | ✓ | Metal renderer | Primitives draw |
+| 7. Input | ✓ | Keyboard/mouse | Input responds |
+| 8. Game Loop | ✓ | Core loop | 60 FPS |
+| 9. Rendering | ✓ | Drawing primitives | All shapes render |
+| 10. Audio | ✓ | CoreAudio | Tones play |
+| 11. Menus | ✓ | Navigation system | Menu navigates |
+| 12. Real Assets | ✓ | MIX/SHP/PAL/AUD loaders | `make test_assets` |
+| 13. Gameplay | ✓ | Demo mission | Units move/fight |
+| 14. Polish | ✓ | App bundle, icon, fullscreen | App launches |
