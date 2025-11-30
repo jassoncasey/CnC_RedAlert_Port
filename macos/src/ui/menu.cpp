@@ -58,8 +58,9 @@ void Menu_Init(void) {
 
     Menu_AddButton(g_mainMenu, BTN_NEW_GAME, "NEW GAME", centerX - btnWidth/2, startY, btnWidth, btnHeight, OnMainMenuButton);
     Menu_AddButton(g_mainMenu, BTN_LOAD_GAME, "LOAD GAME", centerX - btnWidth/2, startY + spacing, btnWidth, btnHeight, OnMainMenuButton);
+    Menu_SetItemEnabled(g_mainMenu, BTN_LOAD_GAME, FALSE); // Not implemented
     Menu_AddButton(g_mainMenu, BTN_MULTIPLAYER, "MULTIPLAYER", centerX - btnWidth/2, startY + spacing*2, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_SetItemEnabled(g_mainMenu, BTN_MULTIPLAYER, FALSE); // Disabled for now
+    Menu_SetItemEnabled(g_mainMenu, BTN_MULTIPLAYER, FALSE); // Not implemented
 
     Menu_AddButton(g_mainMenu, BTN_OPTIONS, "OPTIONS", centerX - btnWidth/2, startY + spacing*3, btnWidth, btnHeight, OnMainMenuButton);
     Menu_AddButton(g_mainMenu, BTN_CREDITS, "CREDITS", centerX - btnWidth/2, startY + spacing*4, btnWidth, btnHeight, OnMainMenuButton);
@@ -540,7 +541,7 @@ static void OnMainMenuButton(int itemId, int value) {
             break;
 
         case BTN_LOAD_GAME:
-            // TODO: Load game dialog
+            // Not implemented
             break;
 
         case BTN_OPTIONS:

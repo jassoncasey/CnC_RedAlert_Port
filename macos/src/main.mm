@@ -114,8 +114,9 @@ void GameUpdate(uint32_t frame, float deltaTime) {
                 activeMenu = Menu_GetOptionsMenu();
                 break;
             case MENU_SCREEN_CREDITS:
-                // Show credits then return to main
-                if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN)) {
+                // Show credits then return to main on any key or mouse click
+                if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
+                    Input_WasKeyPressed(VK_SPACE) || (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
                     Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
                 }
                 break;

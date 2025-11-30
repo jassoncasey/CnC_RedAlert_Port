@@ -381,9 +381,41 @@ static void UpdateUnitMovement(Unit* unit) {
     }
 }
 
+static int FindNearestEnemy(Unit* unit, int maxRange) {
+    int closestDist = maxRange + 1;
+    int closestEnemy = -1;
+
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* target = &g_units[i];
+        if (!target->active) continue;
+        if (target->team == unit->team || target->team == TEAM_NEUTRAL) continue;
+        if (target->health <= 0) continue;
+
+        int dx = target->worldX - unit->worldX;
+        int dy = target->worldY - unit->worldY;
+        int dist = (int)sqrt((double)(dx * dx + dy * dy));
+
+        if (dist < closestDist) {
+            closestDist = dist;
+            closestEnemy = i;
+        }
+    }
+
+    return closestEnemy;
+}
+
 static void UpdateUnitCombat(Unit* unit, int unitId) {
     if (unit->attackCooldown > 0) {
         unit->attackCooldown--;
+    }
+
+    // Auto-engage: if idle and has attack capability, look for enemies
+    if (unit->state == STATE_IDLE && unit->attackRange > 0) {
+        int enemyId = FindNearestEnemy(unit, unit->attackRange * 2);  // Scan wider than attack range
+        if (enemyId >= 0) {
+            unit->targetUnit = (int16_t)enemyId;
+            unit->state = STATE_ATTACKING;
+        }
     }
 
     if (unit->state == STATE_ATTACKING && unit->targetUnit >= 0) {
