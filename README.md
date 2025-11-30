@@ -2,7 +2,7 @@
 
 Native macOS port of the classic Command & Conquer: Red Alert (1996).
 
-## Current Status: Milestone 4 Complete
+## Current Status: Milestone 5 Complete
 
 | Milestone | Status | Description |
 |-----------|--------|-------------|
@@ -11,7 +11,7 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | 2. Compat Layer | Done | Windows API stubs for compilation |
 | 3. File I/O | Done | POSIX file abstraction |
 | 4. Timing | Done | Game timer implementation |
-| 5. Stub Assets | Pending | Placeholder graphics/audio |
+| 5. Stub Assets | Done | Placeholder graphics/audio |
 | 6. Graphics | Pending | Metal renderer |
 | 7. Input | Pending | Keyboard/mouse handling |
 | 8. Game Loop | Pending | Core loop integration |
