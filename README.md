@@ -4,10 +4,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 
 ## Current Status
 
-**Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M25 done).
+**Phases 1-5 Complete** - Infrastructure, game systems, and media working.
 
-### Completed (Milestones 0-25)
+### Completed (Milestones 0-29)
 
 | Component | Status |
 |-----------|--------|
@@ -31,17 +30,22 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Sidebar & Production (22 tests) | ✓ |
 | Radar/Minimap (21 tests) | ✓ |
 | Save/Load System (18 tests) | ✓ |
+| Animation System (21 tests) | ✓ |
+| Campaign System (35 tests) | ✓ |
+| VQA Video Playback (12 tests) | ✓ |
+| Music Streaming (24 tests) | ✓ |
 
-### In Progress (Milestones 26+)
+### Progress Summary
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
-| Phase 2: Core Engine | M15-M22 ✓ | Complete |
-| Phase 3: Game Systems | M23 ✓ | Complete |
-| Phase 4: UI & Polish | M24-M25 ✓, M26-M27 | In Progress |
-| Phase 5: Media | M28-M29 | Deferred |
+| Phase 1: Infrastructure | M0-M14 | ✓ Complete |
+| Phase 2: Core Engine | M15-M22 | ✓ Complete |
+| Phase 3: Game Systems | M23 | ✓ Complete |
+| Phase 4: UI & Polish | M24-M27 | ✓ Complete |
+| Phase 5: Media | M28-M29 | ✓ Complete |
 
 ---
 
@@ -214,6 +218,35 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for complete details.
 - [archeology.md](archeology.md) - Analysis of original source code
 - [original/research.md](original/research.md) - Overview of original codebase
 - `original/*/research.md` - Per-directory analysis
+
+---
+
+## Related Projects
+
+### OpenRA - Open Source RTS Engine
+
+**[OpenRA](https://github.com/OpenRA/OpenRA)** is a mature, actively maintained open-source game engine that recreates the classic C&C games (Red Alert, Tiberian Dawn, Dune 2000).
+
+Use OpenRA as a reference for:
+- **Alternative implementations** - When the original source is unclear or poorly documented
+- **Cross-referencing behavior** - Verify game mechanics and edge cases
+- **Ideas for modern approaches** - See how they solved similar problems
+- **File format documentation** - Their codebase has excellent asset loader implementations
+
+Key differences from this port:
+| Aspect | This Port | OpenRA |
+|--------|-----------|--------|
+| Language | C++17 | C# |
+| Goal | Faithful to original source | Modern reimplementation |
+| Platform | macOS native (Metal) | Cross-platform (OpenGL/SDL) |
+| Assets | Uses original formats | Converts to modern formats |
+| Multiplayer | Not planned | Fully featured |
+
+OpenRA is especially useful when:
+- Original Windows code is x86 assembly or Win32-specific
+- Behavior isn't clear from reading original source
+- Looking for inspiration on how to structure modern game systems
+- Debugging file format parsing issues
 
 ---
 
