@@ -1,5 +1,6 @@
-# Game assets (downloaded separately)
+# Game assets (downloaded/extracted separately)
 downloads/
+assets/
 
 # Build artifacts
 macos/build/

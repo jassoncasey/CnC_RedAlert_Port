@@ -83,6 +83,48 @@
 
 ## Porting Roadmap
 
+### Phase 1.5: Asset Extraction (PREREQUISITE)
+
+**Goal:** Extract and verify game assets from freeware ISOs
+
+#### Milestone 14.5: Asset Extraction & Verification
+**Priority:** P0 | **Effort:** 8-16 hours | **Status:** IN PROGRESS
+
+**Download ISOs:**
+- [x] CD1_ALLIED_DISC.ISO (624 MB) from Internet Archive
+- [x] CD2_SOVIET_DISC.ISO (646 MB) from Internet Archive
+
+**Extract MIX files to `assets/` directory:**
+- [x] REDALERT.MIX (24 MB) - Core game data, palettes, rules (ENCRYPTED)
+- [x] MAIN_ALLIED.MIX (434 MB) - Allied campaign movies/sounds (ENCRYPTED)
+- [x] MAIN_SOVIET.MIX (477 MB) - Soviet campaign movies/sounds (ENCRYPTED)
+- [x] AUD.MIX (1.4 MB) - Setup audio files (unencrypted)
+- [x] SETUP.MIX (12 MB) - Setup graphics (unencrypted)
+
+**Verify asset loading:**
+- [x] Test MIX file reader with unencrypted files (AUD.MIX - 47 files)
+- [ ] Port PKStraw/PKey RSA decryption for encrypted MIX headers
+- [ ] Extract and verify RULES.INI from REDALERT.MIX
+- [ ] Extract and display a test sprite (e.g., infantry SHP)
+- [ ] Extract and play a test sound (e.g., rifle AUD)
+
+**Encryption Note:**
+REDALERT.MIX, MAIN_ALLIED.MIX, and MAIN_SOVIET.MIX use encrypted headers.
+The encryption uses RSA public key from `original/CODE/CONST.CPP`.
+Must port `PKStraw` from `original/CODE/PKSTRAW.CPP` to decrypt.
+
+**Asset directory structure:**
+```
+assets/                    # Not in git (~950 MB)
+├── REDALERT.MIX          # Core data (encrypted header)
+├── MAIN_ALLIED.MIX       # Allied campaign (encrypted)
+├── MAIN_SOVIET.MIX       # Soviet campaign (encrypted)
+├── AUD.MIX               # Setup audio (unencrypted) ✓
+└── SETUP.MIX             # Setup graphics (unencrypted) ✓
+```
+
+---
+
 ### Phase 2: Core Game Engine (Current)
 
 **Goal:** Port the fundamental game logic from original CODE/ directory
@@ -232,6 +274,7 @@ Implement game objects:
 
 | Order | Milestone | Why First |
 |-------|-----------|-----------|
+| 0 | M14.5: Asset Verification | Verify MIX reader works with real assets |
 | 1 | M15: Data Tables | Foundation - no dependencies |
 | 2 | M17: INI/Rules | Needed to load game data |
 | 3 | M16: Object Hierarchy | Core abstractions for everything |

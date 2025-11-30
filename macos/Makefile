@@ -88,4 +88,13 @@ dmg: $(APP_BUNDLE)
 	@echo "Created $(APP_NAME).dmg"
 	@ls -lh $(APP_NAME).dmg
 
-.PHONY: all clean run dist dmg
+# Test asset loading
+test_assets: $(BUILD_DIR)/test_assets
+	@echo "Running asset loading test..."
+	@cd $(BUILD_DIR) && ./test_assets
+
+$(BUILD_DIR)/test_assets: $(SRC_DIR)/tests/test_assets.cpp $(BUILD_DIR)/assets/mixfile.o
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets
