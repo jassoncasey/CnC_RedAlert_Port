@@ -23,7 +23,11 @@
 #define APIENTRY
 
 // Windows basic types
+// Note: When compiling Objective-C++, BOOL is already defined by objc/objc.h as 'bool'
+// We only define it for pure C++ compilation
+#if !defined(__OBJC__) && !defined(BOOL)
 typedef int32_t  BOOL;
+#endif
 typedef uint8_t  BYTE;
 typedef uint16_t WORD;
 typedef uint32_t DWORD;
