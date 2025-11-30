@@ -12,6 +12,7 @@
 #include "input/input.h"
 #include "game/gameloop.h"
 #include "audio/audio.h"
+#include "ui/menu.h"
 #include "compat/assets.h"
 #include <cmath>
 
@@ -36,6 +37,41 @@ static const uint32_t g_toneFreqs[4] = {262, 330, 392, 523}; // C4, E4, G4, C5
 void GameUpdate(uint32_t frame, float deltaTime) {
     (void)deltaTime;
 
+    // Handle menus
+    MenuScreen currentScreen = Menu_GetCurrentScreen();
+    if (currentScreen != MENU_SCREEN_NONE) {
+        // Update active menu
+        Menu* activeMenu = nullptr;
+        switch (currentScreen) {
+            case MENU_SCREEN_MAIN:
+                activeMenu = Menu_GetMainMenu();
+                break;
+            case MENU_SCREEN_OPTIONS:
+                activeMenu = Menu_GetOptionsMenu();
+                break;
+            case MENU_SCREEN_CREDITS:
+                // Show credits then return to main
+                if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN)) {
+                    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+                }
+                break;
+            default:
+                break;
+        }
+
+        if (activeMenu) {
+            Menu_Update(activeMenu);
+        }
+
+        // ESC goes back from submenus
+        if (Input_WasKeyPressed(VK_ESCAPE)) {
+            if (currentScreen == MENU_SCREEN_OPTIONS) {
+                Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            }
+        }
+        return; // Don't process game logic while in menus
+    }
+
     // Update animation phase
     g_animPhase += 0.1f;
 
@@ -52,7 +88,8 @@ void GameUpdate(uint32_t frame, float deltaTime) {
 
     // Handle game input
     if (Input_WasKeyPressed(VK_ESCAPE)) {
-        GameLoop_Quit();
+        // Return to main menu
+        Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
     }
 
     // Speed controls (+ and -)
@@ -124,9 +161,53 @@ static const uint8_t g_testSprite[16 * 16] = {
     0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,
 };
 
+// Render credits screen
+static void RenderCredits(void) {
+    Renderer_Clear(0);
+    Renderer_DrawText("CREDITS", 280, 50, 15, 0);
+    Renderer_HLine(100, 540, 70, 7);
+
+    Renderer_DrawText("COMMAND & CONQUER: RED ALERT", 180, 100, 14, 0);
+    Renderer_DrawText("ORIGINAL GAME BY WESTWOOD STUDIOS", 150, 130, 7, 0);
+
+    Renderer_DrawText("MACOS PORT", 270, 180, 10, 0);
+    Renderer_DrawText("MILESTONE 11 - MENU SYSTEM", 190, 210, 7, 0);
+
+    Renderer_DrawText("BUILT WITH:", 260, 260, 7, 0);
+    Renderer_DrawText("- METAL FOR GRAPHICS", 220, 285, 7, 0);
+    Renderer_DrawText("- COREAUDIO FOR SOUND", 220, 305, 7, 0);
+    Renderer_DrawText("- APPKIT FOR WINDOWING", 220, 325, 7, 0);
+
+    Renderer_DrawText("PRESS ESCAPE OR ENTER TO RETURN", 170, 370, 14, 0);
+}
+
 // Called every render frame (60 FPS)
 void GameRender(void) {
     const FrameStats* stats = GameLoop_GetStats();
+
+    // Handle menu rendering
+    MenuScreen currentScreen = Menu_GetCurrentScreen();
+    if (currentScreen != MENU_SCREEN_NONE) {
+        Menu* activeMenu = nullptr;
+        switch (currentScreen) {
+            case MENU_SCREEN_MAIN:
+                activeMenu = Menu_GetMainMenu();
+                break;
+            case MENU_SCREEN_OPTIONS:
+                activeMenu = Menu_GetOptionsMenu();
+                break;
+            case MENU_SCREEN_CREDITS:
+                RenderCredits();
+                return;
+            default:
+                break;
+        }
+
+        if (activeMenu) {
+            Menu_Render(activeMenu);
+        }
+        return;
+    }
 
     // Clear to dark gray
     Renderer_Clear(8);
@@ -413,7 +494,7 @@ void GameRender(void) {
                                                 backing:NSBackingStoreBuffered
                                                   defer:NO];
 
-    [self.window setTitle:@"Red Alert - Audio Test"];
+    [self.window setTitle:@"Red Alert"];
     [self.window center];
 
     // Set up Metal view
@@ -457,6 +538,10 @@ void GameRender(void) {
         g_testTones[i] = Audio_CreateTestTone(g_toneFreqs[i], 200);
     }
 
+    // Initialize menu system
+    Menu_Init();
+    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+
     // Set up game loop callbacks
     GameLoop_SetUpdateCallback(GameUpdate);
     GameLoop_SetRenderCallback(GameRender);
@@ -490,6 +575,7 @@ void GameRender(void) {
         }
     }
 
+    Menu_Shutdown();
     GameLoop_Shutdown();
     Audio_Shutdown();
     Renderer_Shutdown();
