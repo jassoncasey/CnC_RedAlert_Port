@@ -28,40 +28,7 @@ enum class BSizeType : int8_t {
     COUNT
 };
 
-//===========================================================================
-// Facing Type - Direction building faces
-//===========================================================================
-enum class FacingType : int8_t {
-    FACING_NONE = -1,
-    FACING_N = 0,
-    FACING_NE,
-    FACING_E,
-    FACING_SE,
-    FACING_S,
-    FACING_SW,
-    FACING_W,
-    FACING_NW,
-
-    COUNT = 8
-};
-
-//===========================================================================
-// RTTI Type - Runtime Type Info for factory production
-//===========================================================================
-enum class RTTIType : int8_t {
-    NONE = 0,
-    UNIT,           // Ground vehicles
-    AIRCRAFT,       // Aircraft
-    INFANTRY,       // Infantry
-    BUILDING,       // Structures
-    VESSEL,         // Naval units
-    BULLET,         // Projectiles
-    ANIM,           // Animations
-    TEAM,           // AI teams
-    TRIGGER,        // Map triggers
-
-    COUNT
-};
+// FacingType and RTTIType are defined in types.h
 
 //===========================================================================
 // Building Type Data - Static data for each building type

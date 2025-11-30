@@ -346,6 +346,7 @@ enum class MissionType : int8_t {
     UNLOAD,         // Unload passengers
     SABOTAGE,       // Sabotage building
     CONSTRUCTION,   // Build structure
+    DECONSTRUCTION, // Sell/deconstruct structure
     SELLING,        // Sell structure
     REPAIR,         // Repair structure
     RESCUE,         // Rescue (medic)
@@ -420,5 +421,150 @@ constexpr int CELL_SIZE = 24;           // Pixels per cell
 constexpr int LEPTONS_PER_CELL = 256;   // Leptons per cell
 constexpr int MAP_CELL_WIDTH = 128;     // Max map width in cells
 constexpr int MAP_CELL_HEIGHT = 128;    // Max map height in cells
+
+//===========================================================================
+// Additional Types for Object Hierarchy
+//===========================================================================
+
+// Direction types - also used as DirType alias
+using DirType = enum class DirType : uint8_t;  // Forward declared above
+
+// Runtime Type Information - What kind of object is this?
+enum class RTTIType : int8_t {
+    NONE = -1,
+    INFANTRY = 0,
+    UNIT,           // Vehicles
+    AIRCRAFT,
+    BUILDING,
+    BULLET,
+    ANIMATION,
+    TRIGGER,
+    TEAM,
+    TEAMTYPE,
+    TEMPLATE,
+    TERRAIN,
+    OVERLAY,
+    SMUDGE,
+    VESSEL,         // Ships/subs
+
+    COUNT
+};
+
+// Radio message types - Inter-object communication
+enum class RadioMessageType : int8_t {
+    STATIC = 0,     // No message / interference
+    ROGER,          // Acknowledged
+    HELLO,          // Establish contact
+    OVER_OUT,       // End contact
+    NEGATIVE,       // Cannot comply
+
+    // Transport messages
+    SQUISH_ME,      // About to be run over
+    IM_IN,          // Passenger loaded
+    BACKUP,         // Backup up
+    TETHER,         // Establish physical link
+    UNTETHER,       // Release physical link
+
+    // Construction messages
+    BUILDING,       // Start construction
+    COMPLETE,       // Construction complete
+    CANT,           // Cannot comply
+
+    COUNT
+};
+
+// Cloak states
+enum class CloakType : int8_t {
+    UNCLOAKED = 0,
+    CLOAKING,
+    CLOAKED,
+    UNCLOAKING
+};
+
+// Combat result types
+enum class ResultType : int8_t {
+    NONE = 0,       // No effect
+    LIGHT,          // Light damage
+    HALF,           // Half damage
+    HEAVY,          // Heavy damage
+    DESTROYED       // Object destroyed
+};
+
+// Per-cell process callback types
+enum class PCPType : int8_t {
+    NONE = 0,
+    CELL,           // Entering new cell
+    SCATTER,        // About to scatter
+    DESTINATION     // Reached destination
+};
+
+// Movement result types
+enum class MoveType : int8_t {
+    OK = 0,         // Can enter cell
+    CLOAK,          // Cell is occupied by cloaked enemy
+    MOVING_BLOCK,   // Moving object blocking
+    CLOSE_ENOUGH,   // Close enough to destination
+    NO,             // Cannot enter
+    TEMP            // Temporarily blocked
+};
+
+// Mark types for display refresh
+enum class MarkType : int8_t {
+    UP = 0,         // Object removed from display
+    DOWN,           // Object placed on display
+    CHANGE,         // Object changed, needs refresh
+    OVERLAP_UP,     // Overlap area removed
+    OVERLAP_DOWN    // Overlap area placed
+};
+
+// Facing types - 8 directions (used for pathfinding, movement)
+enum class FacingType : int8_t {
+    NORTH = 0,
+    NORTH_EAST,
+    EAST,
+    SOUTH_EAST,
+    SOUTH,
+    SOUTH_WEST,
+    WEST,
+    NORTH_WEST,
+
+    COUNT,
+    NONE = -1
+};
+
+// Action types - What can be done when clicking on something
+enum class ActionType : int8_t {
+    NONE = 0,
+    MOVE,
+    NO_MOVE,
+    ENTER,
+    SELF,
+    ATTACK,
+    HARVEST,
+    SABOTAGE,
+    CAPTURE,
+    TOGGLE,         // Toggle selection
+    SELECT,
+    REPAIR,
+    SELL,
+    SELL_UNIT,
+    NO_SELL,
+    NO_REPAIR,
+    GUARD_AREA,
+    ION_CANNON,
+    NUKE,
+    AIR_STRIKE,
+    CHRONOSPHERE,
+    CHRONO_TARGET
+};
+
+// Mission state machine status values (MissionClass::status_)
+enum class MissionStatus : int8_t {
+    NONE = 0,
+    APPROACHING,
+    EXECUTING,
+    LEAVING,
+    DONE
+};
 
 #endif // GAME_TYPES_H
