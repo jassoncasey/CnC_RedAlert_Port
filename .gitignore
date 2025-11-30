@@ -1,0 +1,23 @@
+# Game assets (downloaded separately)
+downloads/
+
+# Build artifacts
+macos/build/
+macos/RedAlert.app/
+macos/*.zip
+macos/*.dmg
+
+# macOS system files
+.DS_Store
+*/.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.xcodeproj/
+*.xcworkspace/
+
+# Compiled objects
+*.o
+*.a
+*.dylib
