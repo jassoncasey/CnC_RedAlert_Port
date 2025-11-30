@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M21 done).
+**Phase 2 In Progress** - Porting original game logic (M15-M22 done).
 
-### Completed (Milestones 0-21)
+### Completed (Milestones 0-22)
 
 | Component | Status |
 |-----------|--------|
@@ -27,15 +27,16 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Entity Classes (35 tests) | ✓ |
 | Combat System (28 tests) | ✓ |
 | AI & Teams (28 tests) | ✓ |
+| Scenarios & Triggers (26 tests) | ✓ |
 
-### In Progress (Milestones 22+)
+### In Progress (Milestones 23+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
-| Phase 2: Core Engine | M15-M21 ✓ | Complete |
-| Phase 3: Game Systems | M22-M23 | Planned |
+| Phase 2: Core Engine | M15-M22 ✓ | Complete |
+| Phase 3: Game Systems | M23 | In Progress |
 | Phase 4: UI & Polish | M24-M27 | Planned |
 | Phase 5: Media | M28-M29 | Deferred |
 

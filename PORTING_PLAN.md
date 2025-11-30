@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Completed Milestones:** 0-19 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding + Entity Classes)
+**Completed Milestones:** 0-22 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding + Entity Classes + Combat + AI/Teams + Scenarios/Triggers)
 **Current Phase:** Phase 2 - Game Content Integration
 
 ---
@@ -34,7 +34,7 @@
 | Vehicles | UNIT.CPP, UDATA.CPP | ~6K | ✓ Complete | P1 |
 | Aircraft | AIRCRAFT.CPP, ADATA.CPP | ~8K | ✓ Complete | P1 |
 | Buildings | BUILDING.CPP, BDATA.CPP | ~12K | ✓ Complete | P1 |
-| House/Faction | HOUSE.CPP, HDATA.CPP | ~10K | High | P1 |
+| House/Faction | HOUSE.CPP, HDATA.CPP | ~10K | ✓ Complete | P1 |
 | Combat System | COMBAT.CPP, BULLET.CPP | ~5K | ✓ Complete | P1 |
 
 #### CRITICAL - Map & Display
@@ -52,9 +52,9 @@
 
 | Feature | Original Files | Lines | Effort | Priority |
 |---------|----------------|-------|--------|----------|
-| AI System | TEAM.CPP, TEAMTYPE.CPP | ~7K | High | P2 |
-| Triggers | TRIGGER.CPP | ~2K | Medium | P2 |
-| Scenarios | SCENARIO.CPP | ~5K | High | P2 |
+| AI System | TEAM.CPP, TEAMTYPE.CPP | ~7K | ✓ Complete | P2 |
+| Triggers | TRIGGER.CPP | ~2K | ✓ Complete | P2 |
+| Scenarios | SCENARIO.CPP | ~5K | ✓ Complete | P2 |
 | INI Parser | INI.CPP, CCINI.CPP | ~6K | Medium | P1 |
 | Rules | RULES.CPP | ~3K | Medium | P1 |
 | Animations | ANIM.CPP | ~3K | Medium | P2 |
