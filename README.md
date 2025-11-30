@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M19 done).
+**Phase 2 In Progress** - Porting original game logic (M15-M20 done).
 
-### Completed (Milestones 0-19)
+### Completed (Milestones 0-20)
 
 | Component | Status |
 |-----------|--------|
@@ -25,14 +25,15 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Map/Cell System (38 tests) | ✓ |
 | A* Pathfinding | ✓ |
 | Entity Classes (35 tests) | ✓ |
+| Combat System (28 tests) | ✓ |
 
-### In Progress (Milestones 20+)
+### In Progress (Milestones 21+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
-| Phase 2: Core Engine | M15-M19 ✓, M20 | In Progress |
+| Phase 2: Core Engine | M15-M20 ✓ | Complete |
 | Phase 3: Game Systems | M21-M23 | Planned |
 | Phase 4: UI & Polish | M24-M27 | Planned |
 | Phase 5: Media | M28-M29 | Deferred |
@@ -163,7 +164,7 @@ CnC_Red_Alert/
 | Aircraft | AIRCRAFT.CPP (~8K lines) | - | Not started |
 | Map/Cell | MAP.CPP, CELL.CPP (~8K) | game/cell.cpp, mapclass.cpp | ✓ Complete (38 tests) |
 | Pathfinding | FINDPATH.CPP (~3K) | game/pathfind.cpp | ✓ Complete |
-| Combat | COMBAT.CPP, BULLET.CPP | game/units.cpp | Basic only |
+| Combat | COMBAT.CPP, BULLET.CPP | game/combat.cpp, bullet.cpp | ✓ Complete (28 tests) |
 
 ### Medium Priority (P2) - Systems
 

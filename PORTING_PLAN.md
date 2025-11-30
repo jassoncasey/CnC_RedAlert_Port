@@ -35,7 +35,7 @@
 | Aircraft | AIRCRAFT.CPP, ADATA.CPP | ~8K | ✓ Complete | P1 |
 | Buildings | BUILDING.CPP, BDATA.CPP | ~12K | ✓ Complete | P1 |
 | House/Faction | HOUSE.CPP, HDATA.CPP | ~10K | High | P1 |
-| Combat System | COMBAT.CPP, BULLET.CPP | ~5K | High | P1 |
+| Combat System | COMBAT.CPP, BULLET.CPP | ~5K | ✓ Complete | P1 |
 
 #### CRITICAL - Map & Display
 

@@ -330,6 +330,8 @@ public:
     virtual int RearmTime(int weapon = 0) const;
     virtual void Assign_Target(uint32_t target);
     virtual uint32_t GetTarget() const { return tarCom_; }
+    virtual bool Fire_At(int32_t targetCoord, int weapon = 0);
+    virtual int GetWeapon(int which = 0) const { return -1; }  // Override in derived classes
 
     // Cloaking
     virtual void Cloak();

@@ -524,6 +524,32 @@ void TechnoClass::Assign_Target(uint32_t target) {
     tarCom_ = target;
 }
 
+bool TechnoClass::Fire_At(int32_t targetCoord, int weapon) {
+    // Check if we can fire
+    if (!CanFire()) return false;
+
+    // Check weapon index and arm timer
+    if (weapon < 0 || weapon > 1) return false;
+    if (arm_[weapon] > 0) return false;
+
+    // Get weapon type from derived class
+    int weaponType = GetWeapon(weapon);
+    if (weaponType < 0) return false;
+
+    // Check range
+    if (!InRange(targetCoord, weapon)) return false;
+
+    // Fire the weapon (creates bullet)
+    // Note: Fire_Weapon is declared in combat.h
+    // For now, just set the rearm timer
+    arm_[weapon] = static_cast<int16_t>(RearmTime(weapon));
+
+    // Set recoil state
+    isInRecoilState_ = true;
+
+    return true;
+}
+
 void TechnoClass::Cloak() {
     if (!isCloakable_) return;
     if (cloakState_ != CloakType::UNCLOAKED) return;

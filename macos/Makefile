@@ -34,7 +34,8 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/building_types.cpp $(SRC_DIR)/game/aircraft_types.cpp \
               $(SRC_DIR)/game/ini.cpp $(SRC_DIR)/game/rules.cpp \
               $(SRC_DIR)/game/object.cpp $(SRC_DIR)/game/cell.cpp $(SRC_DIR)/game/mapclass.cpp $(SRC_DIR)/game/pathfind.cpp \
-              $(SRC_DIR)/game/infantry.cpp $(SRC_DIR)/game/unit.cpp $(SRC_DIR)/game/building.cpp $(SRC_DIR)/game/aircraft.cpp
+              $(SRC_DIR)/game/infantry.cpp $(SRC_DIR)/game/unit.cpp $(SRC_DIR)/game/building.cpp $(SRC_DIR)/game/aircraft.cpp \
+              $(SRC_DIR)/game/bullet.cpp $(SRC_DIR)/game/combat.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -153,4 +154,17 @@ $(BUILD_DIR)/test_entities: $(SRC_DIR)/tests/test_entities.cpp $(ENTITY_TEST_OBJ
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities
+# Test combat system (bullets, damage, weapons)
+test_combat: $(BUILD_DIR)/test_combat
+	@echo "Running combat system tests..."
+	@./$(BUILD_DIR)/test_combat
+
+COMBAT_TEST_OBJS = $(BUILD_DIR)/game/object.o $(BUILD_DIR)/game/cell.o $(BUILD_DIR)/game/mapclass.o \
+                   $(BUILD_DIR)/game/pathfind.o $(BUILD_DIR)/game/weapon_types.o \
+                   $(BUILD_DIR)/game/bullet.o $(BUILD_DIR)/game/combat.o
+
+$(BUILD_DIR)/test_combat: $(SRC_DIR)/tests/test_combat.cpp $(COMBAT_TEST_OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat
