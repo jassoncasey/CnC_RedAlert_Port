@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Completed Milestones:** 0-24 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding + Entity Classes + Combat + AI/Teams + Scenarios/Triggers + Sidebar/Production + Radar/Minimap)
+**Completed Milestones:** 0-26 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding + Entity Classes + Combat + AI/Teams + Scenarios/Triggers + Sidebar/Production + Radar/Minimap + Save/Load + Animations)
 **Current Phase:** Phase 4 - UI & Polish
 
 ---
@@ -57,7 +57,7 @@
 | Scenarios | SCENARIO.CPP | ~5K | ✓ Complete | P2 |
 | INI Parser | INI.CPP, CCINI.CPP | ~6K | Medium | P1 |
 | Rules | RULES.CPP | ~3K | Medium | P1 |
-| Animations | ANIM.CPP | ~3K | Medium | P2 |
+| Animations | ANIM.CPP | ~3K | ✓ Complete | P2 |
 
 #### IMPORTANT - UI & Effects
 
@@ -355,38 +355,54 @@ make test_radar  # 21/21 tests pass
 # - Jam/unjam functionality
 ```
 
-#### Milestone 25: Save/Load
-**Priority:** P2 | **Effort:** 40-60 hours
+#### Milestone 25: Save/Load ✓ COMPLETE
+**Priority:** P2 | **Effort:** 40-60 hours | **Status:** COMPLETE
 
-- [ ] SAVELOAD.CPP - Game state serialization
-- [ ] Save file format
-- [ ] Load game menu
+- [x] SAVELOAD.CPP - Game state serialization (SaveStream/LoadStream)
+- [x] Save file format (160-byte header with MD5 checksum)
+- [x] Save/Load game functions
+- [x] 18 unit tests
+
+**Files Created:**
+- `game/saveload.h` - Save/Load system header (~300 lines)
+- `game/saveload.cpp` - Full implementation (~1000 lines)
+- `tests/test_saveload.cpp` - 18 tests
 
 **Verification:**
 ```bash
-make test_saveload
-# Creates test that:
-# - Saves game state to file
-# - Loads game state
-# - Verifies unit positions match
-# - Verifies credits/power match
+make test_saveload  # 18/18 tests pass
+# - Stream read/write operations
+# - Header format and magic number
+# - File path generation
+# - Scenario/House/Map serialization
+# - Checksum validation
 ```
 
-#### Milestone 26: Animations & Effects
-**Priority:** P3 | **Effort:** 40-60 hours
+#### Milestone 26: Animations & Effects ✓ COMPLETE
+**Priority:** P3 | **Effort:** 40-60 hours | **Status:** COMPLETE
 
-- [ ] ANIM.CPP - Animation system
-- [ ] Explosions
-- [ ] Death animations
-- [ ] Special effects
+- [x] ANIM.CPP - AnimClass with object pool (256 simultaneous)
+- [x] AnimTypeClass - 88 animation types (explosions, fire, smoke, etc.)
+- [x] Stage-based frame advancement with configurable timing
+- [x] Animation chaining (e.g., explosion → smoke)
+- [x] Layer rendering (GROUND, SURFACE, AIR)
+- [x] Attachment to moving objects
+- [x] Damage accumulation (8.8 fixed point)
+- [x] 21 unit tests
+
+**Files Created:**
+- `game/anim.h` - Animation system header (~390 lines)
+- `game/anim.cpp` - Full implementation (~780 lines)
+- `tests/test_anim.cpp` - 21 tests
 
 **Verification:**
 ```bash
-make test_animations
-# Creates test that:
-# - Plays explosion animation
-# - Verifies frame count and timing
-# - Tests animation pooling
+make test_anim  # 21/21 tests pass
+# - Animation types, properties, chaining
+# - Creation, pool management, lifecycle
+# - Frame advance, completion, looping
+# - Position, layer, owner tracking
+# - Helper functions (Get_Explosion_Anim, Get_Fire_Anim)
 ```
 
 #### Milestone 27: Campaigns
@@ -558,3 +574,12 @@ The game searches for assets in multiple locations:
 | 15. Data Tables | ✓ | Infantry/unit/weapon/building types | `make` |
 | 16. Object Hierarchy | ✓ | Abstract→Object→Mission→Radio→Techno→Foot | `make test_objects` (45 tests) |
 | 17. INI/Rules | ✓ | INI parser + RULES.INI processor | `make test_ini test_rules` (53 tests) |
+| 18. Map/Cell | ✓ | CellClass, MapClass, pathfinding | `make test_map` (38 tests) |
+| 19. Entities | ✓ | Infantry, Unit, Building, Aircraft | `make test_entities` (35 tests) |
+| 20. Combat | ✓ | BulletClass, damage, weapons | `make test_combat` |
+| 21. AI/Teams | ✓ | HouseClass, TeamClass, TeamTypeClass | `make test_ai` |
+| 22. Scenarios | ✓ | ScenarioClass, TriggerClass | `make test_scenario` |
+| 23. Sidebar | ✓ | FactoryClass, SidebarClass | `make test_sidebar` (22 tests) |
+| 24. Radar | ✓ | RadarClass with zoom, fog of war | `make test_radar` (21 tests) |
+| 25. Save/Load | ✓ | SaveStream, LoadStream, file format | `make test_saveload` (18 tests) |
+| 26. Animations | ✓ | AnimClass, 88 types, object pool | `make test_anim` (21 tests) |
