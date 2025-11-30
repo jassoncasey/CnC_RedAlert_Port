@@ -38,7 +38,8 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/bullet.cpp $(SRC_DIR)/game/combat.cpp \
               $(SRC_DIR)/game/house.cpp $(SRC_DIR)/game/team.cpp \
               $(SRC_DIR)/game/scenario.cpp $(SRC_DIR)/game/trigger.cpp \
-              $(SRC_DIR)/game/factory.cpp $(SRC_DIR)/game/sidebar.cpp
+              $(SRC_DIR)/game/factory.cpp $(SRC_DIR)/game/sidebar.cpp \
+              $(SRC_DIR)/game/radar.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -209,4 +210,18 @@ $(BUILD_DIR)/test_sidebar: $(SRC_DIR)/tests/test_sidebar.cpp $(SIDEBAR_TEST_OBJS
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar
+# Test radar/minimap system
+test_radar: $(BUILD_DIR)/test_radar
+	@echo "Running radar/minimap tests..."
+	@./$(BUILD_DIR)/test_radar
+
+RADAR_TEST_OBJS = $(BUILD_DIR)/game/radar.o $(BUILD_DIR)/game/mapclass.o \
+                  $(BUILD_DIR)/game/cell.o $(BUILD_DIR)/game/pathfind.o \
+                  $(BUILD_DIR)/game/house.o $(BUILD_DIR)/game/team.o \
+                  $(BUILD_DIR)/game/object.o
+
+$(BUILD_DIR)/test_radar: $(SRC_DIR)/tests/test_radar.cpp $(RADAR_TEST_OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar

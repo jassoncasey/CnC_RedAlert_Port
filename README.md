@@ -29,8 +29,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | AI & Teams (28 tests) | ✓ |
 | Scenarios & Triggers (26 tests) | ✓ |
 | Sidebar & Production (22 tests) | ✓ |
+| Radar/Minimap (21 tests) | ✓ |
 
-### In Progress (Milestones 24+)
+### In Progress (Milestones 25+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
@@ -38,7 +39,7 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 |-------|------------|--------|
 | Phase 2: Core Engine | M15-M22 ✓ | Complete |
 | Phase 3: Game Systems | M23 ✓ | Complete |
-| Phase 4: UI & Polish | M24-M27 | In Progress |
+| Phase 4: UI & Polish | M24 ✓, M25-M27 | In Progress |
 | Phase 5: Media | M28-M29 | Deferred |
 
 ---
@@ -177,7 +178,7 @@ CnC_Red_Alert/
 | Scenarios | SCENARIO.CPP | ✓ Complete (26 tests) |
 | Triggers | TRIGGER.CPP | ✓ Complete |
 | Sidebar | SIDEBAR.CPP, FACTORY.CPP | ✓ Complete (22 tests) |
-| Minimap | RADAR.CPP | Not started |
+| Minimap | RADAR.CPP | ✓ Complete (21 tests) |
 | Save/Load | SAVELOAD.CPP | Not started |
 
 ### Deferred
