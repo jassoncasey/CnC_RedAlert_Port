@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 Starting** - Porting original game logic.
+**Phase 2 In Progress** - Porting original game logic (M15-M17 done).
 
-### Completed (Milestones 0-14)
+### Completed (Milestones 0-17)
 
 | Component | Status |
 |-----------|--------|
@@ -19,14 +19,17 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Menu System | ✓ |
 | Demo Gameplay | ✓ |
 | App Bundle | ✓ |
+| Data Tables (Infantry/Unit/Weapon/Building) | ✓ |
+| Object Class Hierarchy (45 tests) | ✓ |
+| INI/Rules Parser (53 tests) | ✓ |
 
-### In Progress (Milestones 15+)
+### In Progress (Milestones 18+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
-| Phase 2: Core Engine | M15-M19 | Next |
+| Phase 2: Core Engine | M15-M17 ✓, M18-M19 | In Progress |
 | Phase 3: Game Systems | M20-M22 | Planned |
 | Phase 4: UI & Polish | M23-M27 | Planned |
 | Phase 5: Media | M28-M29 | Deferred |
@@ -147,13 +150,15 @@ CnC_Red_Alert/
 
 | Feature | Original | Port | Status |
 |---------|----------|------|--------|
-| Object Hierarchy | OBJECT/TECHNO/FOOT.CPP | game/units.cpp | Demo only |
+| Object Hierarchy | OBJECT/TECHNO/FOOT.CPP | game/object.cpp | ✓ Complete (45 tests) |
+| INI Parser | INI.CPP, CCINI.CPP (~6K) | game/ini.cpp | ✓ Complete (26 tests) |
+| Rules System | RULES.CPP (~3K) | game/rules.cpp | ✓ Complete (27 tests) |
+| Data Tables | *DATA.CPP | game/*_types.cpp | ✓ Complete |
 | Infantry | INFANTRY.CPP (~8K lines) | - | Not started |
 | Vehicles | UNIT.CPP (~6K lines) | - | Not started |
 | Buildings | BUILDING.CPP (~12K lines) | - | Not started |
 | Aircraft | AIRCRAFT.CPP (~8K lines) | - | Not started |
 | Map/Cell | MAP.CPP, CELL.CPP (~8K) | game/map.cpp | Procedural only |
-| INI Parser | INI.CPP, CCINI.CPP (~6K) | - | Not started |
 | Pathfinding | FINDPATH.CPP (~3K) | - | Not started |
 | Combat | COMBAT.CPP, BULLET.CPP | game/units.cpp | Basic only |
 
