@@ -1,0 +1,12 @@
+# Build artifacts
+build/
+*.app/
+
+# IDE files
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+.idea/
+
+# OS files
+.DS_Store
