@@ -1,7 +1,7 @@
 /**
  * Red Alert macOS Port - Entry Point
  *
- * AppKit application shell with Metal rendering and input handling.
+ * AppKit application shell with Metal rendering, input, and game loop.
  */
 
 #import <Cocoa/Cocoa.h>
@@ -10,11 +10,134 @@
 
 #include "graphics/metal/renderer.h"
 #include "input/input.h"
+#include "game/gameloop.h"
 #include "compat/assets.h"
 
 // Game window dimensions (original Red Alert resolution)
 static constexpr int WINDOW_WIDTH = 640;
 static constexpr int WINDOW_HEIGHT = 400;
+
+// Animation state for demo
+static float g_animPhase = 0.0f;
+static int g_bounceX = 100;
+static int g_bounceY = 100;
+static int g_bounceVX = 3;
+static int g_bounceVY = 2;
+
+#pragma mark - Game Callbacks
+
+// Called at game logic rate (15 FPS default)
+void GameUpdate(uint32_t frame, float deltaTime) {
+    (void)deltaTime;
+
+    // Update animation phase
+    g_animPhase += 0.1f;
+
+    // Update bouncing box
+    g_bounceX += g_bounceVX;
+    g_bounceY += g_bounceVY;
+
+    if (g_bounceX <= 0 || g_bounceX >= WINDOW_WIDTH - 50) {
+        g_bounceVX = -g_bounceVX;
+    }
+    if (g_bounceY <= 0 || g_bounceY >= WINDOW_HEIGHT - 50) {
+        g_bounceVY = -g_bounceVY;
+    }
+
+    // Handle game input
+    if (Input_WasKeyPressed(VK_ESCAPE)) {
+        GameLoop_Quit();
+    }
+
+    // Speed controls (+ and -)
+    if (Input_WasKeyPressed(VK_ADD) || Input_WasKeyPressed('=')) {
+        int speed = GameLoop_GetSpeed();
+        if (speed > 0) GameLoop_SetSpeed(speed - 1);
+    }
+    if (Input_WasKeyPressed(VK_SUBTRACT) || Input_WasKeyPressed('-')) {
+        int speed = GameLoop_GetSpeed();
+        if (speed < 7) GameLoop_SetSpeed(speed + 1);
+    }
+
+    // Pause (P key)
+    if (Input_WasKeyPressed('P')) {
+        GameLoop_Pause(!GameLoop_IsPaused());
+    }
+
+    // Log every 60 game frames (roughly every 4 seconds at speed 4)
+    if (frame % 60 == 0) {
+        const FrameStats* stats = GameLoop_GetStats();
+        NSLog(@"Game frame %u, Render FPS: %.1f, Speed: %d%s",
+              frame, stats->currentFPS, GameLoop_GetSpeed(),
+              GameLoop_IsPaused() ? " [PAUSED]" : "");
+    }
+}
+
+// Called every render frame (60 FPS)
+void GameRender(void) {
+    const FrameStats* stats = GameLoop_GetStats();
+
+    // Clear to dark gray
+    Renderer_Clear(8);
+
+    // Draw bouncing box (changes color based on game frame)
+    uint8_t boxColor = 1 + (stats->gameFrame % 14);  // Cycle through colors 1-14
+    Renderer_FillRect(g_bounceX, g_bounceY, 50, 50, boxColor);
+
+    // Draw static colored rectangles
+    Renderer_FillRect(50, 50, 80, 60, 4);    // Dark red
+    Renderer_FillRect(150, 50, 80, 60, 2);   // Dark green
+    Renderer_FillRect(250, 50, 80, 60, 1);   // Dark blue
+    Renderer_FillRect(350, 50, 80, 60, 14);  // Yellow
+
+    // Draw mouse cursor
+    int mx = Input_GetMouseX();
+    int my = Input_GetMouseY();
+    Renderer_FillRect(mx - 3, my - 3, 6, 6, 15);  // White cursor
+
+    // Draw mouse button indicators
+    uint8_t buttons = Input_GetMouseButtons();
+    Renderer_FillRect(50, 250, 30, 25, (buttons & INPUT_MOUSE_LEFT) ? 12 : 4);
+    Renderer_FillRect(90, 250, 30, 25, (buttons & INPUT_MOUSE_RIGHT) ? 9 : 1);
+    Renderer_FillRect(130, 250, 30, 25, (buttons & INPUT_MOUSE_MIDDLE) ? 10 : 2);
+
+    // Draw speed indicator (bar graph)
+    int speed = GameLoop_GetSpeed();
+    for (int i = 0; i <= 7; i++) {
+        uint8_t barColor = (i <= speed) ? 10 : 2;  // Green if active
+        Renderer_FillRect(450 + i * 20, 250, 15, 25, barColor);
+    }
+
+    // Draw pause indicator
+    if (GameLoop_IsPaused()) {
+        // Draw "PAUSED" indicator (two bars)
+        Renderer_FillRect(280, 180, 20, 60, 15);
+        Renderer_FillRect(320, 180, 20, 60, 15);
+    }
+
+    // Draw WASD keys
+    int keyY = 300;
+    Renderer_FillRect(270, keyY, 30, 25, Input_IsKeyDown('W') ? 15 : 7);
+    Renderer_FillRect(230, keyY + 30, 30, 25, Input_IsKeyDown('A') ? 15 : 7);
+    Renderer_FillRect(270, keyY + 30, 30, 25, Input_IsKeyDown('S') ? 15 : 7);
+    Renderer_FillRect(310, keyY + 30, 30, 25, Input_IsKeyDown('D') ? 15 : 7);
+
+    // Space bar
+    Renderer_FillRect(370, keyY + 30, 80, 25, Input_IsKeyDown(VK_SPACE) ? 15 : 7);
+
+    // Arrow keys
+    Renderer_FillRect(520, keyY, 30, 25, Input_IsKeyDown(VK_UP) ? 15 : 7);
+    Renderer_FillRect(480, keyY + 30, 30, 25, Input_IsKeyDown(VK_LEFT) ? 15 : 7);
+    Renderer_FillRect(520, keyY + 30, 30, 25, Input_IsKeyDown(VK_DOWN) ? 15 : 7);
+    Renderer_FillRect(560, keyY + 30, 30, 25, Input_IsKeyDown(VK_RIGHT) ? 15 : 7);
+
+    // FPS display area (just a box, no text yet)
+    Renderer_FillRect(10, 10, 80, 25, 0);
+
+    // Frame counter visualization (bar that fills based on render frame)
+    int barWidth = (stats->frameCount % 60) * 2;
+    Renderer_FillRect(100, 10, barWidth, 10, 10);
+}
 
 #pragma mark - Custom View for Input
 
@@ -36,29 +159,25 @@ static constexpr int WINDOW_HEIGHT = 400;
 }
 
 - (void)flagsChanged:(NSEvent *)event {
-    // Handle modifier key changes
     static uint16_t lastModifiers = 0;
     uint16_t currentModifiers = (uint16_t)event.modifierFlags;
-
-    // Detect which modifier changed
     uint16_t changed = lastModifiers ^ currentModifiers;
     BOOL pressed = (currentModifiers & changed) != 0;
 
-    // Map modifier flag to keycode
     if (changed & NSEventModifierFlagShift) {
-        if (pressed) Input_HandleKeyDown(56, currentModifiers);  // kVK_Shift
+        if (pressed) Input_HandleKeyDown(56, currentModifiers);
         else Input_HandleKeyUp(56, currentModifiers);
     }
     if (changed & NSEventModifierFlagControl) {
-        if (pressed) Input_HandleKeyDown(59, currentModifiers);  // kVK_Control
+        if (pressed) Input_HandleKeyDown(59, currentModifiers);
         else Input_HandleKeyUp(59, currentModifiers);
     }
     if (changed & NSEventModifierFlagOption) {
-        if (pressed) Input_HandleKeyDown(58, currentModifiers);  // kVK_Option
+        if (pressed) Input_HandleKeyDown(58, currentModifiers);
         else Input_HandleKeyUp(58, currentModifiers);
     }
     if (changed & NSEventModifierFlagCommand) {
-        if (pressed) Input_HandleKeyDown(55, currentModifiers);  // kVK_Command
+        if (pressed) Input_HandleKeyDown(55, currentModifiers);
         else Input_HandleKeyUp(55, currentModifiers);
     }
 
@@ -97,7 +216,6 @@ static constexpr int WINDOW_HEIGHT = 400;
 
 - (void)mouseMoved:(NSEvent *)event {
     NSPoint location = [self convertPoint:event.locationInWindow fromView:nil];
-    // Flip Y coordinate (macOS has origin at bottom-left)
     int x = (int)location.x;
     int y = WINDOW_HEIGHT - (int)location.y - 1;
     Input_HandleMouseMove(x, y);
@@ -116,7 +234,6 @@ static constexpr int WINDOW_HEIGHT = 400;
 #pragma mark - MTKView Delegate
 
 @interface RAViewDelegate : NSObject <MTKViewDelegate>
-@property (nonatomic) BOOL showInputDebug;
 @end
 
 @implementation RAViewDelegate
@@ -129,126 +246,17 @@ static constexpr int WINDOW_HEIGHT = 400;
 - (void)drawInMTKView:(MTKView *)view {
     (void)view;
 
-    // Process input at start of frame
+    // Process input
     Input_Update();
 
-    // Draw test pattern with input visualization
-    [self drawTestPattern];
+    // Run game loop iteration
+    if (!GameLoop_RunFrame()) {
+        // Quit requested
+        [NSApp terminate:nil];
+    }
 
-    // Present the framebuffer
+    // Present to screen
     Renderer_Present();
-}
-
-- (void)drawTestPattern {
-    // Clear to dark gray
-    Renderer_Clear(8);
-
-    // Draw colored rectangles using palette colors
-    Renderer_FillRect(50, 50, 100, 80, 4);    // Dark red
-    Renderer_FillRect(200, 50, 100, 80, 2);   // Dark green
-    Renderer_FillRect(350, 50, 100, 80, 1);   // Dark blue
-    Renderer_FillRect(500, 50, 100, 80, 14);  // Yellow
-
-    // Bright variants
-    Renderer_FillRect(50, 150, 100, 80, 12);  // Bright red
-    Renderer_FillRect(200, 150, 100, 80, 10); // Bright green
-    Renderer_FillRect(350, 150, 100, 80, 9);  // Bright blue
-    Renderer_FillRect(500, 150, 100, 80, 11); // Bright cyan
-
-    // Draw mouse cursor indicator (white square at mouse position)
-    int mx = Input_GetMouseX();
-    int my = Input_GetMouseY();
-    Renderer_FillRect(mx - 5, my - 5, 10, 10, 15);  // White
-
-    // Draw mouse button indicators
-    uint8_t buttons = Input_GetMouseButtons();
-    if (buttons & INPUT_MOUSE_LEFT) {
-        Renderer_FillRect(50, 280, 40, 30, 12);   // Red when left pressed
-    } else {
-        Renderer_FillRect(50, 280, 40, 30, 4);    // Dark red otherwise
-    }
-
-    if (buttons & INPUT_MOUSE_RIGHT) {
-        Renderer_FillRect(100, 280, 40, 30, 9);   // Blue when right pressed
-    } else {
-        Renderer_FillRect(100, 280, 40, 30, 1);   // Dark blue otherwise
-    }
-
-    if (buttons & INPUT_MOUSE_MIDDLE) {
-        Renderer_FillRect(150, 280, 40, 30, 10);  // Green when middle pressed
-    } else {
-        Renderer_FillRect(150, 280, 40, 30, 2);   // Dark green otherwise
-    }
-
-    // Draw key indicators for common keys (WASD, Space, Escape)
-    int keyY = 330;
-
-    // W key
-    if (Input_IsKeyDown('W')) {
-        Renderer_FillRect(270, keyY, 30, 25, 15);
-    } else {
-        Renderer_FillRect(270, keyY, 30, 25, 7);
-    }
-
-    // A key
-    if (Input_IsKeyDown('A')) {
-        Renderer_FillRect(230, keyY + 30, 30, 25, 15);
-    } else {
-        Renderer_FillRect(230, keyY + 30, 30, 25, 7);
-    }
-
-    // S key
-    if (Input_IsKeyDown('S')) {
-        Renderer_FillRect(270, keyY + 30, 30, 25, 15);
-    } else {
-        Renderer_FillRect(270, keyY + 30, 30, 25, 7);
-    }
-
-    // D key
-    if (Input_IsKeyDown('D')) {
-        Renderer_FillRect(310, keyY + 30, 30, 25, 15);
-    } else {
-        Renderer_FillRect(310, keyY + 30, 30, 25, 7);
-    }
-
-    // Space bar
-    if (Input_IsKeyDown(VK_SPACE)) {
-        Renderer_FillRect(370, keyY + 30, 100, 25, 15);
-    } else {
-        Renderer_FillRect(370, keyY + 30, 100, 25, 7);
-    }
-
-    // Escape
-    if (Input_IsKeyDown(VK_ESCAPE)) {
-        Renderer_FillRect(500, keyY, 50, 25, 12);
-    } else {
-        Renderer_FillRect(500, keyY, 50, 25, 4);
-    }
-
-    // Arrow keys
-    if (Input_IsKeyDown(VK_UP)) {
-        Renderer_FillRect(550, keyY + 30, 30, 25, 15);
-    } else {
-        Renderer_FillRect(550, keyY + 30, 30, 25, 7);
-    }
-
-    if (Input_IsKeyDown(VK_LEFT)) {
-        Renderer_FillRect(510, keyY + 60, 30, 25, 15);
-    } else {
-        Renderer_FillRect(510, keyY + 60, 30, 25, 7);
-    }
-
-    if (Input_IsKeyDown(VK_DOWN)) {
-        Renderer_FillRect(550, keyY + 60, 30, 25, 15);
-    } else {
-        Renderer_FillRect(550, keyY + 60, 30, 25, 7);
-    }
-
-    if (Input_IsKeyDown(VK_RIGHT)) {
-        Renderer_FillRect(590, keyY + 60, 30, 25, 15);
-    } else {
-        Renderer_FillRect(590, keyY + 60, 30, 25, 7);
-    }
 }
 
 @end
@@ -276,7 +284,7 @@ static constexpr int WINDOW_HEIGHT = 400;
                                                 backing:NSBackingStoreBuffered
                                                   defer:NO];
 
-    [self.window setTitle:@"Red Alert - Input Test"];
+    [self.window setTitle:@"Red Alert - Game Loop Test"];
     [self.window center];
 
     // Set up Metal view
@@ -299,15 +307,21 @@ static constexpr int WINDOW_HEIGHT = 400;
             userInfo:nil];
     [metalView addTrackingArea:trackingArea];
 
-    // Initialize systems
+    // Initialize all systems
     Input_Init();
     StubAssets_Init();
+    GameLoop_Init();
 
     if (!Renderer_Init((__bridge void*)metalView)) {
         NSLog(@"Failed to initialize renderer");
         [NSApp terminate:nil];
         return;
     }
+
+    // Set up game loop callbacks
+    GameLoop_SetUpdateCallback(GameUpdate);
+    GameLoop_SetRenderCallback(GameRender);
+    GameLoop_SetState(GAME_STATE_PLAYING);
 
     // Set up view delegate for rendering
     self.viewDelegate = [[RAViewDelegate alloc] init];
@@ -318,7 +332,7 @@ static constexpr int WINDOW_HEIGHT = 400;
     [self.window makeFirstResponder:metalView];
 
     NSLog(@"Red Alert initialized - Metal device: %@", device.name);
-    NSLog(@"Press WASD, arrow keys, Space, Escape. Move mouse. Click buttons.");
+    NSLog(@"Controls: WASD/Arrows=move, +/-=speed, P=pause, ESC=quit");
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {
@@ -328,6 +342,7 @@ static constexpr int WINDOW_HEIGHT = 400;
 
 - (void)applicationWillTerminate:(NSNotification *)notification {
     (void)notification;
+    GameLoop_Shutdown();
     Renderer_Shutdown();
     Input_Shutdown();
     StubAssets_Shutdown();
@@ -346,7 +361,7 @@ int main(int argc, const char *argv[]) {
         NSApplication *app = [NSApplication sharedApplication];
         [app setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-        // Create menu bar with Quit option
+        // Create menu bar
         NSMenu *menuBar = [[NSMenu alloc] init];
         NSMenuItem *appMenuItem = [[NSMenuItem alloc] init];
         [menuBar addItem:appMenuItem];
