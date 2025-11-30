@@ -638,8 +638,18 @@ void GameRender(void) {
 
 - (void)mouseMoved:(NSEvent *)event {
     NSPoint location = [self convertPoint:event.locationInWindow fromView:nil];
-    int x = (int)location.x;
-    int y = WINDOW_HEIGHT - (int)location.y - 1;
+    NSSize viewSize = self.bounds.size;
+
+    // Scale mouse coordinates to game resolution (640x400)
+    int x = (int)(location.x * WINDOW_WIDTH / viewSize.width);
+    int y = (int)((viewSize.height - location.y) * WINDOW_HEIGHT / viewSize.height);
+
+    // Clamp to valid range
+    if (x < 0) x = 0;
+    if (x >= WINDOW_WIDTH) x = WINDOW_WIDTH - 1;
+    if (y < 0) y = 0;
+    if (y >= WINDOW_HEIGHT) y = WINDOW_HEIGHT - 1;
+
     Input_HandleMouseMove(x, y);
 }
 
