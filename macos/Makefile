@@ -31,8 +31,10 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/assets/mixfile.cpp $(SRC_DIR)/assets/shpfile.cpp $(SRC_DIR)/assets/palfile.cpp $(SRC_DIR)/assets/audfile.cpp \
               $(SRC_DIR)/game/map.cpp $(SRC_DIR)/game/units.cpp \
               $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp \
-              $(SRC_DIR)/game/building_types.cpp $(SRC_DIR)/game/ini.cpp $(SRC_DIR)/game/rules.cpp \
-              $(SRC_DIR)/game/object.cpp $(SRC_DIR)/game/cell.cpp $(SRC_DIR)/game/mapclass.cpp $(SRC_DIR)/game/pathfind.cpp
+              $(SRC_DIR)/game/building_types.cpp $(SRC_DIR)/game/aircraft_types.cpp \
+              $(SRC_DIR)/game/ini.cpp $(SRC_DIR)/game/rules.cpp \
+              $(SRC_DIR)/game/object.cpp $(SRC_DIR)/game/cell.cpp $(SRC_DIR)/game/mapclass.cpp $(SRC_DIR)/game/pathfind.cpp \
+              $(SRC_DIR)/game/infantry.cpp $(SRC_DIR)/game/unit.cpp $(SRC_DIR)/game/building.cpp $(SRC_DIR)/game/aircraft.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -137,4 +139,18 @@ $(BUILD_DIR)/test_map: $(SRC_DIR)/tests/test_map.cpp $(BUILD_DIR)/game/cell.o $(
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map
+# Test entities (infantry, units, buildings, aircraft)
+test_entities: $(BUILD_DIR)/test_entities
+	@echo "Running entity tests..."
+	@./$(BUILD_DIR)/test_entities
+
+ENTITY_TEST_OBJS = $(BUILD_DIR)/game/object.o $(BUILD_DIR)/game/cell.o $(BUILD_DIR)/game/mapclass.o \
+                   $(BUILD_DIR)/game/pathfind.o $(BUILD_DIR)/game/infantry_types.o $(BUILD_DIR)/game/unit_types.o \
+                   $(BUILD_DIR)/game/building_types.o $(BUILD_DIR)/game/aircraft_types.o \
+                   $(BUILD_DIR)/game/infantry.o $(BUILD_DIR)/game/unit.o $(BUILD_DIR)/game/building.o $(BUILD_DIR)/game/aircraft.o
+
+$(BUILD_DIR)/test_entities: $(SRC_DIR)/tests/test_entities.cpp $(ENTITY_TEST_OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities

@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M18 done).
+**Phase 2 In Progress** - Porting original game logic (M15-M19 done).
 
-### Completed (Milestones 0-18)
+### Completed (Milestones 0-19)
 
 | Component | Status |
 |-----------|--------|
@@ -19,21 +19,22 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Menu System | ✓ |
 | Demo Gameplay | ✓ |
 | App Bundle | ✓ |
-| Data Tables (Infantry/Unit/Weapon/Building) | ✓ |
+| Data Tables (Infantry/Unit/Weapon/Building/Aircraft) | ✓ |
 | Object Class Hierarchy (45 tests) | ✓ |
 | INI/Rules Parser (53 tests) | ✓ |
 | Map/Cell System (38 tests) | ✓ |
 | A* Pathfinding | ✓ |
+| Entity Classes (35 tests) | ✓ |
 
-### In Progress (Milestones 19+)
+### In Progress (Milestones 20+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
-| Phase 2: Core Engine | M15-M18 ✓, M19 | In Progress |
-| Phase 3: Game Systems | M20-M22 | Planned |
-| Phase 4: UI & Polish | M23-M27 | Planned |
+| Phase 2: Core Engine | M15-M19 ✓, M20 | In Progress |
+| Phase 3: Game Systems | M21-M23 | Planned |
+| Phase 4: UI & Polish | M24-M27 | Planned |
 | Phase 5: Media | M28-M29 | Deferred |
 
 ---

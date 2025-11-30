@@ -12,6 +12,7 @@
 
 #include "types.h"
 #include <cstdint>
+#include <cstring>
 
 // Forward declarations
 class ObjectClass;
@@ -45,6 +46,7 @@ public:
     bool isActive_;
 
     // Construction/destruction
+    AbstractClass() : rtti_(RTTIType::NONE), id_(0), coord_(0), height_(0), isActive_(true) {}
     AbstractClass(RTTIType rtti, int id);
     virtual ~AbstractClass() = default;
 
@@ -95,6 +97,7 @@ public:
     int16_t strength_;
 
     // Construction
+    ObjectClass() : AbstractClass(), isDown_(false), isToDamage_(false), isToDisplay_(false), isInLimbo_(true), isSelected_(false), strength_(0) {}
     ObjectClass(RTTIType rtti, int id);
     virtual ~ObjectClass() = default;
 
@@ -166,6 +169,7 @@ public:
     int16_t timer_;
 
     // Construction
+    MissionClass() : ObjectClass(), mission_(MissionType::SLEEP), suspendedMission_(MissionType::NONE), missionQueue_(MissionType::NONE), status_(0), timer_(0) {}
     MissionClass(RTTIType rtti, int id);
     virtual ~MissionClass() = default;
 
@@ -221,6 +225,7 @@ public:
     RadioClass* radio_;
 
     // Construction
+    RadioClass() : MissionClass(), radio_(nullptr) { oldMessages_[0] = oldMessages_[1] = oldMessages_[2] = RadioMessageType::STATIC; }
     RadioClass(RTTIType rtti, int id);
     virtual ~RadioClass() = default;
 
@@ -301,6 +306,15 @@ public:
     DirType turretFacingTarget_;
 
     // Construction
+    TechnoClass() : RadioClass(), isUseless_(false), isTickedOff_(false), isCloakable_(false), isLeader_(false),
+                    isALoaner_(false), isLocked_(false), isInRecoilState_(false), isTethered_(false),
+                    isOwnedByPlayer_(false), isDiscoveredByPlayer_(false), isDiscoveredByComputer_(false),
+                    isALemon_(false), isSecondShot_(false), armorBias_(256), firepowerBias_(256),
+                    idleTimer_(0), ironCurtainTimer_(0), spiedBy_(0), archiveTarget_(0),
+                    house_(HousesType::NONE), cloakState_(CloakType::UNCLOAKED), cloakTimer_(0), cloakStage_(0),
+                    tarCom_(0), suspendedTarCom_(0), navCom_(0), suspendedNavCom_(0),
+                    ammo_(-1), pricePaid_(0), turretFacing_(DirType::N), turretFacingTarget_(DirType::N)
+                    { arm_[0] = arm_[1] = 0; }
     TechnoClass(RTTIType rtti, int id);
     virtual ~TechnoClass() = default;
 
@@ -373,6 +387,11 @@ public:
     DirType bodyFacingTarget_;
 
     // Construction
+    FootClass() : TechnoClass(), isInitiated_(false), isMovingOntoBridge_(false), isUnloading_(false),
+                  isScattering_(false), isPrimaryFacing_(false), isRotating_(false), isFiring_(false),
+                  isDriving_(false), isToLook_(false), isDeploying_(false), isNewNavCom_(false), isPlanning_(false),
+                  pathLength_(0), pathIndex_(0), headTo_(0), member_(0), speed_(0), speedAccum_(0), group_(-1),
+                  bodyFacing_(DirType::N), bodyFacingTarget_(DirType::N) { memset(path_, 0, sizeof(path_)); }
     FootClass(RTTIType rtti, int id);
     virtual ~FootClass() = default;
 
@@ -419,7 +438,7 @@ public:
     T* Allocate() {
         for (int i = 0; i < MaxCount; i++) {
             if (objects_[i] == nullptr) {
-                objects_[i] = new T(static_cast<RTTIType>(0), i);
+                objects_[i] = new T();
                 count_++;
                 return objects_[i];
             }
