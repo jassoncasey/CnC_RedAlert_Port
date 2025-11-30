@@ -37,7 +37,8 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/infantry.cpp $(SRC_DIR)/game/unit.cpp $(SRC_DIR)/game/building.cpp $(SRC_DIR)/game/aircraft.cpp \
               $(SRC_DIR)/game/bullet.cpp $(SRC_DIR)/game/combat.cpp \
               $(SRC_DIR)/game/house.cpp $(SRC_DIR)/game/team.cpp \
-              $(SRC_DIR)/game/scenario.cpp $(SRC_DIR)/game/trigger.cpp
+              $(SRC_DIR)/game/scenario.cpp $(SRC_DIR)/game/trigger.cpp \
+              $(SRC_DIR)/game/factory.cpp $(SRC_DIR)/game/sidebar.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -193,4 +194,19 @@ $(BUILD_DIR)/test_scenario: $(SRC_DIR)/tests/test_scenario.cpp $(SCENARIO_TEST_O
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario
+# Test sidebar/factory system
+test_sidebar: $(BUILD_DIR)/test_sidebar
+	@echo "Running sidebar/factory tests..."
+	@./$(BUILD_DIR)/test_sidebar
+
+SIDEBAR_TEST_OBJS = $(BUILD_DIR)/game/sidebar.o $(BUILD_DIR)/game/factory.o \
+                    $(BUILD_DIR)/game/house.o $(BUILD_DIR)/game/team.o \
+                    $(BUILD_DIR)/game/object.o $(BUILD_DIR)/game/infantry_types.o \
+                    $(BUILD_DIR)/game/unit_types.o $(BUILD_DIR)/game/building_types.o \
+                    $(BUILD_DIR)/game/aircraft_types.o
+
+$(BUILD_DIR)/test_sidebar: $(SRC_DIR)/tests/test_sidebar.cpp $(SIDEBAR_TEST_OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar

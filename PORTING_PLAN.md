@@ -2,8 +2,8 @@
 
 ## Current Status
 
-**Completed Milestones:** 0-22 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding + Entity Classes + Combat + AI/Teams + Scenarios/Triggers)
-**Current Phase:** Phase 2 - Game Content Integration
+**Completed Milestones:** 0-23 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding + Entity Classes + Combat + AI/Teams + Scenarios/Triggers + Sidebar/Production)
+**Current Phase:** Phase 4 - UI & Polish
 
 ---
 
@@ -43,7 +43,7 @@
 |---------|----------------|-------|--------|----------|
 | Map System | MAP.CPP, CELL.CPP | ~8K | ✓ Complete | P1 |
 | Pathfinding | FINDPATH.CPP | ~3K | ✓ Complete | P1 |
-| Sidebar | SIDEBAR.CPP | ~4K | High | P2 |
+| Sidebar | SIDEBAR.CPP | ~4K | ✓ Complete | P2 |
 | Radar/Minimap | RADAR.CPP | ~4K | Medium | P2 |
 | Terrain | TERRAIN.CPP, TDATA.CPP | ~4K | Medium | P1 |
 | Overlays | OVERLAY.CPP, ODATA.CPP | ~3K | Medium | P2 |
@@ -309,22 +309,26 @@ make test_phase3
 
 ### Phase 4: UI & Polish
 
-#### Milestone 23: Sidebar & Build Menu
-**Priority:** P2 | **Effort:** 60-80 hours
+#### Milestone 23: Sidebar & Build Menu ✓ COMPLETE
+**Priority:** P2 | **Effort:** 60-80 hours | **Status:** COMPLETE
 
-- [ ] SIDEBAR.CPP - Build interface
-- [ ] Production queue
-- [ ] Power system
-- [ ] Credits/money
+- [x] SIDEBAR.CPP - Build interface (StripClass, SidebarClass)
+- [x] FACTORY.CPP - Production queue (54-stage system)
+- [x] Production timing with power fraction penalty
+- [x] Cost installment system (balance spread across stages)
+- [x] Special weapon support (SpecialWeaponType enum)
+- [x] 22 unit tests
+
+**Files Created:**
+- `game/factory.h` - Factory system header
+- `game/factory.cpp` - Production implementation
+- `game/sidebar.h` - Sidebar/StripClass headers
+- `game/sidebar.cpp` - Build menu implementation
+- `tests/test_sidebar.cpp` - 22 tests
 
 **Verification:**
 ```bash
-make test_sidebar
-# Creates test that:
-# - Renders sidebar
-# - Tests build button clicks
-# - Verifies production queue timing
-# - Tests power/credit display
+make test_sidebar  # 22/22 tests pass
 ```
 
 #### Milestone 24: Minimap & Radar

@@ -446,8 +446,24 @@ enum class RTTIType : int8_t {
     OVERLAY,
     SMUDGE,
     VESSEL,         // Ships/subs
+    SPECIAL,        // Special weapons
 
     COUNT
+};
+
+// Special Weapons (superweapons)
+enum class SpecialWeaponType : int8_t {
+    SPC_NONE = -1,
+    SPC_SONAR_PULSE = 0,    // Reveal submarines
+    SPC_NUCLEAR_BOMB,       // Nuclear strike
+    SPC_CHRONOSPHERE,       // Teleport units
+    SPC_PARABOMB,           // Paratroop drop (with bombs)
+    SPC_PARAINFANTRY,       // Paratroop drop
+    SPC_SPY_PLANE,          // Reconnaissance
+    SPC_IRON_CURTAIN,       // Invulnerability
+    SPC_GPS,                // Reveal map
+
+    SPC_COUNT
 };
 
 // Radio message types - Inter-object communication

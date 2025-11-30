@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M22 done).
+**Phase 2 In Progress** - Porting original game logic (M15-M23 done).
 
-### Completed (Milestones 0-22)
+### Completed (Milestones 0-23)
 
 | Component | Status |
 |-----------|--------|
@@ -28,16 +28,17 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Combat System (28 tests) | ✓ |
 | AI & Teams (28 tests) | ✓ |
 | Scenarios & Triggers (26 tests) | ✓ |
+| Sidebar & Production (22 tests) | ✓ |
 
-### In Progress (Milestones 23+)
+### In Progress (Milestones 24+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
 | Phase 2: Core Engine | M15-M22 ✓ | Complete |
-| Phase 3: Game Systems | M23 | In Progress |
-| Phase 4: UI & Polish | M24-M27 | Planned |
+| Phase 3: Game Systems | M23 ✓ | Complete |
+| Phase 4: UI & Polish | M24-M27 | In Progress |
 | Phase 5: Media | M28-M29 | Deferred |
 
 ---
@@ -173,9 +174,9 @@ CnC_Red_Alert/
 | Feature | Original | Status |
 |---------|----------|--------|
 | AI & Houses | HOUSE.CPP, TEAM.CPP | ✓ Complete (28 tests) |
-| Scenarios | SCENARIO.CPP | Not started |
-| Triggers | TRIGGER.CPP | Not started |
-| Sidebar | SIDEBAR.CPP | Not started |
+| Scenarios | SCENARIO.CPP | ✓ Complete (26 tests) |
+| Triggers | TRIGGER.CPP | ✓ Complete |
+| Sidebar | SIDEBAR.CPP, FACTORY.CPP | ✓ Complete (22 tests) |
 | Minimap | RADAR.CPP | Not started |
 | Save/Load | SAVELOAD.CPP | Not started |
 
