@@ -31,7 +31,7 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/assets/mixfile.cpp $(SRC_DIR)/assets/shpfile.cpp $(SRC_DIR)/assets/palfile.cpp $(SRC_DIR)/assets/audfile.cpp \
               $(SRC_DIR)/game/map.cpp $(SRC_DIR)/game/units.cpp \
               $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp \
-              $(SRC_DIR)/game/building_types.cpp
+              $(SRC_DIR)/game/building_types.cpp $(SRC_DIR)/game/ini.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -100,4 +100,13 @@ $(BUILD_DIR)/test_assets: $(SRC_DIR)/tests/test_assets.cpp $(BUILD_DIR)/assets/m
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets
+# Test INI parser
+test_ini: $(BUILD_DIR)/test_ini
+	@echo "Running INI parser test..."
+	@./$(BUILD_DIR)/test_ini
+
+$(BUILD_DIR)/test_ini: $(SRC_DIR)/tests/test_ini.cpp $(BUILD_DIR)/game/ini.o
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini
