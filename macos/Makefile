@@ -39,11 +39,12 @@ OBJECTS = $(OBJCXX_OBJECTS) $(CPP_OBJECTS)
 all: $(APP_BUNDLE)
 
 # App bundle
-$(APP_BUNDLE): $(BUILD_DIR)/$(APP_NAME) resources/Info.plist
+$(APP_BUNDLE): $(BUILD_DIR)/$(APP_NAME) resources/Info.plist resources/AppIcon.icns
 	@mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	@mkdir -p $(APP_BUNDLE)/Contents/Resources
 	@cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	@cp resources/Info.plist $(APP_BUNDLE)/Contents/
+	@cp resources/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/
 	@echo "Built $(APP_BUNDLE)"
 
 # Link

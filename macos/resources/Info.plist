@@ -7,11 +7,11 @@
     <key>CFBundleDisplayName</key>
     <string>Command &amp; Conquer: Red Alert</string>
     <key>CFBundleIdentifier</key>
-    <string>com.westwood.redalert</string>
+    <string>com.westwood.redalert.macos</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>14.0.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>14.0</string>
     <key>CFBundleExecutable</key>
     <string>RedAlert</string>
     <key>CFBundlePackageType</key>
@@ -22,5 +22,21 @@
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.strategy-games</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Original game (C) 1996 Westwood Studios. macOS port GPL v3.</string>
+    <key>LSArchitecturePriority</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
 </dict>
 </plist>

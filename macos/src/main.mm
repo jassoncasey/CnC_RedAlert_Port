@@ -22,12 +22,13 @@
 static constexpr int WINDOW_WIDTH = 640;
 static constexpr int WINDOW_HEIGHT = 400;
 
+// Window reference for fullscreen toggle
+static NSWindow* g_mainWindow = nil;
+
 // Animation state for demo
 static float g_animPhase = 0.0f;
 static int g_bounceX = 100;
 static int g_bounceY = 100;
-static int g_bounceVX = 3;
-static int g_bounceVY = 2;
 
 // Audio test tones
 static AudioSample* g_testTones[4] = {nullptr, nullptr, nullptr, nullptr};
@@ -38,6 +39,13 @@ static bool g_inGameplay = false;
 static int g_selectionStartX = -1;
 static int g_selectionStartY = -1;
 static bool g_isSelecting = false;
+
+// Toggle fullscreen mode
+static void ToggleFullscreen(void) {
+    if (g_mainWindow) {
+        [g_mainWindow toggleFullScreen:nil];
+    }
+}
 
 // Start a demo mission
 static void StartDemoMission(void) {
@@ -242,6 +250,11 @@ void GameUpdate(uint32_t frame, float deltaTime) {
             GameLoop_Pause(!GameLoop_IsPaused());
         }
 
+        // Fullscreen (F key)
+        if (Input_WasKeyPressed('F')) {
+            ToggleFullscreen();
+        }
+
         return;
     }
 
@@ -256,6 +269,11 @@ void GameUpdate(uint32_t frame, float deltaTime) {
     // Pause (P key)
     if (Input_WasKeyPressed('P')) {
         GameLoop_Pause(!GameLoop_IsPaused());
+    }
+
+    // Fullscreen (F key)
+    if (Input_WasKeyPressed('F')) {
+        ToggleFullscreen();
     }
 
     // Log every 60 game frames
@@ -398,7 +416,7 @@ void GameRender(void) {
 
         // Controls help at bottom
         Renderer_FillRect(0, 384, 640, 16, 0);
-        Renderer_DrawText("WASD/ARROWS=SCROLL  LMB=SELECT  RMB=COMMAND  ESC=MENU  P=PAUSE", 20, 387, 7, 0);
+        Renderer_DrawText("WASD=SCROLL LMB=SELECT RMB=CMD ESC=MENU P=PAUSE F=FULLSCR", 20, 387, 7, 0);
 
         return;
     }
@@ -539,8 +557,8 @@ void GameRender(void) {
     Renderer_DrawText(audioText, 80, 275, 7, 0);
 
     // Controls help
-    Renderer_DrawText("ESC=QUIT P=PAUSE +/-=SPEED", 200, 375, 7, 0);
-    Renderer_DrawText("1234=SOUND M=MUTE []=VOL", 200, 385, 7, 0);
+    Renderer_DrawText("ESC=QUIT P=PAUSE +/-=SPEED F=FULLSCREEN", 180, 375, 7, 0);
+    Renderer_DrawText("1234=SOUND M=MUTE []=VOL", 210, 385, 7, 0);
 }
 
 #pragma mark - Custom View for Input
@@ -681,7 +699,8 @@ void GameRender(void) {
     NSRect frame = NSMakeRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
     NSWindowStyleMask style = NSWindowStyleMaskTitled |
                               NSWindowStyleMaskClosable |
-                              NSWindowStyleMaskMiniaturizable;
+                              NSWindowStyleMaskMiniaturizable |
+                              NSWindowStyleMaskResizable;
 
     self.window = [[NSWindow alloc] initWithContentRect:frame
                                               styleMask:style
@@ -690,6 +709,15 @@ void GameRender(void) {
 
     [self.window setTitle:@"Red Alert"];
     [self.window center];
+
+    // Enable fullscreen support
+    [self.window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+
+    // Set minimum window size to maintain aspect ratio readability
+    [self.window setMinSize:NSMakeSize(640, 400)];
+
+    // Store reference for fullscreen toggle
+    g_mainWindow = self.window;
 
     // Set up Metal view
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
@@ -761,6 +789,9 @@ void GameRender(void) {
 
 - (void)applicationWillTerminate:(NSNotification *)notification {
     (void)notification;
+
+    // Clear window reference
+    g_mainWindow = nil;
 
     // Free test tones
     for (int i = 0; i < 4; i++) {
