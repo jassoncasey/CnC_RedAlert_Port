@@ -2,509 +2,233 @@
 
 ## Current Status
 
-**Completed Milestones:** 0-27 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding + Entity Classes + Combat + AI/Teams + Scenarios/Triggers + Sidebar/Production + Radar/Minimap + Save/Load + Animations + Campaigns)
-**Current Phase:** Phase 5 - Media (Deferred)
+**Completed Milestones:** 0-29 (All systems built and tested)
+**Current Phase:** Phase 6 - Integration (CRITICAL)
+**Blocking Issue:** MIX file decryption needed for real assets
+
+---
+
+## CRITICAL: Integration Gap
+
+### The Problem
+
+We have built ~500 tests passing across all game systems, but **most code is NOT integrated into the actual game**. The game currently runs a hardcoded demo with procedural maps and stub graphics.
+
+### What's Actually Used in main.mm
+
+| System | Integrated? | Notes |
+|--------|-------------|-------|
+| Metal Renderer | ✓ | Working |
+| CoreAudio | ✓ | Working |
+| Input | ✓ | Working |
+| Game Loop | ✓ | Working |
+| Menu System | ✓ | Working |
+| Map (Demo) | ✓ | **Procedural, not real MapClass** |
+| Units (Demo) | ✓ | **Simplified, not real entity classes** |
+
+### What's Built but NOT Integrated (Tests Only)
+
+| System | Tests | Status |
+|--------|-------|--------|
+| Object Hierarchy | 45 pass | Sitting in tests |
+| INI Parser | 26 pass | Sitting in tests |
+| Rules System | 27 pass | Sitting in tests |
+| Cell/Map System | 38 pass | Sitting in tests |
+| Pathfinding | (in map) | Sitting in tests |
+| InfantryClass | 35 pass | Sitting in tests |
+| UnitClass | (in entity) | Sitting in tests |
+| BuildingClass | (in entity) | Sitting in tests |
+| AircraftClass | (in entity) | Sitting in tests |
+| Combat/Bullets | 28 pass | Sitting in tests |
+| AI/Houses | 28 pass | Sitting in tests |
+| Scenarios | 26 pass | Sitting in tests |
+| Sidebar | 22 pass | Sitting in tests |
+| Radar | 21 pass | Sitting in tests |
+| Save/Load | 18 pass | Sitting in tests |
+| Animations | 21 pass | Sitting in tests |
+| Campaigns | 35 pass | Sitting in tests |
+| VQA Video | 12 pass | Sitting in tests |
+| Music | 24 pass | Sitting in tests |
+
+**Total: ~500 tests passing, ~0% integrated into game**
+
+---
+
+## Porting Roadmap (Updated)
+
+### Phase 6: Integration (NEXT - CRITICAL)
+
+**Goal:** Wire all the tested systems into the actual game
+
+#### Milestone 30: MIX Decryption ← **CURRENT BLOCKER**
+**Priority:** P0 | **Status:** In Progress
+
+Without this, we cannot load real game assets from REDALERT.MIX.
+
+- [ ] Port PKStraw from `original/CODE/PKSTRAW.CPP`
+- [ ] Port PKey RSA from `original/CODE/PKEY.CPP`
+- [ ] Port Blowfish from `original/CODE/BLOWFISH.CPP` (for body decryption)
+- [ ] Decrypt REDALERT.MIX header
+- [ ] Extract RULES.INI to verify
+
+**Original files:**
+- `PKSTRAW.CPP/H` - Public key stream class
+- `PKEY.CPP/H` - Public key implementation
+- `BLOWFISH.CPP/H` - Blowfish cipher
+- `CONST.CPP` - Contains the public key
+
+#### Milestone 31: Asset Pipeline
+**Priority:** P0 | **Depends on:** M30
+
+- [ ] Load palettes from MIX (temperat.pal, etc.)
+- [ ] Load SHP sprites (infantry, vehicles, buildings)
+- [ ] Render real sprites instead of colored rectangles
+- [ ] Load sounds from AUD.MIX
+
+#### Milestone 32: System Integration
+**Priority:** P0 | **Depends on:** M31
+
+Replace demo systems with real implementations:
+- [ ] Replace demo map.cpp with MapClass/CellClass
+- [ ] Replace demo units.cpp with InfantryClass/UnitClass/BuildingClass/AircraftClass
+- [ ] Integrate ScenarioClass for mission loading
+- [ ] Integrate HouseClass for AI
+- [ ] Integrate CampaignClass for mission progression
+
+#### Milestone 33: UI Integration
+**Priority:** P1 | **Depends on:** M32
+
+- [ ] Integrate SidebarClass (build menu)
+- [ ] Integrate RadarClass (minimap)
+- [ ] Integrate AnimClass (explosions, effects)
+- [ ] Integrate SaveLoad (game persistence)
+
+#### Milestone 34: Media Integration
+**Priority:** P2 | **Depends on:** M33
+
+- [ ] Integrate VQA player for cutscenes
+- [ ] Integrate Music system for soundtrack
+- [ ] Play intro.vqa on startup
+- [ ] Play mission briefings
+
+---
+
+### Previously Completed Phases
+
+#### Phase 1: Infrastructure (M0-M14) ✓
+Platform layer, Metal, CoreAudio, input, game loop, menus, asset loaders.
+
+#### Phase 2: Core Engine (M15-M19) ✓
+Data tables, object hierarchy, INI/rules, map/cell, entity classes.
+
+#### Phase 3: Game Systems (M20-M22) ✓
+Combat, AI/teams, scenarios/triggers.
+
+#### Phase 4: UI & Polish (M23-M27) ✓
+Sidebar, radar, save/load, animations, campaigns.
+
+#### Phase 5: Media (M28-M29) ✓
+VQA video player, music streaming.
 
 ---
 
 ## Gap Analysis: Original vs Port
 
-### What We Have (Port)
+### What We Have (Tested)
 
-| Component | Status | Files |
-|-----------|--------|-------|
-| Platform Layer | Complete | main.mm, platform/*.cpp |
-| Metal Renderer | Complete | graphics/metal/renderer.mm |
-| CoreAudio | Complete | audio/audio.mm |
-| Input System | Complete | input/input.mm |
-| Game Loop | Complete | game/gameloop.cpp |
-| Menu System | Complete | ui/menu.cpp |
-| Asset Loaders | Complete | assets/*.cpp (MIX, SHP, PAL, AUD) |
-| Map/Terrain | Complete | game/cell.cpp, mapclass.cpp, pathfind.cpp (38 tests) |
-| Units | Demo only | game/units.cpp (12 types, basic AI) |
+| Component | Status | Tests | Files |
+|-----------|--------|-------|-------|
+| Platform Layer | ✓ Complete | - | main.mm, platform/*.cpp |
+| Metal Renderer | ✓ Complete | - | graphics/metal/renderer.mm |
+| CoreAudio | ✓ Complete | - | audio/audio.mm |
+| Input System | ✓ Complete | - | input/input.mm |
+| Game Loop | ✓ Complete | - | game/gameloop.cpp |
+| Menu System | ✓ Complete | - | ui/menu.cpp |
+| Asset Loaders | ✓ Complete | - | assets/*.cpp (MIX, SHP, PAL, AUD) |
+| Object Hierarchy | ✓ Complete | 45 | game/object.cpp |
+| INI Parser | ✓ Complete | 26 | game/ini.cpp |
+| Rules System | ✓ Complete | 27 | game/rules.cpp |
+| Map/Cell | ✓ Complete | 38 | game/cell.cpp, mapclass.cpp |
+| Pathfinding | ✓ Complete | - | game/pathfind.cpp |
+| Infantry | ✓ Complete | 35 | game/infantry.cpp |
+| Vehicles | ✓ Complete | - | game/unit.cpp |
+| Buildings | ✓ Complete | - | game/building.cpp |
+| Aircraft | ✓ Complete | - | game/aircraft.cpp |
+| Combat | ✓ Complete | 28 | game/combat.cpp, bullet.cpp |
+| AI/Houses | ✓ Complete | 28 | game/house.cpp, team.cpp |
+| Scenarios | ✓ Complete | 26 | game/scenario.cpp, trigger.cpp |
+| Sidebar | ✓ Complete | 22 | game/sidebar.cpp, factory.cpp |
+| Radar | ✓ Complete | 21 | game/radar.cpp |
+| Save/Load | ✓ Complete | 18 | game/saveload.cpp |
+| Animations | ✓ Complete | 21 | game/anim.cpp |
+| Campaigns | ✓ Complete | 35 | game/campaign.cpp |
+| VQA Video | ✓ Complete | 12 | video/vqa.cpp |
+| Music | ✓ Complete | 24 | video/music.cpp |
 
-### What's Missing (Original Has)
+### What's Blocking (MIX Decryption)
 
-#### CRITICAL - Core Game Logic
+| File | Size | Encrypted? | Contents |
+|------|------|------------|----------|
+| REDALERT.MIX | 24 MB | **YES** | Core data, RULES.INI, palettes |
+| MAIN.MIX | 434-500 MB | **YES** | Campaign data, movies |
+| AUD.MIX | 1.4 MB | No | Setup audio ✓ |
+| SETUP.MIX | 12 MB | No | Setup graphics ✓ |
 
-| Feature | Original Files | Lines | Effort | Priority |
-|---------|----------------|-------|--------|----------|
-| Object Hierarchy | OBJECT/TECHNO/FOOT.CPP | ~10K | ✓ Complete | P1 |
-| Infantry | INFANTRY.CPP, IDATA.CPP | ~8K | ✓ Complete | P1 |
-| Vehicles | UNIT.CPP, UDATA.CPP | ~6K | ✓ Complete | P1 |
-| Aircraft | AIRCRAFT.CPP, ADATA.CPP | ~8K | ✓ Complete | P1 |
-| Buildings | BUILDING.CPP, BDATA.CPP | ~12K | ✓ Complete | P1 |
-| House/Faction | HOUSE.CPP, HDATA.CPP | ~10K | ✓ Complete | P1 |
-| Combat System | COMBAT.CPP, BULLET.CPP | ~5K | ✓ Complete | P1 |
-
-#### CRITICAL - Map & Display
-
-| Feature | Original Files | Lines | Effort | Priority |
-|---------|----------------|-------|--------|----------|
-| Map System | MAP.CPP, CELL.CPP | ~8K | ✓ Complete | P1 |
-| Pathfinding | FINDPATH.CPP | ~3K | ✓ Complete | P1 |
-| Sidebar | SIDEBAR.CPP | ~4K | ✓ Complete | P2 |
-| Radar/Minimap | RADAR.CPP | ~4K | ✓ Complete | P2 |
-| Terrain | TERRAIN.CPP, TDATA.CPP | ~4K | Medium | P1 |
-| Overlays | OVERLAY.CPP, ODATA.CPP | ~3K | Medium | P2 |
-
-#### CRITICAL - Game Systems
-
-| Feature | Original Files | Lines | Effort | Priority |
-|---------|----------------|-------|--------|----------|
-| AI System | TEAM.CPP, TEAMTYPE.CPP | ~7K | ✓ Complete | P2 |
-| Triggers | TRIGGER.CPP | ~2K | ✓ Complete | P2 |
-| Scenarios | SCENARIO.CPP | ~5K | ✓ Complete | P2 |
-| INI Parser | INI.CPP, CCINI.CPP | ~6K | Medium | P1 |
-| Rules | RULES.CPP | ~3K | Medium | P1 |
-| Animations | ANIM.CPP | ~3K | ✓ Complete | P2 |
-
-#### IMPORTANT - UI & Effects
-
-| Feature | Original Files | Lines | Effort | Priority |
-|---------|----------------|-------|--------|----------|
-| Cursors | MOUSE.CPP | ~2K | Low | P3 |
-| Dialog System | DIALOG.CPP, GADGET.CPP | ~5K | Medium | P3 |
-| Score Screen | SCORE.CPP | ~3K | Low | P3 |
-| Save/Load | SAVELOAD.CPP | ~4K | Medium | P2 |
-| Options | OPTIONS.CPP | ~2K | Low | P3 |
-
-#### DEFERRED - Not Porting Now
-
-| Feature | Reason | Files |
-|---------|--------|-------|
-| Networking | Deferred per request | IPX.CPP, TCPIP.CPP, SESSION.CPP |
-| Westwood Online | Defunct service | WOL_*.CPP |
-| Video Playback | Use FFmpeg later | VQ*.CPP |
-| MIDI Music | CoreMIDI later | |
-| Modem/Serial | Obsolete | |
+The unencrypted MIX files work. The encrypted ones need RSA decryption.
 
 ---
 
-## Porting Roadmap
+## MIX Encryption Details
 
-### Phase 1.5: Asset Extraction (PREREQUISITE)
+The encrypted MIX files use a two-layer encryption:
 
-**Goal:** Extract and verify game assets from freeware ISOs
+1. **Header encryption:** RSA with Westwood's public key
+2. **Body encryption:** Blowfish with key derived from header
 
-#### Milestone 14.5: Asset Extraction & Verification
-**Priority:** P0 | **Effort:** 8-16 hours | **Status:** IN PROGRESS
-
-**Download ISOs:**
-- [x] CD1_ALLIED_DISC.ISO (624 MB) from Internet Archive
-- [x] CD2_SOVIET_DISC.ISO (646 MB) from Internet Archive
-
-**Extract MIX files to `assets/` directory:**
-- [x] REDALERT.MIX (24 MB) - Core game data, palettes, rules (ENCRYPTED)
-- [x] MAIN_ALLIED.MIX (434 MB) - Allied campaign movies/sounds (ENCRYPTED)
-- [x] MAIN_SOVIET.MIX (477 MB) - Soviet campaign movies/sounds (ENCRYPTED)
-- [x] AUD.MIX (1.4 MB) - Setup audio files (unencrypted)
-- [x] SETUP.MIX (12 MB) - Setup graphics (unencrypted)
-
-**Verify asset loading:**
-- [x] Test MIX file reader with unencrypted files (AUD.MIX - 47 files)
-- [ ] Port PKStraw/PKey RSA decryption for encrypted MIX headers
-- [ ] Extract and verify RULES.INI from REDALERT.MIX
-- [ ] Extract and display a test sprite (e.g., infantry SHP)
-- [ ] Extract and play a test sound (e.g., rifle AUD)
-
-**Encryption Note:**
-REDALERT.MIX, MAIN_ALLIED.MIX, and MAIN_SOVIET.MIX use encrypted headers.
-The encryption uses RSA public key from `original/CODE/CONST.CPP`.
-Must port `PKStraw` from `original/CODE/PKSTRAW.CPP` to decrypt.
-
-**Asset directory structure:**
+**Original source files:**
 ```
-assets/                    # Not in git (~950 MB)
-├── REDALERT.MIX          # Core data (encrypted header)
-├── MAIN_ALLIED.MIX       # Allied campaign (encrypted)
-├── MAIN_SOVIET.MIX       # Soviet campaign (encrypted)
-├── AUD.MIX               # Setup audio (unencrypted) ✓
-└── SETUP.MIX             # Setup graphics (unencrypted) ✓
+original/CODE/PKSTRAW.CPP  - PKStraw class (RSA stream)
+original/CODE/PKEY.CPP     - PKey class (bignum RSA)
+original/CODE/BLOWFISH.CPP - Blowfish cipher
+original/CODE/CONST.CPP    - Public key data
+original/CODE/MIXFILE.CPP  - MIX file format
 ```
 
-**Verification:**
-```bash
-cd macos && make test_assets
-# Expected: "File count: 47" for AUD.MIX
-```
+**Public key location:** `original/CODE/CONST.CPP` line ~230
 
 ---
 
-### Phase 2: Core Game Engine (Current)
+## Completed Milestones Summary
 
-**Goal:** Port the fundamental game logic from original CODE/ directory
-
-#### Milestone 15: Data Tables & Types ✓ COMPLETE
-**Priority:** P1 | **Effort:** 40-60 hours | **Status:** ✓ Done
-
-Port pure data files (platform-independent):
-- [x] infantry_types.cpp/h - Infantry definitions (E1-E7, 7 types)
-- [x] unit_types.cpp/h - Unit/vehicle definitions (27 types)
-- [x] weapon_types.cpp/h - Weapon definitions (38 types)
-- [x] building_types.cpp/h - Building definitions (40+ types)
-- [x] types.h - Core enums and type definitions
-
-**Verification:**
-```bash
-make  # All data tables compile and link
-```
-
-#### Milestone 16: Object Class Hierarchy ✓ COMPLETE
-**Priority:** P1 | **Effort:** 80-100 hours | **Status:** ✓ Done
-
-Port base classes in order:
-- [x] object.cpp/h - AbstractClass, ObjectClass
-- [x] object.cpp/h - MissionClass (AI orders)
-- [x] object.cpp/h - RadioClass (unit communication)
-- [x] object.cpp/h - TechnoClass (combat entities)
-- [x] object.cpp/h - FootClass (mobile units)
-- [x] types.h - RTTIType, RadioMessageType, CloakType, MoveType, etc.
-
-**Verification:**
-```bash
-make test_objects
-# 45/45 tests pass
-# - Tests all class types
-# - Tests virtual method dispatch
-# - Tests inheritance chain
-# - Tests Distance/Direction functions
-```
-
-#### Milestone 17: INI & Rules System ✓ COMPLETE
-**Priority:** P1 | **Effort:** 40-60 hours | **Status:** ✓ Done
-
-Essential for loading game data:
-- [x] ini.cpp/h - Generic INI parser (case-insensitive, section/key lookup)
-- [x] rules.cpp/h - RULES.INI processing
-- [x] resources/RULES.INI - Reference rules file
-
-**Verification:**
-```bash
-make test_ini     # 26/26 tests pass
-make test_rules   # 27/27 tests pass
-# - Parses RULES.INI (2978 lines, ~150 sections)
-# - Tests General settings (crate, chrono, ore, build speed)
-# - Tests IQ settings
-# - Tests Difficulty multipliers
-# - Tests Country bonuses
-```
-
-#### Milestone 18: Map & Cell System ✓ COMPLETE
-**Priority:** P1 | **Effort:** 60-80 hours | **Status:** ✓ Done
-
-Replace demo procedural map with real system:
-- [x] cell.cpp/h - CellClass with terrain, occupancy, overlapper list
-- [x] mapclass.cpp/h - MapClass (128x128 grid, coordinate math)
-- [x] pathfind.cpp/h - A* pathfinding with threat avoidance
-
-**Verification:**
-```bash
-make test_map
-# 38/38 tests pass
-# - Cell coordinate math, lepton conversions
-# - Cell passability queries
-# - A* pathfinding (1000 paths in <100ms)
-# - Threat avoidance, closest buildable cell
-```
-
-#### Milestone 19: Entity Implementation ✓ COMPLETE
-**Priority:** P1 | **Effort:** 100-120 hours | **Status:** ✓ Done
-
-Implement game objects:
-- [x] infantry.cpp/h - InfantryClass (fear, prone, sub-cell spots)
-- [x] unit.cpp/h - UnitClass (turrets, harvesting, MCV deploy)
-- [x] building.cpp/h - BuildingClass (production, power, repair)
-- [x] aircraft.cpp/h - AircraftClass (flight states, altitude, transport)
-- [x] aircraft_types.cpp/h - Aircraft type data (7 types)
-
-**Verification:**
-```bash
-make test_entities
-# 35/35 tests pass
-# - Infantry: fear, prone, sub-cell positions, animation
-# - Vehicles: turret control, harvester AI, MCV deployment
-# - Buildings: factory production, power, repair
-# - Aircraft: flight states, helicopter vs plane, transport
-```
-
-**Phase 2 Integration Test:**
-```bash
-make test_phase2
-# Runs all Phase 2 tests in sequence
-# Final test: Load SCG01EA, spawn units, verify they render
-```
+| # | Milestone | Tests | Status |
+|---|-----------|-------|--------|
+| 0-14 | Infrastructure | - | ✓ Complete |
+| 15 | Data Tables | - | ✓ Complete |
+| 16 | Object Hierarchy | 45 | ✓ Complete |
+| 17 | INI/Rules | 53 | ✓ Complete |
+| 18 | Map/Cell | 38 | ✓ Complete |
+| 19 | Entities | 35 | ✓ Complete |
+| 20 | Combat | 28 | ✓ Complete |
+| 21 | AI/Teams | 28 | ✓ Complete |
+| 22 | Scenarios | 26 | ✓ Complete |
+| 23 | Sidebar | 22 | ✓ Complete |
+| 24 | Radar | 21 | ✓ Complete |
+| 25 | Save/Load | 18 | ✓ Complete |
+| 26 | Animations | 21 | ✓ Complete |
+| 27 | Campaigns | 35 | ✓ Complete |
+| 28 | VQA Video | 12 | ✓ Complete |
+| 29 | Music | 24 | ✓ Complete |
+| **Total** | | **~500** | **Tests passing** |
 
 ---
 
-### Phase 3: Game Systems
+## Next Steps (Priority Order)
 
-#### Milestone 20: Combat & Weapons
-**Priority:** P1 | **Effort:** 60-80 hours
-
-- [ ] COMBAT.CPP - Combat resolution
-- [ ] BULLET.CPP - Projectiles
-- [ ] WEAPON.CPP - Weapon types
-- [ ] WARHEAD.CPP - Damage types
-- [ ] Integrate with units
-
-**Verification:**
-```bash
-make test_combat
-# Creates test that:
-# - Spawns two opposing units
-# - Commands attack
-# - Verifies damage calculation
-# - Verifies unit death when HP reaches 0
-# - Tests weapon range and cooldown
-```
-
-#### Milestone 21: AI & Teams
-**Priority:** P2 | **Effort:** 80-100 hours
-
-- [ ] HOUSE.CPP - Faction management
-- [ ] TEAM.CPP - AI team control
-- [ ] TEAMTYPE.CPP - Team templates
-- [ ] Basic computer opponent
-
-**Verification:**
-```bash
-make test_ai
-# Creates test that:
-# - Creates AI house with starting units
-# - Runs 100 game ticks
-# - Verifies AI issues orders (move, attack, build)
-# - Verifies team formation
-```
-
-#### Milestone 22: Scenarios & Triggers
-**Priority:** P2 | **Effort:** 60-80 hours
-
-- [ ] SCENARIO.CPP - Mission loading
-- [ ] TRIGGER.CPP - Event triggers
-- [ ] Load original campaign missions
-- [ ] Victory/defeat conditions
-
-**Verification:**
-```bash
-make test_scenarios
-# Creates test that:
-# - Loads SCG01EA (first Allied mission)
-# - Verifies starting units match original
-# - Verifies trigger count
-# - Tests victory condition detection
-```
-
-**Phase 3 Integration Test:**
-```bash
-make test_phase3
-# Full combat test:
-# - Load scenario
-# - AI controls enemy
-# - Player units auto-attack
-# - Victory/defeat triggers fire
-```
-
----
-
-### Phase 4: UI & Polish
-
-#### Milestone 23: Sidebar & Build Menu ✓ COMPLETE
-**Priority:** P2 | **Effort:** 60-80 hours | **Status:** COMPLETE
-
-- [x] SIDEBAR.CPP - Build interface (StripClass, SidebarClass)
-- [x] FACTORY.CPP - Production queue (54-stage system)
-- [x] Production timing with power fraction penalty
-- [x] Cost installment system (balance spread across stages)
-- [x] Special weapon support (SpecialWeaponType enum)
-- [x] 22 unit tests
-
-**Files Created:**
-- `game/factory.h` - Factory system header
-- `game/factory.cpp` - Production implementation
-- `game/sidebar.h` - Sidebar/StripClass headers
-- `game/sidebar.cpp` - Build menu implementation
-- `tests/test_sidebar.cpp` - 22 tests
-
-**Verification:**
-```bash
-make test_sidebar  # 22/22 tests pass
-```
-
-#### Milestone 24: Minimap & Radar ✓ COMPLETE
-**Priority:** P2 | **Effort:** 40-60 hours | **Status:** COMPLETE
-
-- [x] RADAR.CPP - Minimap display (RadarClass with zoom, click-to-scroll)
-- [x] Fog of war (IsMapped() check, black for unexplored)
-- [x] Cell visibility tracking
-- [x] 21 unit tests
-
-**Files Created:**
-- `game/radar.h` - Radar system header (~170 lines)
-- `game/radar.cpp` - Full radar implementation (~600 lines)
-- `tests/test_radar.cpp` - 21 tests
-
-**Verification:**
-```bash
-make test_radar  # 21/21 tests pass
-# - Initialization and activation
-# - Zoom toggle
-# - Click-to-scroll (Click_Cell_Calc)
-# - Cell visibility (Cell_On_Radar)
-# - Map integration
-# - Jam/unjam functionality
-```
-
-#### Milestone 25: Save/Load ✓ COMPLETE
-**Priority:** P2 | **Effort:** 40-60 hours | **Status:** COMPLETE
-
-- [x] SAVELOAD.CPP - Game state serialization (SaveStream/LoadStream)
-- [x] Save file format (160-byte header with MD5 checksum)
-- [x] Save/Load game functions
-- [x] 18 unit tests
-
-**Files Created:**
-- `game/saveload.h` - Save/Load system header (~300 lines)
-- `game/saveload.cpp` - Full implementation (~1000 lines)
-- `tests/test_saveload.cpp` - 18 tests
-
-**Verification:**
-```bash
-make test_saveload  # 18/18 tests pass
-# - Stream read/write operations
-# - Header format and magic number
-# - File path generation
-# - Scenario/House/Map serialization
-# - Checksum validation
-```
-
-#### Milestone 26: Animations & Effects ✓ COMPLETE
-**Priority:** P3 | **Effort:** 40-60 hours | **Status:** COMPLETE
-
-- [x] ANIM.CPP - AnimClass with object pool (256 simultaneous)
-- [x] AnimTypeClass - 88 animation types (explosions, fire, smoke, etc.)
-- [x] Stage-based frame advancement with configurable timing
-- [x] Animation chaining (e.g., explosion → smoke)
-- [x] Layer rendering (GROUND, SURFACE, AIR)
-- [x] Attachment to moving objects
-- [x] Damage accumulation (8.8 fixed point)
-- [x] 21 unit tests
-
-**Files Created:**
-- `game/anim.h` - Animation system header (~390 lines)
-- `game/anim.cpp` - Full implementation (~780 lines)
-- `tests/test_anim.cpp` - 21 tests
-
-**Verification:**
-```bash
-make test_anim  # 21/21 tests pass
-# - Animation types, properties, chaining
-# - Creation, pool management, lifecycle
-# - Frame advance, completion, looping
-# - Position, layer, owner tracking
-# - Helper functions (Get_Explosion_Anim, Get_Fire_Anim)
-```
-
-#### Milestone 27: Campaigns ✓ COMPLETE
-**Priority:** P3 | **Effort:** 60-80 hours | **Status:** COMPLETE
-
-- [x] CampaignClass - Campaign manager with progression tracking
-- [x] Allied campaign (14 missions with briefings)
-- [x] Soviet campaign (14 missions with briefings)
-- [x] ScoreClass - Mission statistics and score calculation
-- [x] Scenario filename generation/parsing (SCG01EA.INI format)
-- [x] Campaign progress persistence (save/load)
-- [x] Mission state tracking (not played, in progress, completed, failed)
-- [x] Mission availability based on progression
-- [x] Carry-over system for money/units between missions
-- [x] 35 unit tests
-
-**Files Created:**
-- `game/campaign.h` - Campaign system header (~280 lines)
-- `game/campaign.cpp` - Full implementation (~750 lines)
-- `tests/test_campaign.cpp` - 35 tests
-
-**Verification:**
-```bash
-make test_campaign  # 35/35 tests pass
-# - Campaign types, mission counts
-# - Campaign initialization and start
-# - Mission data for all 28 missions (14 Allied + 14 Soviet)
-# - Briefing text verification
-# - Mission state transitions
-# - Campaign progression and completion
-# - Scenario filename generation and parsing
-# - Score calculation with bonuses/penalties
-# - Campaign progress save/load
-```
-
-**Phase 4 Integration Test:**
-```bash
-make test_phase4
-# Full game test:
-# - Start new game
-# - Complete first mission
-# - Save/load mid-mission
-# - Verify sidebar and minimap
-```
-
----
-
-### Phase 5: Media (Deferred)
-
-#### Milestone 28: Video Playback
-- [ ] FFmpeg integration for VQA
-- [ ] Cutscenes between missions
-
-**Verification:**
-```bash
-make test_video
-# Plays intro.vqa, verifies frame rate
-```
-
-#### Milestone 29: Music
-- [ ] CoreMIDI for MIDI playback
-- [ ] Music tracks from SCORES.MIX
-
-**Verification:**
-```bash
-make test_music
-# Plays HELLMARCH.AUD, verifies audio output
-```
-
----
-
-## Recommended Order
-
-| Order | Milestone | Why First | Verification |
-|-------|-----------|-----------|--------------|
-| 0 | M14.5: Asset Verification | Verify MIX reader works with real assets | `make test_assets` |
-| 1 | M15: Data Tables | Foundation - no dependencies | `make test_data_tables` |
-| 2 | M17: INI/Rules | Needed to load game data | `make test_ini` |
-| 3 | M16: Object Hierarchy | Core abstractions for everything | `make test_objects` |
-| 4 | M18: Map/Cell | Needed before entities | `make test_map` |
-| 5 | M19: Entities | Main game objects | `make test_entities` |
-| 6 | M20: Combat | Makes gameplay functional | `make test_combat` |
-| 7 | M21: AI | Computer opponent | `make test_ai` |
-| 8 | M22: Scenarios | Load real missions | `make test_scenarios` |
-| 9 | M23: Sidebar | Build units/structures | `make test_sidebar` |
-| 10 | M24: Minimap | Navigation aid | `make test_radar` |
-| 11 | M25: Save/Load | Game persistence | `make test_saveload` |
-| 12 | M26: Animations | Visual polish | `make test_animations` |
-| 13 | M27: Campaigns | Full game content | `make test_campaigns` |
-
----
-
-## Effort Estimate
-
-| Phase | Milestones | Hours |
-|-------|------------|-------|
-| Phase 1 (Done) | M0-M14 | ~600 |
-| Phase 2 | M15-M19 | 320-420 |
-| Phase 3 | M20-M22 | 200-260 |
-| Phase 4 | M23-M27 | 240-340 |
-| Phase 5 | M28-M29 | 80-120 |
-| **Total Remaining** | | **840-1140** |
+1. **M30: MIX Decryption** - Unblock asset loading
+2. **M31: Asset Pipeline** - Real graphics/sounds
+3. **M32: System Integration** - Wire up all tested systems
+4. **M33: UI Integration** - Sidebar, radar, effects
+5. **M34: Media Integration** - Cutscenes, music
 
 ---
 
@@ -514,6 +238,15 @@ make test_music
 - **Architecture:** ARM64 (Apple Silicon)
 - **Graphics:** Metal
 - **Audio:** CoreAudio
+
+---
+
+## Related Projects
+
+**[OpenRA](https://github.com/OpenRA/OpenRA)** - Open source RTS engine that recreates C&C games. Useful for:
+- Cross-referencing behavior when original source is unclear
+- Alternative implementations of complex systems
+- File format documentation
 
 ---
 
@@ -539,63 +272,15 @@ CnC_Red_Alert/
 └── macos/                   # macOS port
     ├── Makefile
     ├── src/
-    │   ├── main.mm
+    │   ├── main.mm          # Entry point (needs integration work)
     │   ├── platform/
     │   ├── graphics/metal/
     │   ├── audio/
     │   ├── input/
-    │   ├── assets/
-    │   ├── game/
-    │   ├── tests/          # Verification tests
+    │   ├── assets/          # MIX/SHP/PAL/AUD loaders
+    │   ├── game/            # All game logic (tested but not integrated)
+    │   ├── video/           # VQA/Music (tested but not integrated)
+    │   ├── tests/           # 500+ passing tests
     │   └── ui/
     └── resources/
 ```
-
----
-
-## Asset Strategy
-
-**Game assets are NOT in this repository.**
-
-See [ASSETS.md](ASSETS.md) for complete setup instructions.
-
-The game searches for assets in multiple locations:
-1. `~/Library/Application Support/RedAlert/assets/`
-2. `./assets/` (relative to app bundle)
-3. `../assets/` (for development)
-4. `/Volumes/CD1/INSTALL/` (mounted ISO)
-
----
-
-## Completed Milestones (Phase 1 + Phase 2 Partial)
-
-| Milestone | Status | Description | Verification |
-|-----------|--------|-------------|--------------|
-| 0. Repo Setup | ✓ | Directory structure | Files exist |
-| 1. Minimal Build | ✓ | AppKit window, Metal view | Window opens |
-| 2. Compat Layer | ✓ | Windows API stubs | Compiles |
-| 3. File I/O | ✓ | POSIX abstraction | `make test_file` |
-| 4. Timing | ✓ | Game timer | `make test_timing` |
-| 5. Stub Assets | ✓ | Placeholder graphics/audio | Demo renders |
-| 6. Graphics | ✓ | Metal renderer | Primitives draw |
-| 7. Input | ✓ | Keyboard/mouse | Input responds |
-| 8. Game Loop | ✓ | Core loop | 60 FPS |
-| 9. Rendering | ✓ | Drawing primitives | All shapes render |
-| 10. Audio | ✓ | CoreAudio | Tones play |
-| 11. Menus | ✓ | Navigation system | Menu navigates |
-| 12. Real Assets | ✓ | MIX/SHP/PAL/AUD loaders | `make test_assets` |
-| 13. Gameplay | ✓ | Demo mission | Units move/fight |
-| 14. Polish | ✓ | App bundle, icon, fullscreen | App launches |
-| 15. Data Tables | ✓ | Infantry/unit/weapon/building types | `make` |
-| 16. Object Hierarchy | ✓ | Abstract→Object→Mission→Radio→Techno→Foot | `make test_objects` (45 tests) |
-| 17. INI/Rules | ✓ | INI parser + RULES.INI processor | `make test_ini test_rules` (53 tests) |
-| 18. Map/Cell | ✓ | CellClass, MapClass, pathfinding | `make test_map` (38 tests) |
-| 19. Entities | ✓ | Infantry, Unit, Building, Aircraft | `make test_entities` (35 tests) |
-| 20. Combat | ✓ | BulletClass, damage, weapons | `make test_combat` |
-| 21. AI/Teams | ✓ | HouseClass, TeamClass, TeamTypeClass | `make test_ai` |
-| 22. Scenarios | ✓ | ScenarioClass, TriggerClass | `make test_scenario` |
-| 23. Sidebar | ✓ | FactoryClass, SidebarClass | `make test_sidebar` (22 tests) |
-| 24. Radar | ✓ | RadarClass with zoom, fog of war | `make test_radar` (21 tests) |
-| 25. Save/Load | ✓ | SaveStream, LoadStream, file format | `make test_saveload` (18 tests) |
-| 26. Animations | ✓ | AnimClass, 88 types, object pool | `make test_anim` (21 tests) |
-| 27. Campaigns | ✓ | CampaignClass, Allied/Soviet missions, score | `make test_campaign` (35 tests) |
