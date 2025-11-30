@@ -40,7 +40,8 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/scenario.cpp $(SRC_DIR)/game/trigger.cpp \
               $(SRC_DIR)/game/factory.cpp $(SRC_DIR)/game/sidebar.cpp \
               $(SRC_DIR)/game/radar.cpp $(SRC_DIR)/game/saveload.cpp \
-              $(SRC_DIR)/game/anim.cpp $(SRC_DIR)/game/campaign.cpp
+              $(SRC_DIR)/game/anim.cpp $(SRC_DIR)/game/campaign.cpp \
+              $(SRC_DIR)/video/vqa.cpp $(SRC_DIR)/video/music.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -265,4 +266,22 @@ $(BUILD_DIR)/test_campaign: $(SRC_DIR)/tests/test_campaign.cpp $(CAMPAIGN_TEST_O
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign
+# Test VQA video system
+test_vqa: $(BUILD_DIR)/test_vqa
+	@echo "Running VQA video tests..."
+	@./$(BUILD_DIR)/test_vqa
+
+$(BUILD_DIR)/test_vqa: $(SRC_DIR)/tests/test_vqa.cpp $(BUILD_DIR)/video/vqa.o
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+# Test music system
+test_music: $(BUILD_DIR)/test_music
+	@echo "Running music system tests..."
+	@./$(BUILD_DIR)/test_music
+
+$(BUILD_DIR)/test_music: $(SRC_DIR)/tests/test_music.cpp $(BUILD_DIR)/video/music.o
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music
