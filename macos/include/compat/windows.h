@@ -207,6 +207,10 @@ typedef HANDLE HKEY;
 #define ERROR_INVALID_HANDLE             6L
 #define ERROR_NOT_ENOUGH_MEMORY          8L
 #define ERROR_OUTOFMEMORY                14L
+#define ERROR_NO_MORE_FILES              18L
+#define ERROR_GEN_FAILURE                31L
+#define ERROR_DISK_FULL                  112L
+#define ERROR_FILE_EXISTS                80L
 #define ERROR_INVALID_PARAMETER          87L
 
 // RECT structure

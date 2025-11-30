@@ -26,7 +26,7 @@ LDFLAGS = $(ARCH) $(MIN_VERSION) $(FRAMEWORKS)
 
 # Sources (add as we go)
 OBJCXX_SOURCES = $(SRC_DIR)/main.mm
-CPP_SOURCES =
+CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
