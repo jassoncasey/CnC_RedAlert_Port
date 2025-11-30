@@ -32,7 +32,7 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/map.cpp $(SRC_DIR)/game/units.cpp \
               $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp \
               $(SRC_DIR)/game/building_types.cpp $(SRC_DIR)/game/ini.cpp $(SRC_DIR)/game/rules.cpp \
-              $(SRC_DIR)/game/object.cpp
+              $(SRC_DIR)/game/object.cpp $(SRC_DIR)/game/cell.cpp $(SRC_DIR)/game/mapclass.cpp $(SRC_DIR)/game/pathfind.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -128,4 +128,13 @@ $(BUILD_DIR)/test_objects: $(SRC_DIR)/tests/test_objects.cpp $(BUILD_DIR)/game/o
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects
+# Test map/cell/pathfinding
+test_map: $(BUILD_DIR)/test_map
+	@echo "Running map/cell/pathfinding test..."
+	@./$(BUILD_DIR)/test_map
+
+$(BUILD_DIR)/test_map: $(SRC_DIR)/tests/test_map.cpp $(BUILD_DIR)/game/cell.o $(BUILD_DIR)/game/mapclass.o $(BUILD_DIR)/game/pathfind.o
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map

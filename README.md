@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M17 done).
+**Phase 2 In Progress** - Porting original game logic (M15-M18 done).
 
-### Completed (Milestones 0-17)
+### Completed (Milestones 0-18)
 
 | Component | Status |
 |-----------|--------|
@@ -22,14 +22,16 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Data Tables (Infantry/Unit/Weapon/Building) | ✓ |
 | Object Class Hierarchy (45 tests) | ✓ |
 | INI/Rules Parser (53 tests) | ✓ |
+| Map/Cell System (38 tests) | ✓ |
+| A* Pathfinding | ✓ |
 
-### In Progress (Milestones 18+)
+### In Progress (Milestones 19+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
-| Phase 2: Core Engine | M15-M17 ✓, M18-M19 | In Progress |
+| Phase 2: Core Engine | M15-M18 ✓, M19 | In Progress |
 | Phase 3: Game Systems | M20-M22 | Planned |
 | Phase 4: UI & Polish | M23-M27 | Planned |
 | Phase 5: Media | M28-M29 | Deferred |
@@ -158,8 +160,8 @@ CnC_Red_Alert/
 | Vehicles | UNIT.CPP (~6K lines) | - | Not started |
 | Buildings | BUILDING.CPP (~12K lines) | - | Not started |
 | Aircraft | AIRCRAFT.CPP (~8K lines) | - | Not started |
-| Map/Cell | MAP.CPP, CELL.CPP (~8K) | game/map.cpp | Procedural only |
-| Pathfinding | FINDPATH.CPP (~3K) | - | Not started |
+| Map/Cell | MAP.CPP, CELL.CPP (~8K) | game/cell.cpp, mapclass.cpp | ✓ Complete (38 tests) |
+| Pathfinding | FINDPATH.CPP (~3K) | game/pathfind.cpp | ✓ Complete |
 | Combat | COMBAT.CPP, BULLET.CPP | game/units.cpp | Basic only |
 
 ### Medium Priority (P2) - Systems

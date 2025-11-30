@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Completed Milestones:** 0-17 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules)
+**Completed Milestones:** 0-18 (Infrastructure + Data Tables + Object Hierarchy + INI/Rules + Map/Cell/Pathfinding)
 **Current Phase:** Phase 2 - Game Content Integration
 
 ---
@@ -20,7 +20,7 @@
 | Game Loop | Complete | game/gameloop.cpp |
 | Menu System | Complete | ui/menu.cpp |
 | Asset Loaders | Complete | assets/*.cpp (MIX, SHP, PAL, AUD) |
-| Map/Terrain | Demo only | game/map.cpp (procedural 64x64) |
+| Map/Terrain | Complete | game/cell.cpp, mapclass.cpp, pathfind.cpp (38 tests) |
 | Units | Demo only | game/units.cpp (12 types, basic AI) |
 
 ### What's Missing (Original Has)
@@ -41,8 +41,8 @@
 
 | Feature | Original Files | Lines | Effort | Priority |
 |---------|----------------|-------|--------|----------|
-| Map System | MAP.CPP, CELL.CPP | ~8K | High | P1 |
-| Pathfinding | FINDPATH.CPP | ~3K | Medium | P1 |
+| Map System | MAP.CPP, CELL.CPP | ~8K | ✓ Complete | P1 |
+| Pathfinding | FINDPATH.CPP | ~3K | ✓ Complete | P1 |
 | Sidebar | SIDEBAR.CPP | ~4K | High | P2 |
 | Radar/Minimap | RADAR.CPP | ~4K | Medium | P2 |
 | Terrain | TERRAIN.CPP, TDATA.CPP | ~4K | Medium | P1 |

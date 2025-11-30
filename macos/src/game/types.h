@@ -567,4 +567,173 @@ enum class MissionStatus : int8_t {
     DONE
 };
 
+//===========================================================================
+// Terrain and Map Types
+//===========================================================================
+
+// Land type - Determines passability and movement cost
+enum class LandType : int8_t {
+    CLEAR = 0,      // Open terrain (default)
+    ROAD,           // Road - faster movement
+    WATER,          // Water - only boats
+    ROCK,           // Impassable rock
+    WALL,           // Wall structure
+    TIBERIUM,       // Ore/gems (harvestable)
+    BEACH,          // Transition water/land
+    ROUGH,          // Rough terrain - slow
+    RIVER,          // River (like water)
+
+    COUNT
+};
+
+// Overlay type - Walls and resources on cells
+enum class OverlayType : int8_t {
+    NONE = -1,
+    SANDBAG_WALL = 0,
+    CYCLONE_WALL,
+    BRICK_WALL,
+    BARBWIRE_WALL,
+    WOOD_WALL,
+    GOLD1,          // Ore (4 stages)
+    GOLD2,
+    GOLD3,
+    GOLD4,
+    GEMS1,          // Gems (4 stages)
+    GEMS2,
+    GEMS3,
+    GEMS4,
+    V12,            // Civilian structures
+    V13,
+    V14,
+    V15,
+    V16,
+    V17,
+    V18,
+    FLAG_SPOT,      // Flag location
+    WOOD_CRATE,     // Crate
+    STEEL_CRATE,
+    FENCE,
+    WATER_CRATE,
+
+    COUNT
+};
+
+// Smudge type - Craters, scorches, building footprints
+enum class SmudgeType : int8_t {
+    NONE = -1,
+    CRATER1 = 0,
+    CRATER2,
+    CRATER3,
+    CRATER4,
+    CRATER5,
+    CRATER6,
+    SCORCH1,
+    SCORCH2,
+    SCORCH3,
+    SCORCH4,
+    SCORCH5,
+    SCORCH6,
+    BIB1,           // Building foundation marks
+    BIB2,
+    BIB3,
+
+    COUNT
+};
+
+// Template type - Base terrain graphics
+enum class TemplateType : int16_t {
+    NONE = -1,
+    CLEAR1 = 0,
+    WATER,
+    WATER2,
+    SHORE1,
+    SHORE2,
+    // ... many more terrain templates
+    // For now, just key ones needed
+
+    COUNT = 256     // Reserve space for all templates
+};
+
+// Movement zone type - Different movement categories for pathfinding
+enum class MZoneType : int8_t {
+    NORMAL = 0,     // Regular ground movement
+    CRUSHER,        // Can crush infantry/fences
+    DESTROYER,      // Can destroy walls
+    WATER,          // Naval movement
+
+    COUNT
+};
+
+//===========================================================================
+// Cell and Coordinate Types (extends earlier CELL definition)
+//===========================================================================
+
+// Note: CELL is already defined as uint16_t earlier in this file
+
+// Cell index constants
+constexpr int CELL_X_BITS = 7;
+constexpr int CELL_Y_BITS = 7;
+constexpr int CELL_X_MASK = (1 << CELL_X_BITS) - 1;  // 0x7F
+constexpr int CELL_Y_MASK = (1 << CELL_Y_BITS) - 1;  // 0x7F
+
+// Map cell dimensions (128x128 grid)
+constexpr int MAP_CELL_W = 128;
+constexpr int MAP_CELL_H = 128;
+constexpr int MAP_CELL_TOTAL = MAP_CELL_W * MAP_CELL_H;  // 16384
+
+// Cell/coordinate conversion helpers
+inline CELL XY_Cell(int x, int y) {
+    return static_cast<CELL>((y << CELL_X_BITS) | (x & CELL_X_MASK));
+}
+
+inline int Cell_X(CELL cell) {
+    return cell & CELL_X_MASK;
+}
+
+inline int Cell_Y(CELL cell) {
+    return (cell >> CELL_X_BITS) & CELL_Y_MASK;
+}
+
+// Coordinate to cell (high 16 bits = X, low 16 bits = Y)
+// Extract cell from each axis by dividing by 256 (leptons per cell)
+inline CELL Coord_Cell(int32_t coord) {
+    int x = (coord >> 16) / LEPTONS_PER_CELL;
+    int y = (coord & 0xFFFF) / LEPTONS_PER_CELL;
+    return XY_Cell(x, y);
+}
+
+// Cell to coordinate (center of cell)
+inline int32_t Cell_Coord(CELL cell) {
+    int x = Cell_X(cell) * LEPTONS_PER_CELL + LEPTONS_PER_CELL / 2;
+    int y = Cell_Y(cell) * LEPTONS_PER_CELL + LEPTONS_PER_CELL / 2;
+    return (x << 16) | y;
+}
+
+// Make coordinate from X, Y (in leptons)
+inline int32_t XY_Coord(int x, int y) {
+    return (x << 16) | (y & 0xFFFF);
+}
+
+// Extract X and Y from coordinate (in leptons)
+inline int Coord_X(int32_t coord) {
+    return coord >> 16;
+}
+
+inline int Coord_Y(int32_t coord) {
+    return coord & 0xFFFF;
+}
+
+// Adjacent cell offsets (for 8 directions)
+// Index by FacingType (NORTH=0, NORTH_EAST=1, etc.)
+constexpr int AdjacentCell[8] = {
+    -MAP_CELL_W,            // NORTH
+    -MAP_CELL_W + 1,        // NORTH_EAST
+    1,                      // EAST
+    MAP_CELL_W + 1,         // SOUTH_EAST
+    MAP_CELL_W,             // SOUTH
+    MAP_CELL_W - 1,         // SOUTH_WEST
+    -1,                     // WEST
+    -MAP_CELL_W - 1         // NORTH_WEST
+};
+
 #endif // GAME_TYPES_H
