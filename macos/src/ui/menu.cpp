@@ -14,6 +14,7 @@
 static MenuScreen g_currentScreen = MENU_SCREEN_NONE;
 static Menu* g_mainMenu = nullptr;
 static Menu* g_optionsMenu = nullptr;
+static NewGameCallback g_newGameCallback = nullptr;
 
 // Sound effects for menus
 static AudioSample* g_clickSound = nullptr;
@@ -532,8 +533,10 @@ static void OnMainMenuButton(int itemId, int value) {
 
     switch (itemId) {
         case BTN_NEW_GAME:
-            // TODO: Start new game
             Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+            if (g_newGameCallback) {
+                g_newGameCallback();
+            }
             break;
 
         case BTN_LOAD_GAME:
@@ -573,4 +576,8 @@ static void OnOptionsButton(int itemId, int value) {
             Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
             break;
     }
+}
+
+void Menu_SetNewGameCallback(NewGameCallback callback) {
+    g_newGameCallback = callback;
 }

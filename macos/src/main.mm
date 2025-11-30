@@ -11,6 +11,8 @@
 #include "graphics/metal/renderer.h"
 #include "input/input.h"
 #include "game/gameloop.h"
+#include "game/map.h"
+#include "game/units.h"
 #include "audio/audio.h"
 #include "ui/menu.h"
 #include "compat/assets.h"
@@ -30,6 +32,60 @@ static int g_bounceVY = 2;
 // Audio test tones
 static AudioSample* g_testTones[4] = {nullptr, nullptr, nullptr, nullptr};
 static const uint32_t g_toneFreqs[4] = {262, 330, 392, 523}; // C4, E4, G4, C5
+
+// Gameplay state
+static bool g_inGameplay = false;
+static int g_selectionStartX = -1;
+static int g_selectionStartY = -1;
+static bool g_isSelecting = false;
+
+// Start a demo mission
+static void StartDemoMission(void) {
+    g_inGameplay = true;
+
+    // Initialize map and units
+    Map_Init();
+    Units_Init();
+
+    // Generate demo map
+    Map_GenerateDemo();
+
+    // Spawn player units (Allies)
+    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_PLAYER, 100, 400);
+    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_PLAYER, 140, 420);
+    Units_Spawn(UNIT_TANK_LIGHT, TEAM_PLAYER, 180, 400);
+    Units_Spawn(UNIT_TANK_LIGHT, TEAM_PLAYER, 180, 440);
+    Units_Spawn(UNIT_RIFLE, TEAM_PLAYER, 80, 450);
+    Units_Spawn(UNIT_RIFLE, TEAM_PLAYER, 100, 450);
+    Units_Spawn(UNIT_RIFLE, TEAM_PLAYER, 120, 450);
+    Units_Spawn(UNIT_ROCKET, TEAM_PLAYER, 60, 430);
+    Units_Spawn(UNIT_HARVESTER, TEAM_PLAYER, 200, 500);
+
+    // Spawn enemy units (Soviet)
+    Units_Spawn(UNIT_TANK_HEAVY, TEAM_ENEMY, 1200, 300);
+    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_ENEMY, 1150, 350);
+    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_ENEMY, 1250, 350);
+    Units_Spawn(UNIT_RIFLE, TEAM_ENEMY, 1100, 400);
+    Units_Spawn(UNIT_RIFLE, TEAM_ENEMY, 1130, 400);
+    Units_Spawn(UNIT_RIFLE, TEAM_ENEMY, 1160, 400);
+    Units_Spawn(UNIT_ROCKET, TEAM_ENEMY, 1200, 250);
+
+    // Spawn buildings
+    Buildings_Spawn(BUILDING_CONSTRUCTION, TEAM_PLAYER, 2, 15);
+    Buildings_Spawn(BUILDING_POWER, TEAM_PLAYER, 6, 16);
+    Buildings_Spawn(BUILDING_BARRACKS, TEAM_PLAYER, 2, 19);
+    Buildings_Spawn(BUILDING_REFINERY, TEAM_PLAYER, 6, 19);
+
+    Buildings_Spawn(BUILDING_CONSTRUCTION, TEAM_ENEMY, 55, 10);
+    Buildings_Spawn(BUILDING_POWER, TEAM_ENEMY, 59, 11);
+    Buildings_Spawn(BUILDING_TURRET, TEAM_ENEMY, 52, 14);
+    Buildings_Spawn(BUILDING_TURRET, TEAM_ENEMY, 58, 8);
+
+    // Center viewport on player base
+    Map_CenterViewport(150, 450);
+
+    NSLog(@"Demo mission started!");
+}
 
 #pragma mark - Game Callbacks
 
@@ -72,34 +128,129 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         return; // Don't process game logic while in menus
     }
 
-    // Update animation phase
+    // === GAMEPLAY MODE ===
+    if (g_inGameplay) {
+        // ESC returns to main menu
+        if (Input_WasKeyPressed(VK_ESCAPE)) {
+            g_inGameplay = false;
+            Map_Shutdown();
+            Units_Shutdown();
+            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            return;
+        }
+
+        // Map scrolling with arrow keys or WASD
+        int scrollSpeed = 8;
+        if (Input_IsKeyDown(VK_UP) || Input_IsKeyDown('W')) {
+            Map_ScrollViewport(0, -scrollSpeed);
+        }
+        if (Input_IsKeyDown(VK_DOWN) || Input_IsKeyDown('S')) {
+            Map_ScrollViewport(0, scrollSpeed);
+        }
+        if (Input_IsKeyDown(VK_LEFT) || Input_IsKeyDown('A')) {
+            Map_ScrollViewport(-scrollSpeed, 0);
+        }
+        if (Input_IsKeyDown(VK_RIGHT) || Input_IsKeyDown('D')) {
+            Map_ScrollViewport(scrollSpeed, 0);
+        }
+
+        // Mouse edge scrolling
+        int mx = Input_GetMouseX();
+        int my = Input_GetMouseY();
+        if (mx < 10) Map_ScrollViewport(-scrollSpeed, 0);
+        if (mx > WINDOW_WIDTH - 10) Map_ScrollViewport(scrollSpeed, 0);
+        if (my < 10) Map_ScrollViewport(0, -scrollSpeed);
+        if (my > WINDOW_HEIGHT - 10) Map_ScrollViewport(0, scrollSpeed);
+
+        // Unit selection with left mouse button
+        uint8_t buttons = Input_GetMouseButtons();
+        static bool wasLeftDown = false;
+        bool leftDown = (buttons & INPUT_MOUSE_LEFT) != 0;
+
+        if (leftDown && !wasLeftDown) {
+            // Start selection
+            g_selectionStartX = mx;
+            g_selectionStartY = my;
+            g_isSelecting = true;
+        } else if (!leftDown && wasLeftDown && g_isSelecting) {
+            // End selection
+            int x1 = g_selectionStartX;
+            int y1 = g_selectionStartY;
+            int x2 = mx;
+            int y2 = my;
+
+            // If click (small drag), try to select single unit
+            if (abs(x2 - x1) < 5 && abs(y2 - y1) < 5) {
+                int unitId = Units_GetAtScreen(mx, my);
+                if (unitId >= 0) {
+                    Units_Select(unitId, Input_IsKeyDown(VK_SHIFT));
+                } else {
+                    Units_DeselectAll();
+                }
+            } else {
+                // Box selection
+                Units_SelectInRect(x1, y1, x2, y2, TEAM_PLAYER);
+            }
+            g_isSelecting = false;
+        }
+        wasLeftDown = leftDown;
+
+        // Right click commands
+        static bool wasRightDown = false;
+        bool rightDown = (buttons & INPUT_MOUSE_RIGHT) != 0;
+
+        if (rightDown && !wasRightDown) {
+            int worldX, worldY;
+            Map_ScreenToWorld(mx, my, &worldX, &worldY);
+
+            // Check if clicking on enemy unit
+            int targetId = Units_GetAtScreen(mx, my);
+            Unit* target = Units_Get(targetId);
+
+            // Command selected units
+            for (int i = 0; i < MAX_UNITS; i++) {
+                Unit* unit = Units_Get(i);
+                if (unit && unit->selected) {
+                    if (target && target->team == TEAM_ENEMY) {
+                        // Attack command
+                        Units_CommandAttack(i, targetId);
+                    } else {
+                        // Move command
+                        Units_CommandMove(i, worldX, worldY);
+                    }
+                }
+            }
+        }
+        wasRightDown = rightDown;
+
+        // Stop command (S key)
+        if (Input_WasKeyPressed('S') && !Input_IsKeyDown('W')) {
+            for (int i = 0; i < MAX_UNITS; i++) {
+                Unit* unit = Units_Get(i);
+                if (unit && unit->selected) {
+                    Units_CommandStop(i);
+                }
+            }
+        }
+
+        // Update game systems
+        Map_Update();
+        Units_Update();
+
+        // Pause (P key)
+        if (Input_WasKeyPressed('P')) {
+            GameLoop_Pause(!GameLoop_IsPaused());
+        }
+
+        return;
+    }
+
+    // === OLD DEMO MODE (when not in gameplay) ===
     g_animPhase += 0.1f;
-
-    // Update bouncing box
-    g_bounceX += g_bounceVX;
-    g_bounceY += g_bounceVY;
-
-    if (g_bounceX <= 0 || g_bounceX >= WINDOW_WIDTH - 50) {
-        g_bounceVX = -g_bounceVX;
-    }
-    if (g_bounceY <= 0 || g_bounceY >= WINDOW_HEIGHT - 50) {
-        g_bounceVY = -g_bounceVY;
-    }
 
     // Handle game input
     if (Input_WasKeyPressed(VK_ESCAPE)) {
-        // Return to main menu
         Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-    }
-
-    // Speed controls (+ and -)
-    if (Input_WasKeyPressed(VK_ADD) || Input_WasKeyPressed('=')) {
-        int speed = GameLoop_GetSpeed();
-        if (speed > 0) GameLoop_SetSpeed(speed - 1);
-    }
-    if (Input_WasKeyPressed(VK_SUBTRACT) || Input_WasKeyPressed('-')) {
-        int speed = GameLoop_GetSpeed();
-        if (speed < 7) GameLoop_SetSpeed(speed + 1);
     }
 
     // Pause (P key)
@@ -107,36 +258,11 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         GameLoop_Pause(!GameLoop_IsPaused());
     }
 
-    // Audio test keys (1-4 play tones, M mutes)
-    for (int i = 0; i < 4; i++) {
-        if (Input_WasKeyPressed('1' + i) && g_testTones[i]) {
-            Audio_Play(g_testTones[i], 200, 0, FALSE);
-        }
-    }
-    if (Input_WasKeyPressed('M')) {
-        static bool muted = false;
-        muted = !muted;
-        Audio_SetMasterVolume(muted ? 0 : 255);
-    }
-
-    // Volume controls ([ and ])
-    if (Input_WasKeyPressed('[')) {
-        uint8_t vol = Audio_GetMasterVolume();
-        if (vol >= 32) Audio_SetMasterVolume(vol - 32);
-        else Audio_SetMasterVolume(0);
-    }
-    if (Input_WasKeyPressed(']')) {
-        uint8_t vol = Audio_GetMasterVolume();
-        if (vol <= 223) Audio_SetMasterVolume(vol + 32);
-        else Audio_SetMasterVolume(255);
-    }
-
-    // Log every 60 game frames (roughly every 4 seconds at speed 4)
+    // Log every 60 game frames
     if (frame % 60 == 0) {
         const FrameStats* stats = GameLoop_GetStats();
-        NSLog(@"Game frame %u, Render FPS: %.1f, Speed: %d, Audio: %d playing%s",
+        NSLog(@"Game frame %u, Render FPS: %.1f, Speed: %d%s",
               frame, stats->currentFPS, GameLoop_GetSpeed(),
-              Audio_GetPlayingCount(),
               GameLoop_IsPaused() ? " [PAUSED]" : "");
     }
 }
@@ -171,7 +297,7 @@ static void RenderCredits(void) {
     Renderer_DrawText("ORIGINAL GAME BY WESTWOOD STUDIOS", 150, 130, 7, 0);
 
     Renderer_DrawText("MACOS PORT", 270, 180, 10, 0);
-    Renderer_DrawText("MILESTONE 11 - MENU SYSTEM", 190, 210, 7, 0);
+    Renderer_DrawText("MILESTONE 13 - GAMEPLAY", 195, 210, 7, 0);
 
     Renderer_DrawText("BUILT WITH:", 260, 260, 7, 0);
     Renderer_DrawText("- METAL FOR GRAPHICS", 220, 285, 7, 0);
@@ -209,10 +335,78 @@ void GameRender(void) {
         return;
     }
 
+    // === GAMEPLAY RENDERING ===
+    if (g_inGameplay) {
+        Renderer_Clear(0);
+
+        // Render map terrain
+        Map_Render();
+
+        // Render units and buildings
+        Units_Render();
+
+        // Draw selection box if dragging
+        if (g_isSelecting) {
+            int mx = Input_GetMouseX();
+            int my = Input_GetMouseY();
+            int x1 = g_selectionStartX;
+            int y1 = g_selectionStartY;
+            int x2 = mx;
+            int y2 = my;
+
+            // Normalize
+            if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
+            if (y1 > y2) { int t = y1; y1 = y2; y2 = t; }
+
+            Renderer_DrawRect(x1, y1, x2 - x1, y2 - y1, 15);
+        }
+
+        // Draw mouse cursor
+        int mx = Input_GetMouseX();
+        int my = Input_GetMouseY();
+        Renderer_DrawLine(mx - 8, my, mx + 8, my, 15);
+        Renderer_DrawLine(mx, my - 8, mx, my + 8, 15);
+
+        // Draw HUD
+        const FrameStats* stats = GameLoop_GetStats();
+        Renderer_FillRect(0, 0, 640, 16, 0);
+        Renderer_DrawText("RED ALERT - DEMO MISSION", 10, 3, 14, 0);
+
+        // Unit count
+        char hudText[64];
+        snprintf(hudText, sizeof(hudText), "PLAYER:%d ENEMY:%d",
+                 Units_CountByTeam(TEAM_PLAYER), Units_CountByTeam(TEAM_ENEMY));
+        Renderer_DrawText(hudText, 300, 3, 10, 0);
+
+        // Selected count
+        int selected = Units_GetSelectedCount();
+        if (selected > 0) {
+            snprintf(hudText, sizeof(hudText), "SELECTED:%d", selected);
+            Renderer_DrawText(hudText, 480, 3, 15, 0);
+        }
+
+        // FPS
+        snprintf(hudText, sizeof(hudText), "FPS:%.0f", stats->currentFPS);
+        Renderer_DrawText(hudText, 580, 3, 7, 0);
+
+        // Pause overlay
+        if (GameLoop_IsPaused()) {
+            Renderer_FillRect(260, 180, 120, 40, 0);
+            Renderer_DrawRect(260, 180, 120, 40, 15);
+            Renderer_DrawText("PAUSED", 285, 195, 15, 0);
+        }
+
+        // Controls help at bottom
+        Renderer_FillRect(0, 384, 640, 16, 0);
+        Renderer_DrawText("WASD/ARROWS=SCROLL  LMB=SELECT  RMB=COMMAND  ESC=MENU  P=PAUSE", 20, 387, 7, 0);
+
+        return;
+    }
+
     // Clear to dark gray
     Renderer_Clear(8);
 
-    // === MILESTONE 9: Drawing Primitives Demo ===
+    // === OLD DEMO (when not in gameplay) ===
 
     // Draw title text
     Renderer_DrawText("RED ALERT MACOS PORT", 200, 10, 15, 0);
@@ -540,6 +734,7 @@ void GameRender(void) {
 
     // Initialize menu system
     Menu_Init();
+    Menu_SetNewGameCallback(StartDemoMission);
     Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
 
     // Set up game loop callbacks

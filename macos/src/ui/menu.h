@@ -187,6 +187,12 @@ Menu* Menu_GetMainMenu(void);
  */
 Menu* Menu_GetOptionsMenu(void);
 
+/**
+ * Set callback for starting a new game
+ */
+typedef void (*NewGameCallback)(void);
+void Menu_SetNewGameCallback(NewGameCallback callback);
+
 #ifdef __cplusplus
 }
 #endif

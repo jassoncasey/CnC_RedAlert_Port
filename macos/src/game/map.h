@@ -1,0 +1,167 @@
+/**
+ * Red Alert macOS Port - Map/Terrain System
+ *
+ * Handles the game map, terrain, and scrolling viewport.
+ */
+
+#ifndef GAME_MAP_H
+#define GAME_MAP_H
+
+#include "compat/windows.h"
+#include <cstdint>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Map dimensions (in cells)
+#define MAP_MAX_WIDTH   128
+#define MAP_MAX_HEIGHT  128
+#define CELL_SIZE       24      // Pixels per cell
+
+// Terrain types
+typedef enum {
+    TERRAIN_CLEAR = 0,      // Passable ground
+    TERRAIN_WATER,          // Impassable water
+    TERRAIN_ROCK,           // Impassable rock/cliff
+    TERRAIN_TREE,           // Passable but provides cover
+    TERRAIN_ROAD,           // Fast movement
+    TERRAIN_BRIDGE,         // Passable over water
+    TERRAIN_BUILDING,       // Occupied by structure
+    TERRAIN_ORE,            // Harvestable ore
+    TERRAIN_GEM,            // Harvestable gems
+    TERRAIN_COUNT
+} TerrainType;
+
+// Cell flags
+#define CELL_FLAG_OCCUPIED      0x01    // Unit present
+#define CELL_FLAG_REVEALED      0x02    // Fog of war revealed
+#define CELL_FLAG_VISIBLE       0x04    // Currently visible
+
+// Map cell structure
+typedef struct {
+    uint8_t terrain;        // TerrainType
+    uint8_t flags;          // Cell flags
+    uint8_t height;         // Elevation (0-3)
+    uint8_t overlay;        // Overlay type (walls, ore, etc.)
+    int16_t unitId;         // Unit occupying cell (-1 if none)
+    int16_t buildingId;     // Building on cell (-1 if none)
+} MapCell;
+
+// Viewport for scrolling
+typedef struct {
+    int32_t x;              // Top-left X in world pixels
+    int32_t y;              // Top-left Y in world pixels
+    int32_t width;          // Viewport width in pixels
+    int32_t height;         // Viewport height in pixels
+} Viewport;
+
+/**
+ * Initialize the map system
+ */
+void Map_Init(void);
+
+/**
+ * Shutdown the map system
+ */
+void Map_Shutdown(void);
+
+/**
+ * Create a new map
+ * @param width   Map width in cells
+ * @param height  Map height in cells
+ */
+void Map_Create(int width, int height);
+
+/**
+ * Generate a simple demo map
+ */
+void Map_GenerateDemo(void);
+
+/**
+ * Get map dimensions
+ */
+int Map_GetWidth(void);
+int Map_GetHeight(void);
+
+/**
+ * Get cell at coordinates
+ * @return Pointer to cell, or NULL if out of bounds
+ */
+MapCell* Map_GetCell(int cellX, int cellY);
+
+/**
+ * Set terrain at cell
+ */
+void Map_SetTerrain(int cellX, int cellY, TerrainType terrain);
+
+/**
+ * Check if cell is passable for ground units
+ */
+BOOL Map_IsPassable(int cellX, int cellY);
+
+/**
+ * Check if cell is passable for water units
+ */
+BOOL Map_IsWaterPassable(int cellX, int cellY);
+
+/**
+ * Convert world coordinates to cell coordinates
+ */
+void Map_WorldToCell(int worldX, int worldY, int* cellX, int* cellY);
+
+/**
+ * Convert cell coordinates to world coordinates (center of cell)
+ */
+void Map_CellToWorld(int cellX, int cellY, int* worldX, int* worldY);
+
+/**
+ * Get the viewport
+ */
+Viewport* Map_GetViewport(void);
+
+/**
+ * Set viewport position (clamped to map bounds)
+ */
+void Map_SetViewport(int x, int y);
+
+/**
+ * Scroll viewport by delta
+ */
+void Map_ScrollViewport(int dx, int dy);
+
+/**
+ * Center viewport on a world position
+ */
+void Map_CenterViewport(int worldX, int worldY);
+
+/**
+ * Check if a world position is visible in viewport
+ */
+BOOL Map_IsInViewport(int worldX, int worldY);
+
+/**
+ * Convert screen coordinates to world coordinates
+ */
+void Map_ScreenToWorld(int screenX, int screenY, int* worldX, int* worldY);
+
+/**
+ * Convert world coordinates to screen coordinates
+ */
+void Map_WorldToScreen(int worldX, int worldY, int* screenX, int* screenY);
+
+/**
+ * Render the map terrain
+ */
+void Map_Render(void);
+
+/**
+ * Update map state (animations, etc.)
+ */
+void Map_Update(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // GAME_MAP_H

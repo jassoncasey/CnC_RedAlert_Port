@@ -2,7 +2,7 @@
 
 Native macOS port of the classic Command & Conquer: Red Alert (1996).
 
-## Current Status: Milestone 12 Complete
+## Current Status: Milestone 13 Complete
 
 | Milestone | Status | Description |
 |-----------|--------|-------------|
@@ -19,7 +19,7 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | 10. Audio | Done | CoreAudio sound effects |
 | 11. Menus | Done | Menu navigation system |
 | 12. Real Assets | Done | MIX/SHP/PAL/AUD file loading |
-| 13. Gameplay | Pending | Playable mission |
+| 13. Gameplay | Done | Demo mission with units and combat |
 | 14. Polish | Pending | App bundle, fullscreen |
 
 ## Target Platform
