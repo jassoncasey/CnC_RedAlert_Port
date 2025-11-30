@@ -1,0 +1,158 @@
+/**
+ * Red Alert macOS Port - Building Type Definitions
+ *
+ * Static data tables for building/structure types.
+ * Ported from original BDATA.CPP
+ */
+
+#ifndef GAME_BUILDING_TYPES_H
+#define GAME_BUILDING_TYPES_H
+
+#include "types.h"
+#include "unit_types.h"  // For AnimType, RemapType
+
+//===========================================================================
+// Building Size - Dimensions in cells
+//===========================================================================
+enum class BSizeType : int8_t {
+    BSIZE_11 = 0,   // 1x1 cells
+    BSIZE_21,       // 2x1 cells
+    BSIZE_12,       // 1x2 cells
+    BSIZE_22,       // 2x2 cells
+    BSIZE_23,       // 2x3 cells
+    BSIZE_32,       // 3x2 cells
+    BSIZE_33,       // 3x3 cells
+    BSIZE_42,       // 4x2 cells
+    BSIZE_55,       // 5x5 cells (unused)
+
+    COUNT
+};
+
+//===========================================================================
+// Facing Type - Direction building faces
+//===========================================================================
+enum class FacingType : int8_t {
+    FACING_NONE = -1,
+    FACING_N = 0,
+    FACING_NE,
+    FACING_E,
+    FACING_SE,
+    FACING_S,
+    FACING_SW,
+    FACING_W,
+    FACING_NW,
+
+    COUNT = 8
+};
+
+//===========================================================================
+// RTTI Type - Runtime Type Info for factory production
+//===========================================================================
+enum class RTTIType : int8_t {
+    NONE = 0,
+    UNIT,           // Ground vehicles
+    AIRCRAFT,       // Aircraft
+    INFANTRY,       // Infantry
+    BUILDING,       // Structures
+    VESSEL,         // Naval units
+    BULLET,         // Projectiles
+    ANIM,           // Animations
+    TEAM,           // AI teams
+    TRIGGER,        // Map triggers
+
+    COUNT
+};
+
+//===========================================================================
+// Building Type Data - Static data for each building type
+//===========================================================================
+struct BuildingTypeData {
+    BuildingType type;          // Building type enum
+    int16_t nameId;             // Text ID for name
+    const char* iniName;        // INI file identifier (4 chars)
+
+    // Layout
+    FacingType foundation;      // Direction from center
+    int16_t exitX;              // Exit point X (leptons)
+    int16_t exitY;              // Exit point Y (leptons)
+    RemapType remap;            // Sidebar remap type
+    BSizeType size;             // Building size
+
+    // Weapon offsets (fixed point, pixels * 256)
+    int16_t verticalOffset;     // Vertical render offset
+    int16_t primaryOffset;      // Primary weapon offset along turret centerline
+    int16_t primaryLateral;     // Primary weapon lateral offset
+
+    // Boolean flags
+    bool isFake;                // Is this a decoy building?
+    bool isRegulated;           // Animation rate regulated for constant speed?
+    bool isNominal;             // Always shows name?
+    bool isWall;                // Wall type structure?
+    bool isSimpleDamage;        // Simple (one frame) damage imagery?
+    bool isInvisible;           // Invisible to radar?
+    bool isSelectable;          // Can player select?
+    bool isLegalTarget;         // Legal target for attack?
+    bool isInsignificant;       // Not announced when destroyed?
+    bool isTheater;             // Theater-specific graphics?
+    bool hasTurret;             // Has rotating turret?
+    bool canRemap;              // Can be color remapped?
+
+    // Factory properties
+    RTTIType factoryType;       // Type of objects this factory produces
+    DirType startDirection;     // Starting idle frame direction
+
+    // Combat stats (loaded from RULES.INI)
+    int16_t strength;           // Hit points
+    int16_t cost;               // Build cost
+    int8_t sightRange;          // Sight range in cells
+    int16_t power;              // Power produced (positive) or consumed (negative)
+    ArmorType armor;            // Armor type
+    WeaponType primaryWeapon;   // Primary weapon
+    WeaponType secondaryWeapon; // Secondary weapon
+
+    // Prerequisites
+    uint32_t prereqs;           // Prerequisite building flags
+    uint32_t owners;            // House ownership flags
+};
+
+//===========================================================================
+// Building Type Table
+//===========================================================================
+extern const BuildingTypeData BuildingTypes[];
+extern const int BuildingTypeCount;
+
+//===========================================================================
+// Helper Functions
+//===========================================================================
+
+/**
+ * Get building type data by type enum
+ */
+const BuildingTypeData* GetBuildingType(BuildingType type);
+
+/**
+ * Get building type by INI name
+ */
+BuildingType BuildingTypeFromName(const char* name);
+
+/**
+ * Get building size dimensions
+ */
+void GetBuildingSize(BSizeType size, int& width, int& height);
+
+/**
+ * Check if building is a wall type
+ */
+bool IsBuildingWall(BuildingType type);
+
+/**
+ * Check if building is a civilian structure
+ */
+bool IsBuildingCivilian(BuildingType type);
+
+/**
+ * Check if building produces units/buildings
+ */
+bool IsBuildingFactory(BuildingType type);
+
+#endif // GAME_BUILDING_TYPES_H

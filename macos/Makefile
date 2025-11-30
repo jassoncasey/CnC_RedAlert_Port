@@ -30,7 +30,8 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/gameloop.cpp $(SRC_DIR)/ui/menu.cpp \
               $(SRC_DIR)/assets/mixfile.cpp $(SRC_DIR)/assets/shpfile.cpp $(SRC_DIR)/assets/palfile.cpp $(SRC_DIR)/assets/audfile.cpp \
               $(SRC_DIR)/game/map.cpp $(SRC_DIR)/game/units.cpp \
-              $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp
+              $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp \
+              $(SRC_DIR)/game/building_types.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))

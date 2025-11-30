@@ -90,57 +90,77 @@ enum class UnitType : int8_t {
 
 //===========================================================================
 // Building Types - All structure types in the game
+// Order must match original DEFINES.H for compatibility with save files
 //===========================================================================
 enum class BuildingType : int8_t {
     NONE = -1,
-    WEAP = 0,       // Weapons Factory
-    GTWR,           // Gun Turret
-    ATWR,           // Anti-Aircraft Gun
-    OBLI,           // Obelisk/Tesla Coil
-    RADAR,          // Radar Dome
-    POWR,           // Power Plant
-    APWR,           // Advanced Power Plant
-    SPEN,           // Sub Pen
-    SYRD,           // Shipyard
-    BARR,           // Allied Barracks
-    TENT,           // Soviet Barracks
-    PROC,           // Ore Refinery
-    SILO,           // Ore Silo
-    HPAD,           // Helipad
-    SAM,            // SAM Site
-    AFLD,           // Airfield
-    IRON,           // Iron Curtain
-    WEAF,           // Weapons Factory (fake)
-    DOG_KENNEL,     // Kennel
-    FACT,           // Construction Yard
-    DOME,           // Radar Dome (Soviet)
-    GAP,            // Gap Generator
-    PDOX,           // Chronosphere
-    PBOX,           // Pillbox
-    HBOX,           // Camo Pillbox
-    MSLO,           // Missile Silo
-    FTUR,           // Flame Turret
-    EYE,            // Forward Command
-    ATEK,           // Allied Tech Center
-    STEK,           // Soviet Tech Center
-    HOSP,           // Hospital
-    BIO,            // Bio Research Lab
-    FIX,            // Service Depot
+    ADVANCED_TECH = 0,  // Allied Tech Center (ATEK)
+    IRON_CURTAIN,       // Iron Curtain
+    WEAP,               // Weapons Factory
+    CHRONOSPHERE,       // Chronosphere (PDOX)
+    PILLBOX,            // Pillbox
+    CAMOPILLBOX,        // Camo Pillbox
+    RADAR,              // Radar Dome
+    GAP,                // Gap Generator
+    TURRET,             // Gun Turret
+    AAGUN,              // Anti-Aircraft Gun
+    FLAME_TURRET,       // Flame Turret
+    CONST,              // Construction Yard
+    REFINERY,           // Ore Refinery
+    STORAGE,            // Ore Silo
+    HELIPAD,            // Helipad
+    SAM,                // SAM Site
+    AIRSTRIP,           // Airfield
+    POWER,              // Power Plant
+    ADVANCED_POWER,     // Advanced Power Plant
+    SOVIET_TECH,        // Soviet Tech Center (STEK)
+    HOSPITAL,           // Hospital
+    BARRACKS,           // Allied Barracks
+    TENT,               // Soviet Barracks
+    KENNEL,             // Dog Kennel
+    REPAIR,             // Service Depot
+    BIO_LAB,            // Bio Research Lab
+    MISSION,            // Mission control (not used?)
+    SHIP_YARD,          // Shipyard
+    SUB_PEN,            // Sub Pen
+    MSLO,               // Missile Silo
+    FORWARD_COM,        // Forward Command
+    TESLA,              // Tesla Coil
+
+    // Fake structures (decoys)
+    FAKEWEAP,           // Fake Weapons Factory
+    FAKECONST,          // Fake Construction Yard
+    FAKE_YARD,          // Fake Shipyard
+    FAKE_PEN,           // Fake Sub Pen
+    FAKE_RADAR,         // Fake Radar
+
+    // Walls
+    SANDBAG_WALL,       // Sandbag Wall
+    CYCLONE_WALL,       // Chain Link Fence
+    BRICK_WALL,         // Concrete Wall
+    BARBWIRE_WALL,      // Barbed Wire
+    WOOD_WALL,          // Wood Fence
+    FENCE,              // Wire Fence
+
+    // Mines
+    AVMINE,             // Anti-Vehicle Mine
+    APMINE,             // Anti-Personnel Mine
 
     // Civilian structures
     V01, V02, V03, V04, V05, V06, V07, V08, V09, V10,
-    V11, V12, V13, V14, V15, V16, V17, V18, V19, V20,
-    V21, V22, V23, V24, V25, V26, V27, V28, V29, V30,
-    V31, V32, V33, V34, V35, V36, V37,
+    V11, V12, V13, V14, V15, V16, V17, V18,
+    PUMP,               // Water Pump (V19)
+    V20, V21, V22, V23, V24, V25, V26, V27, V28, V29,
+    V30, V31, V32, V33, V34, V35, V36, V37,
 
     // Special structures
-    BARREL,         // Explosive Barrel
-    BARREL3,        // 3-Barrel Group
+    BARREL,             // Explosive Barrel
+    BARREL3,            // 3-Barrel Group
 
-    // Aftermath
-    QUEE,           // Ant Queen
-    LAR1,           // Larva 1
-    LAR2,           // Larva 2
+    // Ant mission structures
+    QUEEN,              // Ant Queen
+    LARVA1,             // Larva 1
+    LARVA2,             // Larva 2
 
     COUNT,
     FIRST = 0
