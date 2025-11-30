@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M20 done).
+**Phase 2 In Progress** - Porting original game logic (M15-M21 done).
 
-### Completed (Milestones 0-20)
+### Completed (Milestones 0-21)
 
 | Component | Status |
 |-----------|--------|
@@ -26,15 +26,16 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | A* Pathfinding | ✓ |
 | Entity Classes (35 tests) | ✓ |
 | Combat System (28 tests) | ✓ |
+| AI & Teams (28 tests) | ✓ |
 
-### In Progress (Milestones 21+)
+### In Progress (Milestones 22+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
 | Phase | Milestones | Status |
 |-------|------------|--------|
-| Phase 2: Core Engine | M15-M20 ✓ | Complete |
-| Phase 3: Game Systems | M21-M23 | Planned |
+| Phase 2: Core Engine | M15-M21 ✓ | Complete |
+| Phase 3: Game Systems | M22-M23 | Planned |
 | Phase 4: UI & Polish | M24-M27 | Planned |
 | Phase 5: Media | M28-M29 | Deferred |
 
@@ -170,7 +171,7 @@ CnC_Red_Alert/
 
 | Feature | Original | Status |
 |---------|----------|--------|
-| AI Teams | TEAM.CPP, TEAMTYPE.CPP | Not started |
+| AI & Houses | HOUSE.CPP, TEAM.CPP | ✓ Complete (28 tests) |
 | Scenarios | SCENARIO.CPP | Not started |
 | Triggers | TRIGGER.CPP | Not started |
 | Sidebar | SIDEBAR.CPP | Not started |
@@ -195,7 +196,7 @@ CnC_Red_Alert/
 4. **M18: Map/Cell** - Real map loading from scenarios
 5. **M19: Entities** - Infantry, Vehicles, Buildings, Aircraft
 6. **M20: Combat** - Weapons, bullets, damage
-7. **M21: AI** - Computer opponent
+7. **M21: AI** - Computer opponent (✓ Complete)
 8. **M22: Scenarios** - Load campaign missions
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for complete details.

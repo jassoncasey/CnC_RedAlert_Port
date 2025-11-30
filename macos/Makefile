@@ -35,7 +35,8 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/ini.cpp $(SRC_DIR)/game/rules.cpp \
               $(SRC_DIR)/game/object.cpp $(SRC_DIR)/game/cell.cpp $(SRC_DIR)/game/mapclass.cpp $(SRC_DIR)/game/pathfind.cpp \
               $(SRC_DIR)/game/infantry.cpp $(SRC_DIR)/game/unit.cpp $(SRC_DIR)/game/building.cpp $(SRC_DIR)/game/aircraft.cpp \
-              $(SRC_DIR)/game/bullet.cpp $(SRC_DIR)/game/combat.cpp
+              $(SRC_DIR)/game/bullet.cpp $(SRC_DIR)/game/combat.cpp \
+              $(SRC_DIR)/game/house.cpp $(SRC_DIR)/game/team.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -167,4 +168,15 @@ $(BUILD_DIR)/test_combat: $(SRC_DIR)/tests/test_combat.cpp $(COMBAT_TEST_OBJS)
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat
+# Test AI system (house, teams)
+test_ai: $(BUILD_DIR)/test_ai
+	@echo "Running AI system tests..."
+	@./$(BUILD_DIR)/test_ai
+
+AI_TEST_OBJS = $(BUILD_DIR)/game/house.o $(BUILD_DIR)/game/team.o $(BUILD_DIR)/game/object.o
+
+$(BUILD_DIR)/test_ai: $(SRC_DIR)/tests/test_ai.cpp $(AI_TEST_OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai
