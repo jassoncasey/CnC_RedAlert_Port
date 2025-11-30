@@ -40,7 +40,7 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/scenario.cpp $(SRC_DIR)/game/trigger.cpp \
               $(SRC_DIR)/game/factory.cpp $(SRC_DIR)/game/sidebar.cpp \
               $(SRC_DIR)/game/radar.cpp $(SRC_DIR)/game/saveload.cpp \
-              $(SRC_DIR)/game/anim.cpp
+              $(SRC_DIR)/game/anim.cpp $(SRC_DIR)/game/campaign.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -251,4 +251,18 @@ $(BUILD_DIR)/test_anim: $(SRC_DIR)/tests/test_anim.cpp $(ANIM_TEST_OBJS)
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim
+# Test campaign system
+test_campaign: $(BUILD_DIR)/test_campaign
+	@echo "Running campaign system tests..."
+	@./$(BUILD_DIR)/test_campaign
+
+CAMPAIGN_TEST_OBJS = $(BUILD_DIR)/game/campaign.o $(BUILD_DIR)/game/scenario.o \
+                     $(BUILD_DIR)/game/house.o $(BUILD_DIR)/game/team.o \
+                     $(BUILD_DIR)/game/trigger.o $(BUILD_DIR)/game/ini.o \
+                     $(BUILD_DIR)/game/object.o
+
+$(BUILD_DIR)/test_campaign: $(SRC_DIR)/tests/test_campaign.cpp $(CAMPAIGN_TEST_OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign
