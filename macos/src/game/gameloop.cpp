@@ -8,6 +8,9 @@
 #include "compat/windows.h"
 #include <cstdio>
 
+// Global frame counter (used by save/load system)
+uint32_t Frame = 0;
+
 // Game loop state
 static struct {
     GameState state;

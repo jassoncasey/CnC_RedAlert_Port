@@ -5,9 +5,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 ## Current Status
 
 **Phase 1 Complete** - Infrastructure and demo gameplay working.
-**Phase 2 In Progress** - Porting original game logic (M15-M23 done).
+**Phase 2 In Progress** - Porting original game logic (M15-M25 done).
 
-### Completed (Milestones 0-23)
+### Completed (Milestones 0-25)
 
 | Component | Status |
 |-----------|--------|
@@ -30,8 +30,9 @@ Native macOS port of the classic Command & Conquer: Red Alert (1996).
 | Scenarios & Triggers (26 tests) | ✓ |
 | Sidebar & Production (22 tests) | ✓ |
 | Radar/Minimap (21 tests) | ✓ |
+| Save/Load System (18 tests) | ✓ |
 
-### In Progress (Milestones 25+)
+### In Progress (Milestones 26+)
 
 See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 
@@ -39,7 +40,7 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed roadmap.
 |-------|------------|--------|
 | Phase 2: Core Engine | M15-M22 ✓ | Complete |
 | Phase 3: Game Systems | M23 ✓ | Complete |
-| Phase 4: UI & Polish | M24 ✓, M25-M27 | In Progress |
+| Phase 4: UI & Polish | M24-M25 ✓, M26-M27 | In Progress |
 | Phase 5: Media | M28-M29 | Deferred |
 
 ---
@@ -179,7 +180,7 @@ CnC_Red_Alert/
 | Triggers | TRIGGER.CPP | ✓ Complete |
 | Sidebar | SIDEBAR.CPP, FACTORY.CPP | ✓ Complete (22 tests) |
 | Minimap | RADAR.CPP | ✓ Complete (21 tests) |
-| Save/Load | SAVELOAD.CPP | Not started |
+| Save/Load | SAVELOAD.CPP | ✓ Complete (18 tests) |
 
 ### Deferred
 
