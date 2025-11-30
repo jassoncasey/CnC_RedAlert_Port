@@ -1,39 +1,65 @@
+# Command & Conquer: Red Alert - macOS Port
 
-# Command & Conquer Red Alert
+Native macOS port of the classic Command & Conquer: Red Alert (1996).
 
-This repository includes source code for Command & Conquer Red Alert. This release provides support to the [Steam Workshop](https://steamcommunity.com/workshop/browse/?appid=2229840) for the game.
+## Current Status: Milestone 2 Complete
 
+| Milestone | Status | Description |
+|-----------|--------|-------------|
+| 0. Repo Setup | Done | Directory structure, original code isolated |
+| 1. Minimal Build | Done | AppKit window, Metal view, Cmd+Q quit |
+| 2. Compat Layer | Done | Windows API stubs for compilation |
+| 3. File I/O | Pending | POSIX file abstraction |
+| 4. Timing | Pending | Game timer implementation |
+| 5. Stub Assets | Pending | Placeholder graphics/audio |
+| 6. Graphics | Pending | Metal renderer |
+| 7. Input | Pending | Keyboard/mouse handling |
+| 8. Game Loop | Pending | Core loop integration |
+| 9. Rendering | Pending | Sprite/shape drawing |
+| 10. Audio | Pending | CoreAudio sound effects |
+| 11. Menus | Pending | Menu navigation |
+| 12. Real Assets | Pending | MIX/SHP/AUD loading |
+| 13. Gameplay | Pending | Playable mission |
+| 14. Polish | Pending | App bundle, fullscreen |
 
-## Dependencies
+## Target Platform
 
-If you wish to rebuild the source code and tools successfully you will need to find or write new replacements (or remove the code using them entirely) for the following libraries;
+- macOS 14+ (Sonoma)
+- Apple Silicon (ARM64)
+- Metal graphics
+- CoreAudio sound
 
-- DirectX 5 SDK
-- DirectX Media 5.1 SDK
-- Greenleaf Communications Library (GCL)
-- Human Machine Interface (HMI) “Sound Operating System” (SOS)
+## Building
 
+```bash
+cd macos
+make
+./RedAlert.app/Contents/MacOS/RedAlert
+```
 
-## Compiling (Win32 Only)
+## Repository Structure
 
-The current state of the source code does not fully compile and will require some effort to restore it. If you wish to restore the original build environment, the following tools are required;
+```
+CnC_Red_Alert/
+├── original/          # Original Windows source (read-only reference)
+├── macos/             # macOS port
+│   ├── src/           # Source code
+│   ├── include/compat # Windows API compatibility headers
+│   └── resources/     # App bundle resources
+├── PORTING_PLAN.md    # Detailed milestone plan
+└── LICENSE.md         # GPL v3
+```
 
-- Watcom C/C++ (v10.6) for C/C++ source files
-- Borland Turbo Assembler (TASM v4.0) for assembly files
+## Game Assets
 
-To use the compiled binaries, you must own the game. The C&C Ultimate Collection is available for purchase on [EA App](https://www.ea.com/en-gb/games/command-and-conquer/command-and-conquer-the-ultimate-collection/buy/pc) or [Steam](https://store.steampowered.com/bundle/39394/Command__Conquer_The_Ultimate_Collection/).
+Game assets are **not included** in this repository. The original game was released as freeware by EA in 2008. For development, we use stub assets. For gameplay, obtain assets from the freeware release.
 
+## Deferred Features
 
-## Contributing
-
-This repository will not be accepting contributions (pull requests, issues, etc). If you wish to create changes to the source code and encourage collaboration, please create a fork of the repository under your GitHub user/organization space.
-
-
-## Support
-
-This repository is for preservation purposes only and is archived without support. 
-
+- Networking (TCP/IP, IPX) - stubbed for later
+- MIDI music - stubbed for later
+- Intel x86_64 - ARM64 only for now
 
 ## License
 
-This repository and its contents are licensed under the GPL v3 license, with additional terms applied. Please see [LICENSE.md](LICENSE.md) for details.
+Original source code is GPL v3 (see LICENSE.md).

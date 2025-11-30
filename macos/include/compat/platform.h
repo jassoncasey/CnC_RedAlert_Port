@@ -40,8 +40,9 @@ typedef wchar_t  WCHAR;
 typedef float    FLOAT;
 
 // Pointer types
-typedef void    *PVOID;
-typedef void    *LPVOID;
+typedef void       *PVOID;
+typedef void       *LPVOID;
+typedef const void *LPCVOID;
 typedef BYTE    *LPBYTE;
 typedef WORD    *LPWORD;
 typedef DWORD   *LPDWORD;
@@ -69,8 +70,7 @@ typedef HANDLE   HRGN;
 typedef HANDLE   HGLOBAL;
 typedef HANDLE   HLOCAL;
 
-// Special values
-#define NULL nullptr
+// Special values (NULL already defined by system headers)
 #define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
 
 // Boolean constants
