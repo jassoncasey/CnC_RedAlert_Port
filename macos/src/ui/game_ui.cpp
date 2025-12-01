@@ -59,6 +59,13 @@ static int g_structureProgress = 0;    // Progress 0-100
 static int g_unitProducing = -1;       // Index in g_unitDefs being built
 static int g_unitProgress = 0;         // Progress 0-100
 
+// Placement mode state
+static bool g_placementMode = false;   // Are we placing a building?
+static int g_placementType = -1;       // Index in g_structureDefs being placed
+static int g_placementCellX = 0;       // Current cursor cell position
+static int g_placementCellY = 0;
+static bool g_placementValid = false;  // Is current placement position valid?
+
 //===========================================================================
 // Build Item Definitions
 //===========================================================================
@@ -70,27 +77,31 @@ struct BuildItemDef {
     int buildTime;  // Frames to complete at normal speed
     bool isUnit;    // true = unit, false = structure
     int spawnType;  // UnitType or BuildingType to spawn
+    int width;      // Building width in cells (structures only)
+    int height;     // Building height in cells (structures only)
     bool requiresBarracks;
     bool requiresFactory;
 };
 
 // Available structures (simplified tech tree for demo)
+// Dimensions: Power=2x2, Refinery=3x3, Barracks=2x2, Factory=3x3
 static BuildItemDef g_structureDefs[] = {
-    {"POWR", "Power Plant", 300, 300, false, BUILDING_POWER, false, false},
-    {"PROC", "Refinery", 2000, 600, false, BUILDING_REFINERY, false, false},
-    {"TENT", "Barracks", 500, 400, false, BUILDING_BARRACKS, false, false},
-    {"WEAP", "War Factory", 2000, 600, false, BUILDING_FACTORY, true, false},
+    {"POWR", "Power Plant", 300, 300, false, BUILDING_POWER, 2, 2, false, false},
+    {"PROC", "Refinery", 2000, 600, false, BUILDING_REFINERY, 3, 3, false, false},
+    {"TENT", "Barracks", 500, 400, false, BUILDING_BARRACKS, 2, 2, false, false},
+    {"WEAP", "War Factory", 2000, 600, false, BUILDING_FACTORY, 3, 3, true, false},
 };
 static const int g_structureDefCount = 4;
 
 // Available units (simplified tech tree)
+// Units have width/height=1 (unused but struct requires it)
 static BuildItemDef g_unitDefs[] = {
-    {"E1", "Rifle Infantry", 100, 150, true, UNIT_RIFLE, true, false},
-    {"E2", "Grenadier", 160, 180, true, UNIT_GRENADIER, true, false},
-    {"E3", "Rocket Soldier", 300, 200, true, UNIT_ROCKET, true, false},
-    {"ENG", "Engineer", 500, 200, true, UNIT_ENGINEER, true, false},
-    {"1TNK", "Light Tank", 700, 300, true, UNIT_TANK_LIGHT, false, true},
-    {"2TNK", "Medium Tank", 800, 350, true, UNIT_TANK_MEDIUM, false, true},
+    {"E1", "Rifle Infantry", 100, 150, true, UNIT_RIFLE, 1, 1, true, false},
+    {"E2", "Grenadier", 160, 180, true, UNIT_GRENADIER, 1, 1, true, false},
+    {"E3", "Rocket Soldier", 300, 200, true, UNIT_ROCKET, 1, 1, true, false},
+    {"ENG", "Engineer", 500, 200, true, UNIT_ENGINEER, 1, 1, true, false},
+    {"1TNK", "Light Tank", 700, 300, true, UNIT_TANK_LIGHT, 1, 1, false, true},
+    {"2TNK", "Medium Tank", 800, 350, true, UNIT_TANK_MEDIUM, 1, 1, false, true},
 };
 static const int g_unitDefCount = 6;
 
@@ -111,6 +122,9 @@ void GameUI_Init(void) {
     g_structureProgress = 0;
     g_unitProducing = -1;
     g_unitProgress = 0;
+    g_placementMode = false;
+    g_placementType = -1;
+    g_placementValid = false;
     g_hasBarracks = true;
     g_hasFactory = true;
 }
@@ -134,6 +148,147 @@ static bool CheckPrerequisites(const BuildItemDef* item) {
 }
 
 //===========================================================================
+// Placement Validation
+//===========================================================================
+
+/**
+ * Check if a building can be placed at the given cell position.
+ * Validates terrain and existing buildings/units.
+ */
+static bool CanPlaceAt(int cellX, int cellY, int width, int height) {
+    // Check all cells the building would occupy
+    for (int dy = 0; dy < height; dy++) {
+        for (int dx = 0; dx < width; dx++) {
+            int cx = cellX + dx;
+            int cy = cellY + dy;
+
+            // Check map bounds
+            if (cx < 0 || cy < 0 || cx >= Map_GetWidth() || cy >= Map_GetHeight()) {
+                return false;
+            }
+
+            // Check terrain is passable (not water/rock/building)
+            MapCell* cell = Map_GetCell(cx, cy);
+            if (!cell) return false;
+
+            if (cell->terrain == TERRAIN_WATER ||
+                cell->terrain == TERRAIN_ROCK ||
+                cell->terrain == TERRAIN_BUILDING) {
+                return false;
+            }
+
+            // Check no existing building at this cell
+            if (cell->buildingId >= 0) {
+                return false;
+            }
+
+            // Check no unit occupying cell
+            if (cell->unitId >= 0) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
+ * Update placement cursor position based on mouse coordinates.
+ */
+void GameUI_UpdatePlacement(int mouseX, int mouseY) {
+    if (!g_placementMode || g_placementType < 0) return;
+
+    // Only update if mouse is in game area (not sidebar)
+    if (mouseX >= SIDEBAR_X) return;
+
+    // Convert screen to world coordinates
+    int worldX, worldY;
+    Map_ScreenToWorld(mouseX, mouseY, &worldX, &worldY);
+
+    // Convert to cell coordinates
+    g_placementCellX = worldX / CELL_SIZE;
+    g_placementCellY = worldY / CELL_SIZE;
+
+    // Validate placement
+    const BuildItemDef* item = &g_structureDefs[g_placementType];
+    g_placementValid = CanPlaceAt(g_placementCellX, g_placementCellY, item->width, item->height);
+}
+
+/**
+ * Attempt to place the building at current cursor position.
+ * @return true if building was placed
+ */
+static bool TryPlaceBuilding(void) {
+    if (!g_placementMode || g_placementType < 0) return false;
+    if (!g_placementValid) return false;
+
+    const BuildItemDef* item = &g_structureDefs[g_placementType];
+
+    // Spawn the building
+    int id = Buildings_Spawn((BuildingType)item->spawnType, TEAM_PLAYER,
+                             g_placementCellX, g_placementCellY);
+    if (id < 0) return false;
+
+    // Mark cells as occupied
+    for (int dy = 0; dy < item->height; dy++) {
+        for (int dx = 0; dx < item->width; dx++) {
+            MapCell* cell = Map_GetCell(g_placementCellX + dx, g_placementCellY + dy);
+            if (cell) {
+                cell->terrain = TERRAIN_BUILDING;
+                cell->buildingId = id;
+            }
+        }
+    }
+
+    // Update prerequisites based on what was built
+    BuildingType btype = (BuildingType)item->spawnType;
+    if (btype == BUILDING_BARRACKS) g_hasBarracks = true;
+    if (btype == BUILDING_FACTORY) g_hasFactory = true;
+
+    // Exit placement mode
+    g_placementMode = false;
+    g_structureProducing = -1;
+    g_structureProgress = 0;
+    g_placementType = -1;
+
+    return true;
+}
+
+/**
+ * Cancel placement mode (refund if desired, or just cancel).
+ */
+static void CancelPlacement(void) {
+    if (!g_placementMode) return;
+
+    // Refund the cost
+    if (g_placementType >= 0) {
+        g_playerCredits += g_structureDefs[g_placementType].cost;
+    }
+
+    g_placementMode = false;
+    g_structureProducing = -1;
+    g_structureProgress = 0;
+    g_placementType = -1;
+}
+
+/**
+ * Check if we're in placement mode.
+ */
+bool GameUI_IsPlacementMode(void) {
+    return g_placementMode;
+}
+
+/**
+ * Handle ESC key to cancel placement.
+ */
+bool GameUI_HandleEscape(void) {
+    if (g_placementMode) {
+        CancelPlacement();
+        return true;
+    }
+    return false;
+}
+
+//===========================================================================
 // Update
 //===========================================================================
 
@@ -142,7 +297,7 @@ void GameUI_Update(void) {
     g_flashFrame = (g_flashFrame + 1) % 20;
 
     // Update structure production
-    if (g_structureProducing >= 0) {
+    if (g_structureProducing >= 0 && !g_placementMode) {
         BuildItemDef* item = &g_structureDefs[g_structureProducing];
 
         // Calculate progress increment (100% over buildTime frames)
@@ -150,10 +305,10 @@ void GameUI_Update(void) {
         g_structureProgress += progressPerFrame;
 
         if (g_structureProgress >= 10000) {  // 100.00%
-            // Structure complete - for demo, just finish
-            // Real implementation would enter placement mode
-            g_structureProducing = -1;
-            g_structureProgress = 0;
+            // Structure complete - enter placement mode
+            g_placementMode = true;
+            g_placementType = g_structureProducing;
+            g_structureProgress = 10000;  // Keep at 100%
         }
     }
 
@@ -200,6 +355,79 @@ static void DrawBeveledBox(int x, int y, int w, int h, uint8_t bgColor, bool rai
 }
 
 //===========================================================================
+// Placement Footprint Rendering
+//===========================================================================
+
+void GameUI_RenderPlacement(void) {
+    if (!g_placementMode || g_placementType < 0) return;
+
+    const BuildItemDef* item = &g_structureDefs[g_placementType];
+    int width = item->width;
+    int height = item->height;
+
+    // Get viewport for screen coordinate conversion
+    Viewport* vp = Map_GetViewport();
+    if (!vp) return;
+
+    // Calculate screen position of top-left corner
+    int worldX = g_placementCellX * CELL_SIZE;
+    int worldY = g_placementCellY * CELL_SIZE;
+    int screenX = worldX - vp->x;
+    int screenY = worldY - vp->y;
+
+    // Don't draw if completely off screen
+    if (screenX + width * CELL_SIZE < 0 || screenX >= SIDEBAR_X) return;
+    if (screenY + height * CELL_SIZE < 0 || screenY >= SIDEBAR_HEIGHT) return;
+
+    // Choose color based on validity - pulsing effect
+    uint8_t baseColor = g_placementValid ? PAL_LTGREEN : PAL_RED;
+    uint8_t pulseColor = g_placementValid ? PAL_GREEN : PAL_PINK;
+    uint8_t color = (g_flashFrame < 10) ? baseColor : pulseColor;
+
+    // Draw individual cells to show footprint
+    for (int dy = 0; dy < height; dy++) {
+        for (int dx = 0; dx < width; dx++) {
+            int cellScreenX = screenX + dx * CELL_SIZE;
+            int cellScreenY = screenY + dy * CELL_SIZE;
+
+            // Skip if this cell is off screen
+            if (cellScreenX < 0 || cellScreenX >= SIDEBAR_X) continue;
+            if (cellScreenY < 0 || cellScreenY >= SIDEBAR_HEIGHT) continue;
+
+            // Check if this specific cell is valid
+            MapCell* cell = Map_GetCell(g_placementCellX + dx, g_placementCellY + dy);
+            bool cellValid = cell &&
+                            cell->terrain != TERRAIN_WATER &&
+                            cell->terrain != TERRAIN_ROCK &&
+                            cell->terrain != TERRAIN_BUILDING &&
+                            cell->buildingId < 0 &&
+                            cell->unitId < 0;
+
+            uint8_t cellColor = cellValid ? color : PAL_RED;
+
+            // Draw cell outline
+            Renderer_DrawRect(cellScreenX, cellScreenY, CELL_SIZE, CELL_SIZE, cellColor);
+
+            // Draw X pattern for invalid cells
+            if (!cellValid) {
+                Renderer_DrawLine(cellScreenX + 2, cellScreenY + 2,
+                                  cellScreenX + CELL_SIZE - 3, cellScreenY + CELL_SIZE - 3, PAL_RED);
+                Renderer_DrawLine(cellScreenX + CELL_SIZE - 3, cellScreenY + 2,
+                                  cellScreenX + 2, cellScreenY + CELL_SIZE - 3, PAL_RED);
+            }
+        }
+    }
+
+    // Draw outer boundary
+    Renderer_DrawRect(screenX, screenY, width * CELL_SIZE, height * CELL_SIZE, color);
+
+    // Draw building name above cursor
+    if (screenY > 12) {
+        Renderer_DrawText(item->name, screenX + 2, screenY - 10, color, 0);
+    }
+}
+
+//===========================================================================
 // Main Render
 //===========================================================================
 
@@ -218,6 +446,9 @@ void GameUI_Render(void) {
     GameUI_RenderSidebar();
     GameUI_RenderSelectionPanel();
     GameUI_RenderHUD();
+
+    // Draw placement cursor (after sidebar so it's on top)
+    GameUI_RenderPlacement();
 }
 
 //===========================================================================
@@ -225,7 +456,27 @@ void GameUI_Render(void) {
 //===========================================================================
 
 BOOL GameUI_HandleInput(int mouseX, int mouseY, BOOL leftClick, BOOL rightClick) {
-    (void)rightClick;
+    // Update placement cursor position (always, for smooth tracking)
+    GameUI_UpdatePlacement(mouseX, mouseY);
+
+    // Handle placement mode clicks in game area
+    if (g_placementMode && mouseX < SIDEBAR_X) {
+        if (leftClick) {
+            // Try to place building
+            if (TryPlaceBuilding()) {
+                return TRUE;  // Building placed
+            }
+            // Invalid placement - don't consume click (user can see error)
+            return TRUE;
+        }
+        if (rightClick) {
+            // Right-click cancels placement
+            CancelPlacement();
+            return TRUE;
+        }
+        // In placement mode, game area is reserved for placement
+        return TRUE;
+    }
 
     // Check radar clicks
     if (mouseX >= RADAR_X && mouseX < RADAR_X + RADAR_WIDTH &&
@@ -449,13 +700,19 @@ void GameUI_RenderSidebar(void) {
 
         // Cost or progress
         if (isBuilding) {
-            char progressStr[16];
-            snprintf(progressStr, sizeof(progressStr), "%d%%", progress);
-            Renderer_DrawText(progressStr, SIDEBAR_X + 8, startY + 11, PAL_LTGREEN, 0);
+            if (g_placementMode && g_placementType == i) {
+                // Ready for placement - pulsing text
+                uint8_t readyColor = (g_flashFrame < 10) ? PAL_WHITE : PAL_LTGREEN;
+                Renderer_DrawText("READY", SIDEBAR_X + 8, startY + 11, readyColor, 0);
+            } else {
+                char progressStr[16];
+                snprintf(progressStr, sizeof(progressStr), "%d%%", progress);
+                Renderer_DrawText(progressStr, SIDEBAR_X + 8, startY + 11, PAL_LTGREEN, 0);
 
-            // Progress bar
-            int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
-            Renderer_FillRect(SIDEBAR_X + 8, startY + 16, barW, 2, PAL_LTGREEN);
+                // Progress bar
+                int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
+                Renderer_FillRect(SIDEBAR_X + 8, startY + 16, barW, 2, PAL_LTGREEN);
+            }
         } else if (available) {
             char costStr[16];
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
@@ -463,6 +720,14 @@ void GameUI_RenderSidebar(void) {
         }
 
         startY += 22;
+    }
+
+    // Placement hint
+    if (g_placementMode) {
+        Renderer_DrawText("Click map", SIDEBAR_X + 6, startY, PAL_WHITE, 0);
+        Renderer_DrawText("to place", SIDEBAR_X + 8, startY + 10, PAL_LTGREY, 0);
+        Renderer_DrawText("ESC=cancel", SIDEBAR_X + 4, startY + 20, PAL_GREY, 0);
+        startY += 34;
     }
 
     startY += 4;

@@ -102,18 +102,22 @@ uint32_t Mix_CalculateCRC(const char* name) {
 }
 
 // Binary search for entry by CRC
+// NOTE: MIX entries are sorted by SIGNED int32 comparison, not unsigned!
 static MixEntry* FindEntry(MixFile* mix, uint32_t crc) {
     if (!mix || !mix->entries) return nullptr;
 
-    // Entries are sorted by CRC for binary search
+    // Entries are sorted by signed CRC for binary search
     int lo = 0;
     int hi = mix->header.count - 1;
+    int32_t targetSigned = (int32_t)crc;
 
     while (lo <= hi) {
         int mid = (lo + hi) / 2;
-        if (mix->entries[mid].crc == crc) {
+        int32_t entrySigned = (int32_t)mix->entries[mid].crc;
+
+        if (entrySigned == targetSigned) {
             return &mix->entries[mid];
-        } else if (mix->entries[mid].crc < crc) {
+        } else if (entrySigned < targetSigned) {
             lo = mid + 1;
         } else {
             hi = mid - 1;

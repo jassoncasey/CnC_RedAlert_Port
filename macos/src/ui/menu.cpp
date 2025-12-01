@@ -1,5 +1,7 @@
 /**
  * Red Alert macOS Port - Menu System Implementation
+ *
+ * Styled to match the original Westwood Red Alert menus.
  */
 
 #include "menu.h"
@@ -10,6 +12,31 @@
 #include <cstring>
 #include <cstdlib>
 
+// Westwood-style palette indices (approximate)
+// These match the snow.pal colors
+#define PAL_BLACK       0
+#define PAL_DARKGREY    1
+#define PAL_GREY        13
+#define PAL_LTGREY      14
+#define PAL_WHITE       15
+#define PAL_RED         120   // Bright red
+#define PAL_DARKRED     123   // Dark red
+#define PAL_GOLD        127   // Gold/yellow
+#define PAL_GREEN       159   // Green
+#define PAL_DARKGREEN   161
+#define PAL_BLUE        180   // Blue
+#define PAL_DARKBLUE    183
+
+// Button color scheme
+#define BTN_FACE        13    // Button face color (grey)
+#define BTN_HIGHLIGHT   15    // Top/left edge (white)
+#define BTN_SHADOW      1     // Bottom/right edge (dark)
+#define BTN_TEXT        15    // Normal text
+#define BTN_TEXT_HOVER  127   // Hovered text (gold)
+#define BTN_TEXT_DISABLED 7   // Disabled text
+#define BTN_FACE_HOVER  14    // Lighter grey on hover
+#define BTN_FACE_PRESSED 1    // Dark when pressed
+
 // Global state
 static MenuScreen g_currentScreen = MENU_SCREEN_NONE;
 static Menu* g_mainMenu = nullptr;
@@ -19,6 +46,9 @@ static NewGameCallback g_newGameCallback = nullptr;
 // Sound effects for menus
 static AudioSample* g_clickSound = nullptr;
 static AudioSample* g_hoverSound = nullptr;
+
+// Animation frame counter
+static int g_menuFrame = 0;
 
 // Forward declarations for callbacks
 static void OnMainMenuButton(int itemId, int value);
@@ -38,50 +68,137 @@ enum {
     TGL_FULLSCREEN
 };
 
+//===========================================================================
+// Background Rendering
+//===========================================================================
+
+static void DrawMenuBackground(void) {
+    // Dark gradient background - simulate with horizontal bands
+    for (int y = 0; y < 400; y++) {
+        // Gradient from very dark at top to slightly less dark at bottom
+        uint8_t color;
+        if (y < 80) {
+            color = 0;  // Black at top
+        } else if (y < 320) {
+            color = 1;  // Dark grey for main area
+        } else {
+            color = 0;  // Black at bottom
+        }
+        Renderer_HLine(0, 639, y, color);
+    }
+
+    // Title banner area (top 80 pixels)
+    // Red gradient banner
+    for (int y = 20; y < 70; y++) {
+        uint8_t intensity = (y < 45) ? 120 : 123;  // Red shades
+        Renderer_HLine(100, 540, y, intensity);
+    }
+
+    // Banner border
+    Renderer_HLine(100, 540, 19, PAL_DARKRED);
+    Renderer_HLine(100, 540, 70, PAL_DARKRED);
+    Renderer_VLine(100, 19, 70, PAL_DARKRED);
+    Renderer_VLine(540, 19, 70, PAL_DARKRED);
+
+    // Inner highlight
+    Renderer_HLine(101, 539, 20, PAL_RED);
+    Renderer_VLine(101, 20, 69, PAL_RED);
+}
+
+//===========================================================================
+// 3D Beveled Button Drawing
+//===========================================================================
+
+static void DrawBeveledButton(int x, int y, int w, int h, bool pressed, bool hover, bool enabled) {
+    // Button face
+    uint8_t faceColor;
+    if (!enabled) {
+        faceColor = BTN_FACE;
+    } else if (pressed) {
+        faceColor = BTN_FACE_PRESSED;
+    } else if (hover) {
+        faceColor = BTN_FACE_HOVER;
+    } else {
+        faceColor = BTN_FACE;
+    }
+
+    Renderer_FillRect(x + 1, y + 1, w - 2, h - 2, faceColor);
+
+    if (!pressed) {
+        // Raised button - light top/left, dark bottom/right
+        // Top edge (highlight)
+        Renderer_HLine(x, x + w - 1, y, BTN_HIGHLIGHT);
+        Renderer_HLine(x + 1, x + w - 2, y + 1, BTN_HIGHLIGHT);
+
+        // Left edge (highlight)
+        Renderer_VLine(x, y, y + h - 1, BTN_HIGHLIGHT);
+        Renderer_VLine(x + 1, y + 1, y + h - 2, BTN_HIGHLIGHT);
+
+        // Bottom edge (shadow)
+        Renderer_HLine(x, x + w - 1, y + h - 1, BTN_SHADOW);
+        Renderer_HLine(x + 1, x + w - 2, y + h - 2, BTN_SHADOW);
+
+        // Right edge (shadow)
+        Renderer_VLine(x + w - 1, y, y + h - 1, BTN_SHADOW);
+        Renderer_VLine(x + w - 2, y + 1, y + h - 2, BTN_SHADOW);
+    } else {
+        // Pressed button - dark top/left, light bottom/right (inverted)
+        // Top edge (shadow)
+        Renderer_HLine(x, x + w - 1, y, BTN_SHADOW);
+        Renderer_HLine(x + 1, x + w - 2, y + 1, BTN_SHADOW);
+
+        // Left edge (shadow)
+        Renderer_VLine(x, y, y + h - 1, BTN_SHADOW);
+        Renderer_VLine(x + 1, y + 1, y + h - 2, BTN_SHADOW);
+
+        // Bottom edge (highlight)
+        Renderer_HLine(x, x + w - 1, y + h - 1, BTN_HIGHLIGHT);
+
+        // Right edge (highlight)
+        Renderer_VLine(x + w - 1, y, y + h - 1, BTN_HIGHLIGHT);
+    }
+}
+
+//===========================================================================
+// Menu Initialization
+//===========================================================================
+
 void Menu_Init(void) {
     // Create click sound (short high beep)
     g_clickSound = Audio_CreateTestTone(880, 50);
     g_hoverSound = Audio_CreateTestTone(440, 30);
 
     // Create main menu
-    // Westwood palette: BLACK=12, WHITE=15, LTGREY=14, GREY=13, RED=8, LTGREEN=4
     g_mainMenu = Menu_Create("RED ALERT");
-    Menu_SetColors(g_mainMenu, 12, 15, 8, 13);  // Black bg, white text, red highlight, grey disabled
+    Menu_SetColors(g_mainMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
 
     int centerX = 320;
-    int btnWidth = 200;
-    int btnHeight = 30;
-    int startY = 100;
-    int spacing = 40;
+    int btnWidth = 180;
+    int btnHeight = 24;
+    int startY = 120;
+    int spacing = 32;
 
-    Menu_AddLabel(g_mainMenu, 0, "COMMAND & CONQUER", centerX - 100, 40);
-    Menu_AddLabel(g_mainMenu, 0, "RED ALERT", centerX - 50, 60);
+    // Title labels are handled specially in render
 
-    Menu_AddButton(g_mainMenu, BTN_NEW_GAME, "NEW GAME", centerX - btnWidth/2, startY, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_AddButton(g_mainMenu, BTN_LOAD_GAME, "LOAD GAME", centerX - btnWidth/2, startY + spacing, btnWidth, btnHeight, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_NEW_GAME, "START NEW GAME", centerX - btnWidth/2, startY, btnWidth, btnHeight, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_LOAD_GAME, "LOAD MISSION", centerX - btnWidth/2, startY + spacing, btnWidth, btnHeight, OnMainMenuButton);
     Menu_SetItemEnabled(g_mainMenu, BTN_LOAD_GAME, FALSE); // Not implemented
-    Menu_AddButton(g_mainMenu, BTN_MULTIPLAYER, "MULTIPLAYER", centerX - btnWidth/2, startY + spacing*2, btnWidth, btnHeight, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_MULTIPLAYER, "MULTIPLAYER GAME", centerX - btnWidth/2, startY + spacing*2, btnWidth, btnHeight, OnMainMenuButton);
     Menu_SetItemEnabled(g_mainMenu, BTN_MULTIPLAYER, FALSE); // Not implemented
 
     Menu_AddButton(g_mainMenu, BTN_OPTIONS, "OPTIONS", centerX - btnWidth/2, startY + spacing*3, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_AddButton(g_mainMenu, BTN_CREDITS, "CREDITS", centerX - btnWidth/2, startY + spacing*4, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_AddSeparator(g_mainMenu, startY + spacing*5);
-    Menu_AddButton(g_mainMenu, BTN_EXIT, "EXIT", centerX - btnWidth/2, startY + spacing*5 + 20, btnWidth, btnHeight, OnMainMenuButton);
-
-    Menu_AddLabel(g_mainMenu, 0, "MACOS PORT - MILESTONE 11", centerX - 100, 360);
+    Menu_AddButton(g_mainMenu, BTN_CREDITS, "INTRO & CREDITS", centerX - btnWidth/2, startY + spacing*4, btnWidth, btnHeight, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_EXIT, "EXIT GAME", centerX - btnWidth/2, startY + spacing*5 + 16, btnWidth, btnHeight, OnMainMenuButton);
 
     // Create options menu
     g_optionsMenu = Menu_Create("OPTIONS");
-    Menu_SetColors(g_optionsMenu, 12, 15, 4, 13);  // Black bg, white text, green highlight, grey disabled
+    Menu_SetColors(g_optionsMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
 
-    Menu_AddLabel(g_optionsMenu, 0, "OPTIONS", centerX - 40, 50);
+    Menu_AddSlider(g_optionsMenu, SLD_SOUND_VOL, "SOUND VOLUME", centerX - 100, 140, 200, 0, 255, 255, OnOptionsButton);
+    Menu_AddSlider(g_optionsMenu, SLD_MUSIC_VOL, "MUSIC VOLUME", centerX - 100, 200, 200, 0, 255, 200, OnOptionsButton);
+    Menu_AddToggle(g_optionsMenu, TGL_FULLSCREEN, "FULLSCREEN", centerX - 80, 260, FALSE, OnOptionsButton);
 
-    Menu_AddSlider(g_optionsMenu, SLD_SOUND_VOL, "SOUND VOLUME", centerX - 150, 120, 200, 0, 255, 255, OnOptionsButton);
-    Menu_AddSlider(g_optionsMenu, SLD_MUSIC_VOL, "MUSIC VOLUME", centerX - 150, 170, 200, 0, 255, 200, OnOptionsButton);
-    Menu_AddToggle(g_optionsMenu, TGL_FULLSCREEN, "FULLSCREEN", centerX - 100, 220, FALSE, OnOptionsButton);
-
-    Menu_AddSeparator(g_optionsMenu, 280);
-    Menu_AddButton(g_optionsMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 300, btnWidth, btnHeight, OnOptionsButton);
+    Menu_AddButton(g_optionsMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 320, btnWidth, btnHeight, OnOptionsButton);
 }
 
 void Menu_Shutdown(void) {
@@ -111,9 +228,9 @@ Menu* Menu_Create(const char* title) {
     menu->hoveredIndex = -1;
     menu->active = TRUE;
     menu->bgColor = 0;
-    menu->textColor = 15;
-    menu->highlightColor = 14;
-    menu->disabledColor = 7;
+    menu->textColor = BTN_TEXT;
+    menu->highlightColor = BTN_TEXT_HOVER;
+    menu->disabledColor = BTN_TEXT_DISABLED;
     return menu;
 }
 
@@ -269,6 +386,8 @@ int Menu_GetItemValue(Menu* menu, int id) {
 void Menu_Update(Menu* menu) {
     if (!menu || !menu->active) return;
 
+    g_menuFrame++;
+
     int mx = Input_GetMouseX();
     int my = Input_GetMouseY();
     BOOL leftDown = (Input_GetMouseButtons() & INPUT_MOUSE_LEFT) != 0;
@@ -300,35 +419,41 @@ void Menu_Update(Menu* menu) {
 void Menu_Render(Menu* menu) {
     if (!menu) return;
 
-    // Draw background
-    Renderer_Clear(menu->bgColor);
+    // Draw styled background
+    DrawMenuBackground();
 
-    // Draw items
+    // Draw title text in banner
+    // "COMMAND & CONQUER" in gold
+    Renderer_DrawText("COMMAND & CONQUER", 220, 30, PAL_GOLD, 0);
+    // "RED ALERT" larger below
+    Renderer_DrawText("RED ALERT", 268, 48, PAL_WHITE, 0);
+
+    // Draw menu items
     for (int i = 0; i < menu->itemCount; i++) {
         MenuItem* item = &menu->items[i];
         if (!item->visible) continue;
 
+        bool isHovered = (item->state == MENU_STATE_HOVER || i == menu->selectedIndex);
+        bool isPressed = (item->state == MENU_STATE_PRESSED);
+
         uint8_t textColor = menu->textColor;
         if (!item->enabled) textColor = menu->disabledColor;
-        else if (item->state == MENU_STATE_HOVER || i == menu->selectedIndex) textColor = menu->highlightColor;
+        else if (isHovered) textColor = menu->highlightColor;
 
         switch (item->type) {
             case MENU_ITEM_BUTTON: {
-                // Draw button background using Westwood palette
-                // BLUE=11, RED=8, LTGREEN=4, GREY=13, BLACK=12
-                uint8_t bgColor = 11; // Blue for normal
-                if (item->state == MENU_STATE_PRESSED) bgColor = 8; // Red when pressed
-                else if (item->state == MENU_STATE_HOVER || i == menu->selectedIndex) bgColor = 4; // Green on hover
+                // Draw 3D beveled button
+                DrawBeveledButton(item->x, item->y, item->width, item->height,
+                                  isPressed, isHovered, item->enabled);
 
-                if (!item->enabled) bgColor = 13; // Grey for disabled
-
-                Renderer_FillRect(item->x, item->y, item->width, item->height, bgColor);
-                Renderer_DrawRect(item->x, item->y, item->width, item->height, textColor);
-
-                // Center text
+                // Center text (offset by 1 when pressed for depth effect)
                 int textLen = (int)strlen(item->text) * 8;
                 int textX = item->x + (item->width - textLen) / 2;
                 int textY = item->y + (item->height - 8) / 2;
+                if (isPressed) {
+                    textX++;
+                    textY++;
+                }
                 Renderer_DrawText(item->text, textX, textY, textColor, 0);
                 break;
             }
@@ -338,43 +463,69 @@ void Menu_Render(Menu* menu) {
                 break;
 
             case MENU_ITEM_SEPARATOR:
-                Renderer_HLine(50, 590, item->y, menu->disabledColor);
+                // Beveled separator line
+                Renderer_HLine(120, 520, item->y, BTN_SHADOW);
+                Renderer_HLine(120, 520, item->y + 1, BTN_HIGHLIGHT);
                 break;
 
             case MENU_ITEM_SLIDER: {
                 // Label
                 Renderer_DrawText(item->text, item->x, item->y, textColor, 0);
 
-                // Slider track
-                int trackY = item->y + 15;
-                Renderer_FillRect(item->x, trackY, item->width, 10, 1);
-                Renderer_DrawRect(item->x, trackY, item->width, 10, menu->disabledColor);
+                // Slider track (sunken)
+                int trackY = item->y + 20;
+                int trackH = 12;
 
-                // Slider fill
-                int fillWidth = (item->value - item->minValue) * item->width / (item->maxValue - item->minValue);
-                Renderer_FillRect(item->x, trackY, fillWidth, 10, 10);
+                // Sunken border
+                Renderer_HLine(item->x, item->x + item->width, trackY, BTN_SHADOW);
+                Renderer_VLine(item->x, trackY, trackY + trackH, BTN_SHADOW);
+                Renderer_HLine(item->x, item->x + item->width, trackY + trackH, BTN_HIGHLIGHT);
+                Renderer_VLine(item->x + item->width, trackY, trackY + trackH, BTN_HIGHLIGHT);
+
+                // Track fill (dark)
+                Renderer_FillRect(item->x + 1, trackY + 1, item->width - 1, trackH - 1, 1);
+
+                // Value bar (green)
+                int fillWidth = (item->value - item->minValue) * (item->width - 2) / (item->maxValue - item->minValue);
+                if (fillWidth > 0) {
+                    Renderer_FillRect(item->x + 1, trackY + 1, fillWidth, trackH - 1, PAL_GREEN);
+                }
 
                 // Value text
                 char valText[16];
                 snprintf(valText, sizeof(valText), "%d", item->value);
-                Renderer_DrawText(valText, item->x + item->width + 10, trackY, textColor, 0);
+                Renderer_DrawText(valText, item->x + item->width + 10, trackY + 2, textColor, 0);
                 break;
             }
 
             case MENU_ITEM_TOGGLE: {
-                // Checkbox
-                int boxSize = 16;
-                Renderer_DrawRect(item->x, item->y + 4, boxSize, boxSize, textColor);
+                // Checkbox (sunken box)
+                int boxSize = 14;
+                int boxY = item->y + 4;
+
+                // Sunken border
+                Renderer_HLine(item->x, item->x + boxSize, boxY, BTN_SHADOW);
+                Renderer_VLine(item->x, boxY, boxY + boxSize, BTN_SHADOW);
+                Renderer_HLine(item->x, item->x + boxSize, boxY + boxSize, BTN_HIGHLIGHT);
+                Renderer_VLine(item->x + boxSize, boxY, boxY + boxSize, BTN_HIGHLIGHT);
+
+                // Box fill
+                Renderer_FillRect(item->x + 1, boxY + 1, boxSize - 1, boxSize - 1, 1);
+
+                // Checkmark
                 if (item->value) {
-                    Renderer_FillRect(item->x + 3, item->y + 7, boxSize - 6, boxSize - 6, 10);
+                    Renderer_FillRect(item->x + 3, boxY + 3, boxSize - 5, boxSize - 5, PAL_GREEN);
                 }
 
                 // Label
-                Renderer_DrawText(item->text, item->x + boxSize + 10, item->y + 8, textColor, 0);
+                Renderer_DrawText(item->text, item->x + boxSize + 10, item->y + 6, textColor, 0);
                 break;
             }
         }
     }
+
+    // Version info at bottom
+    Renderer_DrawText("MACOS PORT - M34", 260, 380, BTN_TEXT_DISABLED, 0);
 }
 
 void Menu_HandleKey(Menu* menu, int vkCode) {
@@ -465,7 +616,7 @@ void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY, BOOL leftDown, BOOL le
         int hitH = item->height;
 
         if (item->type == MENU_ITEM_SLIDER) {
-            hitH = 30; // Include label
+            hitH = 35; // Include label
         } else if (item->type == MENU_ITEM_TOGGLE) {
             hitW = 200;
         } else if (item->type == MENU_ITEM_LABEL || item->type == MENU_ITEM_SEPARATOR) {
@@ -492,8 +643,8 @@ void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY, BOOL leftDown, BOOL le
 
             // Handle slider dragging
             if (item->type == MENU_ITEM_SLIDER && leftDown) {
-                int trackY = item->y + 15;
-                if (mouseY >= trackY && mouseY < trackY + 10) {
+                int trackY = item->y + 20;
+                if (mouseY >= trackY && mouseY < trackY + 12) {
                     int relX = mouseX - item->x;
                     if (relX < 0) relX = 0;
                     if (relX > item->width) relX = item->width;

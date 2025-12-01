@@ -161,6 +161,31 @@ void GameUI_RenderSelectionPanel(void);
  */
 void GameUI_RenderHUD(void);
 
+//===========================================================================
+// Placement Functions
+//===========================================================================
+
+/**
+ * Check if we're in building placement mode
+ */
+bool GameUI_IsPlacementMode(void);
+
+/**
+ * Update placement cursor position based on mouse
+ */
+void GameUI_UpdatePlacement(int mouseX, int mouseY);
+
+/**
+ * Handle ESC key to cancel placement
+ * @return true if ESC was handled (placement was cancelled)
+ */
+bool GameUI_HandleEscape(void);
+
+/**
+ * Render the placement footprint cursor
+ */
+void GameUI_RenderPlacement(void);
+
 #ifdef __cplusplus
 }
 #endif

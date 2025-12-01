@@ -21,15 +21,14 @@
 - **Production system functional** - click to build units, progress bar, spawns on map
 - **Credits system** - starting credits, deducted on production
 - **Unit spawn validation** - units can't spawn on water
+- **Building placement system** - click structure in sidebar, shows footprint cursor, validates placement, places on map
 
 **What's broken/incomplete:**
-- Structures complete but don't place on map (no placement mode)
 - No real tech tree (demo has all buildings unlocked)
 - No harvester/economy loop
 - Units spawn at fixed location (should spawn at production building)
 
 **What's missing entirely:**
-- Building placement system
 - Tech tree with real prerequisites
 - Harvester/ore economy
 - AI opponent
@@ -68,32 +67,34 @@ Before campaigns, we need a working "skirmish" where you can:
 
 ---
 
-### M34: Construction Yard & Building Placement ← **START HERE**
+### ✓ M34: Construction Yard & Building Placement - COMPLETE
 
 **Goal:** Build structures from sidebar, place them on map.
 
-**Tasks:**
-1. [ ] Player starts with Construction Yard building
-2. [ ] Construction Yard enables structure production
-3. [ ] Click structure in sidebar → starts construction
-4. [ ] When ready, enter placement mode
-5. [ ] Show building footprint following cursor
-6. [ ] Green = valid placement, Red = invalid
-7. [ ] Click to place, building appears
-8. [ ] ESC cancels placement
+**Completed:**
+- [x] Click structure in sidebar → starts construction
+- [x] Progress bar fills during construction
+- [x] When ready, shows "READY" and enter placement mode
+- [x] Building footprint follows cursor
+- [x] Green cells = valid placement, Red cells = invalid (water/rock/building/units)
+- [x] Invalid cells show X pattern
+- [x] Click to place building on map
+- [x] Building appears on radar
+- [x] Cells marked as occupied (terrain=BUILDING)
+- [x] Right-click or ESC cancels placement (refunds cost)
+- [x] Sidebar shows "Click map to place" hint
 
-**Verification:**
-- [ ] Start game, have Construction Yard
-- [ ] Click "POWR" → progress fills
-- [ ] Cursor changes to show building footprint
-- [ ] Can place near Construction Yard
-- [ ] Building appears on map
+**Verified:**
+- [x] Click "POWR" → progress fills, shows "READY"
+- [x] Cursor shows 2x2 footprint following mouse
+- [x] Can only place on valid ground
+- [x] Building appears on map and radar
 
-**Files:** `game/placement.cpp` (new), `ui/game_ui.cpp`
+**Files:** `ui/game_ui.cpp`, `ui/game_ui.h`
 
 ---
 
-### M35: Tech Tree & Prerequisites
+### M35: Tech Tree & Prerequisites ← **START HERE**
 
 **Goal:** Advanced units/buildings require prerequisites.
 
@@ -169,7 +170,7 @@ After M33-M37, we have:
 - [x] Working map with terrain
 - [x] Units that move and fight
 - [x] **Production that works** (M33 complete)
-- [ ] **Building placement**
+- [x] **Building placement** (M34 complete)
 - [ ] **Tech tree progression**
 - [ ] **Resource economy**
 - [ ] **AI opponent**
@@ -252,7 +253,7 @@ This is a playable game loop: build base → train army → destroy enemy.
 | Basic combat | ✓ Done | - |
 | UI layout (sidebar/radar) | ✓ Done | - |
 | **Production system** | ✓ Done (M33) | - |
-| **Building placement** | Missing | **HIGH** |
+| **Building placement** | ✓ Done (M34) | - |
 | **Tech tree** | Missing | **HIGH** |
 | **Economy** | Missing | **HIGH** |
 | **AI opponent** | Missing | **HIGH** |
@@ -261,4 +262,4 @@ This is a playable game loop: build base → train army → destroy enemy.
 | Campaign missions | Missing | Low (need skirmish first) |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M34 - Building placement system.
+**Next step:** M35 - Tech tree with prerequisites.

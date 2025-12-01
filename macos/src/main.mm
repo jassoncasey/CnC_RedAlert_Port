@@ -285,7 +285,11 @@ void GameUpdate(uint32_t frame, float deltaTime) {
 
     // Handle game input
     if (Input_WasKeyPressed(VK_ESCAPE)) {
-        Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+        // First try to cancel placement mode
+        if (!GameUI_HandleEscape()) {
+            // If not in placement mode, go to menu
+            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+        }
     }
 
     // Pause (P key)

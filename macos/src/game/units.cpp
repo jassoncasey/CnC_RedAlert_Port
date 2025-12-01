@@ -116,9 +116,10 @@ void Units_Clear(void) {
     memset(g_buildings, 0, sizeof(g_buildings));
 }
 
-// Check if a cell is occupied by any unit
-static BOOL IsCellOccupied(int cellX, int cellY) {
+// Check if a cell is occupied by any unit (excluding given unit)
+static BOOL IsCellOccupied(int cellX, int cellY, int excludeUnitId = -1) {
     for (int i = 0; i < MAX_UNITS; i++) {
+        if (i == excludeUnitId) continue;
         if (!g_units[i].active) continue;
         if (g_units[i].state == STATE_DYING) continue;
 
@@ -130,6 +131,24 @@ static BOOL IsCellOccupied(int cellX, int cellY) {
         }
     }
     return FALSE;
+}
+
+// Update cell occupancy for a unit
+static void UpdateCellOccupancy(int unitId, int oldCellX, int oldCellY, int newCellX, int newCellY) {
+    // Clear old cell
+    if (oldCellX >= 0 && oldCellY >= 0) {
+        MapCell* oldCell = Map_GetCell(oldCellX, oldCellY);
+        if (oldCell && oldCell->unitId == unitId) {
+            oldCell->unitId = -1;
+        }
+    }
+    // Mark new cell
+    if (newCellX >= 0 && newCellY >= 0) {
+        MapCell* newCell = Map_GetCell(newCellX, newCellY);
+        if (newCell) {
+            newCell->unitId = unitId;
+        }
+    }
 }
 
 // Find a valid spawn position near the requested location
@@ -204,12 +223,24 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     unit->attackRate = def->attackRate;
     unit->attackCooldown = 0;
 
+    // Mark the spawn cell as occupied
+    int cellX, cellY;
+    Map_WorldToCell(spawnX, spawnY, &cellX, &cellY);
+    UpdateCellOccupancy(id, -1, -1, cellX, cellY);
+
     return id;
 }
 
 void Units_Remove(int unitId) {
     if (unitId >= 0 && unitId < MAX_UNITS) {
-        g_units[unitId].active = 0;
+        Unit* unit = &g_units[unitId];
+        if (unit->active) {
+            // Clear cell occupancy
+            int cellX, cellY;
+            Map_WorldToCell(unit->worldX, unit->worldY, &cellX, &cellY);
+            UpdateCellOccupancy(unitId, cellX, cellY, -1, -1);
+        }
+        unit->active = 0;
     }
 }
 
@@ -614,8 +645,12 @@ static void SetNextWaypoint(Unit* unit) {
     unit->pathIndex++;
 }
 
-static void UpdateUnitMovement(Unit* unit) {
+static void UpdateUnitMovement(Unit* unit, int unitId) {
     if (unit->state != STATE_MOVING) return;
+
+    // Track current cell for occupancy updates
+    int oldCellX, oldCellY;
+    Map_WorldToCell(unit->worldX, unit->worldY, &oldCellX, &oldCellY);
 
     // If no path, try to find one
     if (unit->pathLength == 0) {
@@ -634,6 +669,17 @@ static void UpdateUnitMovement(Unit* unit) {
         SetNextWaypoint(unit);
     }
 
+    // Check if next waypoint is occupied (by another unit)
+    int waypointCellX, waypointCellY;
+    Map_WorldToCell(unit->nextWaypointX, unit->nextWaypointY, &waypointCellX, &waypointCellY);
+
+    if (IsCellOccupied(waypointCellX, waypointCellY, unitId)) {
+        // Cell is occupied - wait or recalculate path
+        // For now, just stop and clear path to recalculate next frame
+        unit->pathLength = 0;
+        return;
+    }
+
     // Move toward current waypoint
     int dx = unit->nextWaypointX - unit->worldX;
     int dy = unit->nextWaypointY - unit->worldY;
@@ -643,6 +689,13 @@ static void UpdateUnitMovement(Unit* unit) {
         // Reached waypoint
         unit->worldX = unit->nextWaypointX;
         unit->worldY = unit->nextWaypointY;
+
+        // Update cell occupancy if we changed cells
+        int newCellX, newCellY;
+        Map_WorldToCell(unit->worldX, unit->worldY, &newCellX, &newCellY);
+        if (newCellX != oldCellX || newCellY != oldCellY) {
+            UpdateCellOccupancy(unitId, oldCellX, oldCellY, newCellX, newCellY);
+        }
 
         // Move to next waypoint
         if (unit->pathIndex < unit->pathLength) {
@@ -655,6 +708,13 @@ static void UpdateUnitMovement(Unit* unit) {
         // Move toward waypoint
         unit->worldX += (dx * unit->speed) / dist;
         unit->worldY += (dy * unit->speed) / dist;
+
+        // Update cell occupancy if we changed cells
+        int newCellX, newCellY;
+        Map_WorldToCell(unit->worldX, unit->worldY, &newCellX, &newCellY);
+        if (newCellX != oldCellX || newCellY != oldCellY) {
+            UpdateCellOccupancy(unitId, oldCellX, oldCellY, newCellX, newCellY);
+        }
 
         // Update facing based on movement direction
         double angle = atan2((double)dy, (double)dx);
@@ -761,7 +821,7 @@ void Units_Update(void) {
             continue;
         }
 
-        UpdateUnitMovement(unit);
+        UpdateUnitMovement(unit, i);
         UpdateUnitCombat(unit, i);
     }
 

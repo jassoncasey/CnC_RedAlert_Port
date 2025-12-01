@@ -53,12 +53,39 @@ static const char* g_redalertPaths[] = {
     nullptr
 };
 
-// Archive search paths for standalone tileset MIX files
+// Archive search paths for standalone MIX files (from quick install package)
+static const char* g_conquerPaths[] = {
+    "../assets/conquer.mix",
+    "../../assets/conquer.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/conquer.mix",
+    nullptr
+};
+
+static const char* g_hiresPaths[] = {
+    "../assets/hires.mix",
+    "../../assets/hires.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/hires.mix",
+    nullptr
+};
+
+static const char* g_soundsPaths[] = {
+    "../assets/sounds.mix",
+    "../../assets/sounds.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/sounds.mix",
+    nullptr
+};
+
+static const char* g_localPaths[] = {
+    "../assets/local.mix",
+    "../../assets/local.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/local.mix",
+    nullptr
+};
+
 static const char* g_snowPaths[] = {
     "../assets/snow.mix",
     "../../assets/snow.mix",
     "/Users/jasson/workspace/CnC_Red_Alert/assets/snow.mix",
-    "./assets/snow.mix",
     nullptr
 };
 
@@ -66,7 +93,6 @@ static const char* g_temperatPaths[] = {
     "../assets/temperat.mix",
     "../../assets/temperat.mix",
     "/Users/jasson/workspace/CnC_Red_Alert/assets/temperat.mix",
-    "./assets/temperat.mix",
     nullptr
 };
 
@@ -87,8 +113,32 @@ static MixFileHandle OpenNestedMix(MixFileHandle parent, const char* name, void*
     return mix;
 }
 
+// Helper to open standalone or nested MIX
+static MixFileHandle OpenMixFile(const char** paths, const char* name,
+                                  MixFileHandle parent, void** outData) {
+    // First try standalone files (from quick install package - preferred)
+    for (int i = 0; paths && paths[i]; i++) {
+        MixFileHandle mix = Mix_Open(paths[i]);
+        if (mix) {
+            printf("AssetLoader: Opened %s\n", paths[i]);
+            return mix;
+        }
+    }
+
+    // Fall back to nested in parent archive
+    if (parent && name) {
+        MixFileHandle mix = OpenNestedMix(parent, name, outData);
+        if (mix) {
+            printf("AssetLoader: Opened %s from parent\n", name);
+            return mix;
+        }
+    }
+
+    return nullptr;
+}
+
 BOOL Assets_Init(void) {
-    // Open MAIN_ALLIED.MIX (vehicles, buildings, sounds)
+    // Open MAIN_ALLIED.MIX (for fallback nested archives)
     for (int i = 0; g_mainPaths[i]; i++) {
         g_mainMix = Mix_Open(g_mainPaths[i]);
         if (g_mainMix) {
@@ -97,7 +147,7 @@ BOOL Assets_Init(void) {
         }
     }
 
-    // Open REDALERT.MIX (infantry, palettes)
+    // Open REDALERT.MIX (for fallback nested archives)
     for (int i = 0; g_redalertPaths[i]; i++) {
         g_redalertMix = Mix_Open(g_redalertPaths[i]);
         if (g_redalertMix) {
@@ -106,75 +156,18 @@ BOOL Assets_Init(void) {
         }
     }
 
-    if (!g_mainMix && !g_redalertMix) {
-        printf("AssetLoader: No game archives found!\n");
+    // Open content MIX files - prefer standalone from quick install package
+    g_conquerMix = OpenMixFile(g_conquerPaths, "CONQUER.MIX", g_mainMix, &g_conquerData);
+    g_hiresMix = OpenMixFile(g_hiresPaths, "HIRES.MIX", g_redalertMix, &g_hiresData);
+    g_soundsMix = OpenMixFile(g_soundsPaths, "SOUNDS.MIX", g_mainMix, &g_soundsData);
+    g_localMix = OpenMixFile(g_localPaths, "LOCAL.MIX", g_redalertMix, &g_localData);
+    g_snowMix = OpenMixFile(g_snowPaths, nullptr, nullptr, nullptr);
+    g_temperatMix = OpenMixFile(g_temperatPaths, nullptr, nullptr, nullptr);
+
+    // Check if we have required archives
+    if (!g_conquerMix && !g_hiresMix) {
+        printf("AssetLoader: No content archives found! Please extract ra-quickinstall.zip to assets/\n");
         return FALSE;
-    }
-
-    // Open nested archives from MAIN_ALLIED.MIX
-    if (g_mainMix) {
-        g_conquerMix = OpenNestedMix(g_mainMix, "CONQUER.MIX", &g_conquerData);
-        if (g_conquerMix) printf("AssetLoader: Opened CONQUER.MIX from MAIN\n");
-
-        if (!g_soundsMix) {
-            g_soundsMix = OpenNestedMix(g_mainMix, "SOUNDS.MIX", &g_soundsData);
-            if (g_soundsMix) printf("AssetLoader: Opened SOUNDS.MIX from MAIN\n");
-        }
-    }
-
-    // Open nested archives from REDALERT.MIX
-    if (g_redalertMix) {
-        g_hiresMix = OpenNestedMix(g_redalertMix, "HIRES.MIX", &g_hiresData);
-        if (g_hiresMix) printf("AssetLoader: Opened HIRES.MIX from REDALERT\n");
-
-        g_localMix = OpenNestedMix(g_redalertMix, "LOCAL.MIX", &g_localData);
-        if (g_localMix) printf("AssetLoader: Opened LOCAL.MIX from REDALERT\n");
-
-        // Try to open tileset archives - try various names
-        const char* snowNames[] = {"SNOW.MIX", "snow.mix", "SNOWA.MIX", nullptr};
-        const char* tempNames[] = {"TEMPERAT.MIX", "temperat.mix", "TEMPERA.MIX", nullptr};
-
-        for (int i = 0; snowNames[i] && !g_snowMix; i++) {
-            g_snowMix = OpenNestedMix(g_redalertMix, snowNames[i], &g_snowData);
-            if (g_snowMix) printf("AssetLoader: Opened %s from REDALERT\n", snowNames[i]);
-        }
-
-        for (int i = 0; tempNames[i] && !g_temperatMix; i++) {
-            g_temperatMix = OpenNestedMix(g_redalertMix, tempNames[i], &g_temperatData);
-            if (g_temperatMix) printf("AssetLoader: Opened %s from REDALERT\n", tempNames[i]);
-        }
-    }
-
-    // Also try to open tileset archives from MAIN
-    if (g_mainMix) {
-        if (!g_snowMix) {
-            g_snowMix = OpenNestedMix(g_mainMix, "SNOW.MIX", &g_snowData);
-            if (g_snowMix) printf("AssetLoader: Opened SNOW.MIX from MAIN\n");
-        }
-        if (!g_temperatMix) {
-            g_temperatMix = OpenNestedMix(g_mainMix, "TEMPERAT.MIX", &g_temperatData);
-            if (g_temperatMix) printf("AssetLoader: Opened TEMPERAT.MIX from MAIN\n");
-        }
-    }
-
-    // Try to open standalone tileset MIX files (from quick install package)
-    if (!g_snowMix) {
-        for (int i = 0; g_snowPaths[i]; i++) {
-            g_snowMix = Mix_Open(g_snowPaths[i]);
-            if (g_snowMix) {
-                printf("AssetLoader: Opened %s\n", g_snowPaths[i]);
-                break;
-            }
-        }
-    }
-    if (!g_temperatMix) {
-        for (int i = 0; g_temperatPaths[i]; i++) {
-            g_temperatMix = Mix_Open(g_temperatPaths[i]);
-            if (g_temperatMix) {
-                printf("AssetLoader: Opened %s\n", g_temperatPaths[i]);
-                break;
-            }
-        }
     }
 
     // Try to load default palette (SNOW.PAL or generate fallback)
@@ -220,10 +213,43 @@ void Assets_Shutdown(void) {
     g_paletteLoaded = false;
 }
 
+// Search paths for loose SHP files (OpenRA bits folder)
+static const char* g_shpSearchPaths[] = {
+    "../assets/bits/",
+    "../../assets/bits/",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/bits/",
+    nullptr
+};
+
+// Helper to load SHP from loose file
+static ShpFileHandle LoadSHPFromFile(const char* name) {
+    char path[512];
+    for (int i = 0; g_shpSearchPaths[i]; i++) {
+        snprintf(path, sizeof(path), "%s%s", g_shpSearchPaths[i], name);
+        FILE* f = fopen(path, "rb");
+        if (f) {
+            fseek(f, 0, SEEK_END);
+            long size = ftell(f);
+            fseek(f, 0, SEEK_SET);
+            void* data = malloc(size);
+            if (data && fread(data, 1, size, f) == (size_t)size) {
+                fclose(f);
+                ShpFileHandle shp = Shp_Load(data, size);
+                free(data);
+                if (shp) return shp;
+            } else {
+                fclose(f);
+                if (data) free(data);
+            }
+        }
+    }
+    return nullptr;
+}
+
 ShpFileHandle Assets_LoadSHP(const char* name) {
     if (!name) return nullptr;
 
-    // Search order: CONQUER.MIX (vehicles/buildings), HIRES.MIX (infantry), then top-level
+    // First try MIX archives: CONQUER.MIX (vehicles/buildings), HIRES.MIX (infantry)
     MixFileHandle searchOrder[] = { g_conquerMix, g_hiresMix, g_mainMix, g_redalertMix, nullptr };
 
     for (int i = 0; searchOrder[i]; i++) {
@@ -238,7 +264,19 @@ ShpFileHandle Assets_LoadSHP(const char* name) {
         }
     }
 
-    return nullptr;
+    // Fallback: try loose SHP files (OpenRA bits folder)
+    ShpFileHandle shp = LoadSHPFromFile(name);
+    if (shp) return shp;
+
+    // Try lowercase version
+    char lower[256];
+    int len = 0;
+    while (name[len] && len < 255) {
+        lower[len] = (name[len] >= 'A' && name[len] <= 'Z') ? name[len] + 32 : name[len];
+        len++;
+    }
+    lower[len] = '\0';
+    return LoadSHPFromFile(lower);
 }
 
 AudData* Assets_LoadAUD(const char* name) {

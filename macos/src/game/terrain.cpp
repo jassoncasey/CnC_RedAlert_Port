@@ -148,6 +148,35 @@ BOOL Terrain_Available(void) {
     return g_terrainInitialized;
 }
 
+// Map TerrainType enum to terrain template index
+// Template indices from g_terrainTemplates array:
+//   0: clear1.sno, 1-2: water, 3-10: shore, 11-14: debris/rock
+//   15-16: roads, 17-18: river, 19-20: bridge
+static int GetTemplateForTerrain(int terrainType, int variant) {
+    switch (terrainType) {
+        case 0:  // TERRAIN_CLEAR
+            return 0;  // clear1.sno
+        case 1:  // TERRAIN_WATER
+            return 1 + (variant % 2);  // w1.sno or w2.sno
+        case 2:  // TERRAIN_ROCK
+            return 11 + (variant % 4);  // d01-d04.sno (debris)
+        case 3:  // TERRAIN_TREE
+            return 0;  // Use clear (trees drawn separately)
+        case 4:  // TERRAIN_ROAD
+            return 15 + (variant % 2);  // s01-s02.sno
+        case 5:  // TERRAIN_BRIDGE
+            return 19 + (variant % 2);  // br1-br2.sno
+        case 6:  // TERRAIN_BUILDING
+            return 0;  // Use clear under buildings
+        case 7:  // TERRAIN_ORE
+            return 0;  // Use clear (ore drawn as overlay)
+        case 8:  // TERRAIN_GEM
+            return 0;  // Use clear (gems drawn as overlay)
+        default:
+            return 0;  // Default to clear
+    }
+}
+
 BOOL Terrain_RenderTile(int terrainType, int variant, int screenX, int screenY) {
     if (!g_terrainInitialized) return FALSE;
 
@@ -155,11 +184,14 @@ BOOL Terrain_RenderTile(int terrainType, int variant, int screenX, int screenY) 
     int width = g_tileSize;
     int height = g_tileSize;
 
+    // Map terrain type to appropriate template index
+    int templateIdx = GetTemplateForTerrain(terrainType, variant);
+
     // Try to get tile from loaded templates
-    if (terrainType < g_terrainTemplateCount && g_terrainTmp[terrainType]) {
-        int tileCount = Tmp_GetTileCount(g_terrainTmp[terrainType]);
+    if (templateIdx < g_terrainTemplateCount && g_terrainTmp[templateIdx]) {
+        int tileCount = Tmp_GetTileCount(g_terrainTmp[templateIdx]);
         int tileIdx = variant % tileCount;
-        const TmpTile* tile = Tmp_GetTile(g_terrainTmp[terrainType], tileIdx);
+        const TmpTile* tile = Tmp_GetTile(g_terrainTmp[templateIdx], tileIdx);
         if (tile && tile->pixels) {
             pixels = tile->pixels;
             width = tile->width;
