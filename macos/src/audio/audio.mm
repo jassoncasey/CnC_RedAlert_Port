@@ -95,16 +95,20 @@ static OSStatus AudioRenderCallback(
         uint32_t bytesPerSample = sample->bitsPerSample / 8;
         uint32_t bytesPerSourceFrame = bytesPerSample * sample->channels;
 
+        // Use fractional position for accurate resampling
+        // position is stored in samples * 256 (8.8 fixed point)
+        Float64 srcSamplePos = (Float64)channel->position / 256.0;
+
         for (UInt32 frame = 0; frame < inNumberFrames; frame++) {
-            // Calculate source position
-            Float64 srcFrame = (Float64)channel->position / bytesPerSourceFrame;
-            srcFrame += frame * sampleRatio;
-            uint32_t srcBytePos = (uint32_t)(srcFrame * bytesPerSourceFrame);
+            // Calculate current source sample index
+            uint32_t srcSampleIdx = (uint32_t)srcSamplePos;
+            uint32_t srcBytePos = srcSampleIdx * bytesPerSourceFrame;
 
             // Check for end of sample
             if (srcBytePos >= sample->dataSize) {
                 if (channel->loop) {
-                    srcBytePos = srcBytePos % sample->dataSize;
+                    srcSampleIdx = srcSampleIdx % (sample->dataSize / bytesPerSourceFrame);
+                    srcBytePos = srcSampleIdx * bytesPerSourceFrame;
                 } else {
                     channel->playing = FALSE;
                     break;
@@ -120,7 +124,7 @@ static OSStatus AudioRenderCallback(
                 sampleValue = Sample16ToFloat(*ptr);
             }
 
-            // If stereo, average channels for simplicity
+            // If stereo, handle both channels
             if (sample->channels == 2) {
                 Float32 rightSample;
                 if (sample->bitsPerSample == 8) {
@@ -137,15 +141,18 @@ static OSStatus AudioRenderCallback(
                 leftBuffer[frame] += sampleValue * leftVol;
                 rightBuffer[frame] += sampleValue * rightVol;
             }
+
+            // Advance source position
+            srcSamplePos += sampleRatio;
         }
 
-        // Update position
+        // Update position (in 8.8 fixed point)
         if (channel->playing) {
-            channel->position += (uint32_t)(inNumberFrames * sampleRatio *
-                                           (sample->bitsPerSample / 8) * sample->channels);
-            if (channel->position >= sample->dataSize) {
+            channel->position = (uint32_t)(srcSamplePos * 256.0);
+            uint32_t totalSamples = sample->dataSize / bytesPerSourceFrame;
+            if (channel->position / 256 >= totalSamples) {
                 if (channel->loop) {
-                    channel->position = channel->position % sample->dataSize;
+                    channel->position = channel->position % (totalSamples * 256);
                 } else {
                     channel->playing = FALSE;
                 }
