@@ -108,24 +108,35 @@ static void StartDemoMission(void) {
     StartMission(&g_currentMission);
 }
 
-// Start a campaign mission
-static void StartCampaignMission(int campaign, int difficulty) {
-    // For now, campaign missions just start the demo
-    // In a full implementation, this would load the actual campaign mission INI files
+// Pending campaign info (set before showing briefing)
+static int g_pendingCampaign = 0;
+static int g_pendingDifficulty = 0;
 
+// Actually start the mission after briefing
+static void OnBriefingConfirmed(void) {
+    NSLog(@"Briefing confirmed, starting mission");
+    StartMission(&g_currentMission);
+}
+
+// Start a campaign mission (shows briefing first)
+static void StartCampaignMission(int campaign, int difficulty) {
     // Set mission name based on campaign and difficulty
     const char* campaignName = (campaign == CAMPAIGN_ALLIED) ? "Allied" : "Soviet";
     const char* diffName = (difficulty == DIFFICULTY_EASY) ? "Easy" :
                            (difficulty == DIFFICULTY_HARD) ? "Hard" : "Normal";
 
-    NSLog(@"Starting %s Campaign on %s difficulty", campaignName, diffName);
+    NSLog(@"Preparing %s Campaign on %s difficulty", campaignName, diffName);
 
-    // For now, load demo mission but rename it
+    // Store pending campaign info
+    g_pendingCampaign = campaign;
+    g_pendingDifficulty = difficulty;
+
+    // Load demo mission but customize it
     Mission_GetDemo(&g_currentMission);
 
     // Update mission name to reflect campaign
     snprintf(g_currentMission.name, sizeof(g_currentMission.name),
-             "%s Campaign - Mission 1", campaignName);
+             "%s Mission 1: In the Thick of It", campaignName);
 
     // Adjust starting credits based on difficulty
     if (difficulty == DIFFICULTY_EASY) {
@@ -136,7 +147,24 @@ static void StartCampaignMission(int campaign, int difficulty) {
         g_currentMission.startCredits = 5000;  // Normal
     }
 
-    StartMission(&g_currentMission);
+    // Set up briefing text based on campaign
+    const char* briefingText;
+    if (campaign == CAMPAIGN_ALLIED) {
+        briefingText = "Commander, Soviet forces have invaded Eastern Europe. "
+                       "Your mission is to establish a base and rescue Allied scientists "
+                       "from the Soviet advance. Build your base and eliminate all Soviet "
+                       "forces in the area. Good luck, Commander.";
+    } else {
+        briefingText = "Comrade Commander, the capitalist West threatens our glorious "
+                       "Soviet Union. Crush the Allied forces in this region and secure "
+                       "our borders. Show them the might of the Red Army! The Motherland "
+                       "is counting on you.";
+    }
+
+    // Set briefing data and show briefing screen
+    Menu_SetBriefing(g_currentMission.name, briefingText);
+    Menu_SetBriefingConfirmCallback(OnBriefingConfirmed);
+    Menu_SetCurrentScreen(MENU_SCREEN_BRIEFING);
 }
 
 #pragma mark - Game Callbacks
@@ -169,6 +197,9 @@ void GameUpdate(uint32_t frame, float deltaTime) {
                     Input_WasKeyPressed(VK_SPACE) || (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
                     Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
                 }
+                break;
+            case MENU_SCREEN_BRIEFING:
+                Menu_UpdateBriefing();
                 break;
             default:
                 break;
@@ -481,6 +512,9 @@ void GameRender(void) {
                 break;
             case MENU_SCREEN_CREDITS:
                 RenderCredits();
+                return;
+            case MENU_SCREEN_BRIEFING:
+                Menu_RenderBriefing();
                 return;
             default:
                 break;

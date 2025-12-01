@@ -72,6 +72,7 @@ typedef enum {
     MENU_SCREEN_MAIN,
     MENU_SCREEN_CAMPAIGN_SELECT,
     MENU_SCREEN_DIFFICULTY_SELECT,
+    MENU_SCREEN_BRIEFING,
     MENU_SCREEN_OPTIONS,
     MENU_SCREEN_CREDITS,
     MENU_SCREEN_INGAME
@@ -231,6 +232,36 @@ typedef void (*NewGameCallback)(void);
 typedef void (*StartCampaignCallback)(int campaign, int difficulty);
 void Menu_SetNewGameCallback(NewGameCallback callback);
 void Menu_SetStartCampaignCallback(StartCampaignCallback callback);
+
+/**
+ * Set up briefing screen
+ * @param missionName   Mission title (e.g., "Allied Mission 1")
+ * @param briefingText  Mission briefing text
+ * @param callback      Called when user proceeds from briefing
+ */
+void Menu_SetBriefing(const char* missionName, const char* briefingText);
+
+/**
+ * Set callback for when user confirms briefing and starts mission
+ */
+typedef void (*BriefingConfirmCallback)(void);
+void Menu_SetBriefingConfirmCallback(BriefingConfirmCallback callback);
+
+/**
+ * Get current briefing data
+ */
+const char* Menu_GetBriefingName(void);
+const char* Menu_GetBriefingText(void);
+
+/**
+ * Render the briefing screen
+ */
+void Menu_RenderBriefing(void);
+
+/**
+ * Update the briefing screen (handle input)
+ */
+void Menu_UpdateBriefing(void);
 
 #ifdef __cplusplus
 }

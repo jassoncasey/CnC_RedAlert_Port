@@ -288,9 +288,23 @@ After M33-M37, we have:
 
 **Note:** Full campaign INI loading not yet integrated - currently uses demo mission as placeholder for all campaign starts. Campaign data tables (AlliedMissions, SovietMissions) are defined and ready.
 
-### M44: Briefings
-- Pre-mission briefing screen
-- Mission text and map preview
+### ✓ M44: Briefings - COMPLETE
+
+**Goal:** Pre-mission briefing screen before campaign missions.
+
+**Completed:**
+- [x] Briefing screen UI with mission name header
+- [x] Word-wrapped briefing text display
+- [x] Red banner styling matching other menus
+- [x] COMMENCE button to start mission
+- [x] Enter/Space/Click to proceed
+- [x] ESC to go back to difficulty selection
+- [x] Briefing integrated into campaign flow (shows after difficulty select)
+- [x] Campaign-specific briefing text (Allied vs Soviet)
+
+**Flow:** Main Menu → Campaign Select → Difficulty → **Briefing** → Mission
+
+**Files:** `ui/menu.h`, `ui/menu.cpp`, `main.mm`
 
 ---
 
@@ -332,7 +346,7 @@ After M33-M37, we have:
 | **Scenario loading** | ✓ Done (M41) | - |
 | **Mission objectives** | ✓ Done (M42) | - |
 | **Campaign flow** | ✓ Done (M43) | - |
-| Briefings | Not Started | Medium |
+| **Briefings** | ✓ Done (M44) | - |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M44 - Briefings (pre-mission briefing screen).
+**Next step:** M45 - VQA Cutscenes (intro video, mission win/lose videos).

@@ -52,6 +52,11 @@ static StartCampaignCallback g_startCampaignCallback = nullptr;
 static MenuCampaignChoice g_selectedCampaign = CAMPAIGN_NONE;
 static MenuDifficultyChoice g_selectedDifficulty = DIFFICULTY_NORMAL;
 
+// Briefing state
+static char g_briefingName[128] = "";
+static char g_briefingText[1024] = "";
+static BriefingConfirmCallback g_briefingConfirmCallback = nullptr;
+
 // Sound effects for menus
 static AudioSample* g_clickSound = nullptr;
 static AudioSample* g_hoverSound = nullptr;
@@ -584,7 +589,7 @@ void Menu_Render(Menu* menu) {
     }
 
     // Version info at bottom
-    Renderer_DrawText("MACOS PORT - M43", 260, 370, PAL_DARKGREY, 0);
+    Renderer_DrawText("MACOS PORT - M44", 260, 370, PAL_DARKGREY, 0);
 }
 
 void Menu_HandleKey(Menu* menu, int vkCode) {
@@ -880,4 +885,213 @@ MenuCampaignChoice Menu_GetSelectedCampaign(void) {
 
 MenuDifficultyChoice Menu_GetSelectedDifficulty(void) {
     return g_selectedDifficulty;
+}
+
+//===========================================================================
+// Briefing Screen
+//===========================================================================
+
+void Menu_SetBriefing(const char* missionName, const char* briefingText) {
+    if (missionName) {
+        strncpy(g_briefingName, missionName, sizeof(g_briefingName) - 1);
+        g_briefingName[sizeof(g_briefingName) - 1] = '\0';
+    } else {
+        g_briefingName[0] = '\0';
+    }
+
+    if (briefingText) {
+        strncpy(g_briefingText, briefingText, sizeof(g_briefingText) - 1);
+        g_briefingText[sizeof(g_briefingText) - 1] = '\0';
+    } else {
+        g_briefingText[0] = '\0';
+    }
+}
+
+void Menu_SetBriefingConfirmCallback(BriefingConfirmCallback callback) {
+    g_briefingConfirmCallback = callback;
+}
+
+const char* Menu_GetBriefingName(void) {
+    return g_briefingName;
+}
+
+const char* Menu_GetBriefingText(void) {
+    return g_briefingText;
+}
+
+// Word-wrap text rendering helper
+static int RenderWrappedText(const char* text, int x, int y, int maxWidth, uint8_t color) {
+    if (!text || !*text) return y;
+
+    const int charWidth = 8;
+    const int lineHeight = 12;
+    int maxCharsPerLine = maxWidth / charWidth;
+    if (maxCharsPerLine < 10) maxCharsPerLine = 10;
+
+    char line[256];
+    int lineLen = 0;
+    int currentY = y;
+    const char* ptr = text;
+
+    while (*ptr) {
+        // Find end of current word
+        const char* wordStart = ptr;
+        while (*ptr && *ptr != ' ' && *ptr != '\n') ptr++;
+        int wordLen = (int)(ptr - wordStart);
+
+        // Check if word fits on current line
+        if (lineLen + wordLen + (lineLen > 0 ? 1 : 0) <= maxCharsPerLine) {
+            // Add space if not start of line
+            if (lineLen > 0) {
+                line[lineLen++] = ' ';
+            }
+            // Add word
+            memcpy(line + lineLen, wordStart, wordLen);
+            lineLen += wordLen;
+        } else {
+            // Output current line and start new one
+            if (lineLen > 0) {
+                line[lineLen] = '\0';
+                Renderer_DrawText(line, x, currentY, color, 0);
+                currentY += lineHeight;
+            }
+            // Start new line with current word
+            memcpy(line, wordStart, wordLen);
+            lineLen = wordLen;
+        }
+
+        // Handle newlines
+        if (*ptr == '\n') {
+            line[lineLen] = '\0';
+            if (lineLen > 0) {
+                Renderer_DrawText(line, x, currentY, color, 0);
+            }
+            currentY += lineHeight;
+            lineLen = 0;
+            ptr++;
+        }
+
+        // Skip spaces
+        while (*ptr == ' ') ptr++;
+    }
+
+    // Output remaining line
+    if (lineLen > 0) {
+        line[lineLen] = '\0';
+        Renderer_DrawText(line, x, currentY, color, 0);
+        currentY += lineHeight;
+    }
+
+    return currentY;
+}
+
+void Menu_RenderBriefing(void) {
+    // Dark background
+    Renderer_Clear(PAL_BLACK);
+
+    // Title banner (dark red gradient like other menus)
+    for (int y = 10; y < 60; y++) {
+        int intensity = 115 + (y - 10) / 3;
+        if (y > 40) intensity = 125 - (y - 40) / 3;
+        if (intensity < 115) intensity = 115;
+        if (intensity > 125) intensity = 125;
+        Renderer_HLine(40, 600, y, (uint8_t)intensity);
+    }
+
+    // Banner borders
+    Renderer_HLine(40, 600, 9, 127);
+    Renderer_HLine(40, 600, 60, 112);
+    Renderer_VLine(39, 9, 60, 127);
+    Renderer_VLine(600, 9, 60, 112);
+
+    // Mission name in banner
+    Renderer_DrawText("MISSION BRIEFING", 240, 20, PAL_GOLD, 0);
+    if (g_briefingName[0]) {
+        int nameLen = (int)strlen(g_briefingName) * 8;
+        int nameX = 320 - nameLen / 2;
+        Renderer_DrawText(g_briefingName, nameX, 40, PAL_WHITE, 0);
+    }
+
+    // Briefing text area (bordered box)
+    int boxX = 40;
+    int boxY = 70;
+    int boxW = 560;
+    int boxH = 260;
+
+    // Sunken border for text area
+    Renderer_HLine(boxX, boxX + boxW, boxY, BTN_SHADOW);
+    Renderer_VLine(boxX, boxY, boxY + boxH, BTN_SHADOW);
+    Renderer_HLine(boxX, boxX + boxW, boxY + boxH, BTN_HIGHLIGHT);
+    Renderer_VLine(boxX + boxW, boxY, boxY + boxH, BTN_HIGHLIGHT);
+
+    // Dark fill
+    Renderer_FillRect(boxX + 1, boxY + 1, boxW - 1, boxH - 1, 1);
+
+    // Render briefing text with word-wrap
+    if (g_briefingText[0]) {
+        RenderWrappedText(g_briefingText, boxX + 10, boxY + 10, boxW - 20, PAL_WHITE);
+    }
+
+    // Action buttons at bottom
+    int btnY = 350;
+    int btnW = 180;
+    int btnH = 24;
+    int centerX = 320;
+
+    // "COMMENCE" button
+    DrawBeveledButton(centerX - btnW/2, btnY, btnW, btnH, false, true, true);
+    Renderer_DrawText("COMMENCE", centerX - 32, btnY + 8, PAL_GOLD, 0);
+
+    // Instructions
+    Renderer_DrawText("PRESS ENTER OR CLICK TO BEGIN MISSION", 150, 385, PAL_GREY, 0);
+}
+
+void Menu_UpdateBriefing(void) {
+    // Check for confirmation input
+    bool confirmed = false;
+
+    // Enter or Space to confirm
+    if (Input_WasKeyPressed(VK_RETURN) || Input_WasKeyPressed(VK_SPACE)) {
+        confirmed = true;
+    }
+
+    // Mouse click on button
+    int mx = Input_GetMouseX();
+    int my = Input_GetMouseY();
+    uint8_t buttons = Input_GetMouseButtons();
+    static bool wasLeftDown = false;
+    bool leftDown = (buttons & INPUT_MOUSE_LEFT) != 0;
+    bool leftClicked = !leftDown && wasLeftDown;
+    wasLeftDown = leftDown;
+
+    // Check if click in button area
+    int btnY = 350;
+    int btnW = 180;
+    int btnH = 24;
+    int btnX = 320 - btnW/2;
+
+    if (leftClicked && mx >= btnX && mx < btnX + btnW &&
+        my >= btnY && my < btnY + btnH) {
+        confirmed = true;
+    }
+
+    // Also allow clicking anywhere to proceed (more user-friendly)
+    if (leftClicked) {
+        confirmed = true;
+    }
+
+    if (confirmed) {
+        if (g_clickSound) Audio_Play(g_clickSound, 150, 0, FALSE);
+        Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+        if (g_briefingConfirmCallback) {
+            g_briefingConfirmCallback();
+        }
+    }
+
+    // ESC goes back to campaign/difficulty selection
+    if (Input_WasKeyPressed(VK_ESCAPE)) {
+        if (g_clickSound) Audio_Play(g_clickSound, 100, 0, FALSE);
+        // Go back to difficulty selection
+        Menu_SetCurrentScreen(MENU_SCREEN_DIFFICULTY_SELECT);
+    }
 }
