@@ -4,6 +4,8 @@
 
 #include "units.h"
 #include "map.h"
+#include "sprites.h"
+#include "sounds.h"
 #include "graphics/metal/renderer.h"
 #include <cstdlib>
 #include <cstring>
@@ -282,6 +284,8 @@ void Units_Select(int unitId, BOOL addToSelection) {
     Unit* unit = Units_Get(unitId);
     if (unit && unit->team == TEAM_PLAYER) {
         unit->selected = 1;
+        // Play selection sound
+        Sounds_PlayAt(SFX_UNIT_SELECT, unit->worldX, unit->worldY, 150);
     }
 }
 
@@ -447,9 +451,21 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
             int facing = (int)((angle + M_PI) / (M_PI / 4.0)) % 8;
             unit->facing = (uint8_t)((facing + 2) % 8);
 
+            // Play attack sound based on unit type
+            const UnitTypeDef* def = &g_unitTypes[unit->type];
+            SoundEffect sfx = SFX_GUN_SHOT;
+            if (unit->type == UNIT_ROCKET) {
+                sfx = SFX_ROCKET;
+            } else if (!def->isInfantry) {
+                sfx = SFX_CANNON;
+            }
+            Sounds_PlayAt(sfx, unit->worldX, unit->worldY, 200);
+
             // Check if target dies
             if (target->health <= 0) {
                 target->state = STATE_DYING;
+                // Play death sound
+                Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX, target->worldY, 180);
             }
         }
     }
@@ -511,8 +527,13 @@ void Units_Update(void) {
             target->health -= def->attackDamage;
             bld->attackCooldown = def->attackRate;
 
+            // Play turret sound
+            SoundEffect sfx = (bld->type == BUILDING_SAM) ? SFX_ROCKET : SFX_CANNON;
+            Sounds_PlayAt(sfx, bldWorldX, bldWorldY, 200);
+
             if (target->health <= 0) {
                 target->state = STATE_DYING;
+                Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX, target->worldY, 180);
             }
         }
     }
@@ -546,9 +567,12 @@ void Units_Render(void) {
         // Get team color
         uint8_t color = g_teamColors[bld->team];
 
-        // Draw building
-        Renderer_FillRect(screenX + 2, screenY + 2, pixelWidth - 4, pixelHeight - 4, def->color);
-        Renderer_DrawRect(screenX + 1, screenY + 1, pixelWidth - 2, pixelHeight - 2, color);
+        // Try to render with real sprite first
+        if (!Sprites_RenderBuilding((BuildingType)bld->type, 0, screenX, screenY, color)) {
+            // Fallback to basic shapes
+            Renderer_FillRect(screenX + 2, screenY + 2, pixelWidth - 4, pixelHeight - 4, def->color);
+            Renderer_DrawRect(screenX + 1, screenY + 1, pixelWidth - 2, pixelHeight - 2, color);
+        }
 
         // Draw selection indicator
         if (bld->selected) {
@@ -584,25 +608,28 @@ void Units_Render(void) {
         // Get team color
         uint8_t teamColor = g_teamColors[unit->team];
 
-        // Draw unit body
-        if (def->isInfantry) {
-            // Draw infantry as small circle
-            Renderer_FillCircle(screenX, screenY, halfSize, teamColor);
-        } else {
-            // Draw vehicle as rectangle
-            Renderer_FillRect(screenX - halfSize, screenY - halfSize, def->size, def->size, def->color);
-            // Team color stripe
-            Renderer_FillRect(screenX - halfSize, screenY - halfSize, def->size, 3, teamColor);
-        }
+        // Try to render with real sprite first
+        if (!Sprites_RenderUnit((UnitType)unit->type, unit->facing, 0, screenX, screenY, teamColor)) {
+            // Fallback to basic shapes
+            if (def->isInfantry) {
+                // Draw infantry as small circle
+                Renderer_FillCircle(screenX, screenY, halfSize, teamColor);
+            } else {
+                // Draw vehicle as rectangle
+                Renderer_FillRect(screenX - halfSize, screenY - halfSize, def->size, def->size, def->color);
+                // Team color stripe
+                Renderer_FillRect(screenX - halfSize, screenY - halfSize, def->size, 3, teamColor);
+            }
 
-        // Draw facing indicator (gun barrel)
-        if (unit->attackRange > 0) {
-            static const int facingDx[] = { 0, 1, 1, 1, 0, -1, -1, -1 };
-            static const int facingDy[] = { -1, -1, 0, 1, 1, 1, 0, -1 };
-            int barrelLen = halfSize + 2;
-            int bx = screenX + facingDx[unit->facing] * barrelLen;
-            int by = screenY + facingDy[unit->facing] * barrelLen;
-            Renderer_DrawLine(screenX, screenY, bx, by, 8);
+            // Draw facing indicator (gun barrel) - only for fallback
+            if (unit->attackRange > 0) {
+                static const int facingDx[] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+                static const int facingDy[] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+                int barrelLen = halfSize + 2;
+                int bx = screenX + facingDx[unit->facing] * barrelLen;
+                int by = screenY + facingDy[unit->facing] * barrelLen;
+                Renderer_DrawLine(screenX, screenY, bx, by, 8);
+            }
         }
 
         // Draw selection indicator

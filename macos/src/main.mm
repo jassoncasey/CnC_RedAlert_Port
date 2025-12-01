@@ -13,9 +13,13 @@
 #include "game/gameloop.h"
 #include "game/map.h"
 #include "game/units.h"
+#include "game/sprites.h"
+#include "game/sounds.h"
 #include "audio/audio.h"
 #include "ui/menu.h"
 #include "compat/assets.h"
+#include "assets/assetloader.h"
+#include "assets/shpfile.h"
 #include <cmath>
 
 // Game window dimensions (original Red Alert resolution)
@@ -39,6 +43,9 @@ static bool g_inGameplay = false;
 static int g_selectionStartX = -1;
 static int g_selectionStartY = -1;
 static bool g_isSelecting = false;
+
+// Assets loaded flag
+static bool g_assetsLoaded = false;
 
 // Toggle fullscreen mode
 static void ToggleFullscreen(void) {
@@ -761,6 +768,26 @@ void GameRender(void) {
         return;
     }
 
+    // Initialize asset loader and load game assets
+    if (Assets_Init()) {
+        NSLog(@"AssetLoader initialized");
+        // Load game palette
+        if (Renderer_LoadPalette("SNOW.PAL")) {
+            NSLog(@"Loaded SNOW.PAL palette");
+        }
+        // Initialize sprite system (loads all unit/building sprites)
+        if (Sprites_Init()) {
+            NSLog(@"Sprite system initialized");
+            g_assetsLoaded = true;
+        }
+        // Initialize sound system (loads all game sound effects)
+        if (Sounds_Init()) {
+            NSLog(@"Sound system initialized");
+        }
+    } else {
+        NSLog(@"Warning: AssetLoader failed to initialize (game archives not found)");
+    }
+
     // Initialize audio
     if (!Audio_Init()) {
         NSLog(@"Warning: Audio initialization failed");
@@ -812,10 +839,16 @@ void GameRender(void) {
         }
     }
 
+    // Shutdown sprite and sound systems
+    Sounds_Shutdown();
+    Sprites_Shutdown();
+    g_assetsLoaded = false;
+
     Menu_Shutdown();
     GameLoop_Shutdown();
     Audio_Shutdown();
     Renderer_Shutdown();
+    Assets_Shutdown();
     Input_Shutdown();
     StubAssets_Shutdown();
     NSLog(@"Red Alert shutting down");

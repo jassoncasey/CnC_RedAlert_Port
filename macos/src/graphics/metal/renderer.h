@@ -162,6 +162,28 @@ void Renderer_SetClipRect(int x, int y, int width, int height);
  */
 void Renderer_ResetClip(void);
 
+/**
+ * Blit an SHP frame directly (convenience wrapper)
+ * @param pixels     8-bit indexed pixel data
+ * @param width      Frame width
+ * @param height     Frame height
+ * @param destX      Destination X
+ * @param destY      Destination Y
+ * @param offsetX    Sprite hotspot offset X (subtracted from destX)
+ * @param offsetY    Sprite hotspot offset Y (subtracted from destY)
+ * @param trans      If TRUE, color index 0 is transparent
+ */
+void Renderer_BlitSprite(const uint8_t* pixels, int width, int height,
+                         int destX, int destY, int offsetX, int offsetY,
+                         BOOL trans);
+
+/**
+ * Load a game palette from AssetLoader and set it as current
+ * @param name  Palette filename (e.g., "SNOW.PAL", "TEMPERAT.PAL")
+ * @return TRUE on success
+ */
+BOOL Renderer_LoadPalette(const char* name);
+
 #ifdef __cplusplus
 }
 #endif
