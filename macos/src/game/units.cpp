@@ -10,6 +10,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <queue>
+#include <vector>
+#include <algorithm>
+
+// Forward declarations
+static BOOL IsCellPassable(int cellX, int cellY, BOOL isNaval);
 
 // Unit type definitions
 struct UnitTypeDef {
@@ -110,6 +116,35 @@ void Units_Clear(void) {
     memset(g_buildings, 0, sizeof(g_buildings));
 }
 
+// Find a valid spawn position near the requested location
+static BOOL FindValidSpawnPosition(int* worldX, int* worldY, BOOL isNaval) {
+    int cellX, cellY;
+    Map_WorldToCell(*worldX, *worldY, &cellX, &cellY);
+
+    // Check if original position is valid
+    if (IsCellPassable(cellX, cellY, isNaval)) {
+        return TRUE;
+    }
+
+    // Search in expanding squares for a valid cell
+    for (int radius = 1; radius <= 5; radius++) {
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                if (abs(dx) != radius && abs(dy) != radius) continue; // Only check perimeter
+
+                int testX = cellX + dx;
+                int testY = cellY + dy;
+                if (IsCellPassable(testX, testY, isNaval)) {
+                    Map_CellToWorld(testX, testY, worldX, worldY);
+                    return TRUE;
+                }
+            }
+        }
+    }
+
+    return FALSE; // No valid position found
+}
+
 int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     if (type <= UNIT_NONE || type >= UNIT_TYPE_COUNT) return -1;
 
@@ -125,6 +160,14 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
 
     const UnitTypeDef* def = &g_unitTypes[type];
 
+    // Validate and adjust spawn position
+    int spawnX = worldX;
+    int spawnY = worldY;
+    if (!FindValidSpawnPosition(&spawnX, &spawnY, def->isNaval)) {
+        // Can't find a valid position - spawn anyway but log warning
+        // (In a real scenario we might want to fail here)
+    }
+
     Unit* unit = &g_units[id];
     memset(unit, 0, sizeof(Unit));
     unit->active = 1;
@@ -134,10 +177,10 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     unit->facing = 0;
     unit->maxHealth = def->maxHealth;
     unit->health = def->maxHealth;
-    unit->worldX = worldX;
-    unit->worldY = worldY;
-    unit->targetX = worldX;
-    unit->targetY = worldY;
+    unit->worldX = spawnX;
+    unit->worldY = spawnY;
+    unit->targetX = spawnX;
+    unit->targetY = spawnY;
     unit->targetUnit = -1;
     unit->speed = def->speed;
     unit->attackRange = def->attackRange;
@@ -247,7 +290,11 @@ void Units_CommandMove(int unitId, int worldX, int worldY) {
     unit->targetUnit = -1;
     unit->state = STATE_MOVING;
 
-    // Calculate facing direction
+    // Clear existing path - will be calculated on next update
+    unit->pathLength = 0;
+    unit->pathIndex = 0;
+
+    // Calculate facing direction (initial)
     int dx = worldX - unit->worldX;
     int dy = worldY - unit->worldY;
     if (dx != 0 || dy != 0) {
@@ -361,27 +408,242 @@ int Units_GetAtScreen(int screenX, int screenY) {
     return -1;
 }
 
+//===========================================================================
+// Pathfinding System (A* algorithm)
+//===========================================================================
+
+// Check if a cell is passable for this unit type
+static BOOL IsCellPassable(int cellX, int cellY, BOOL isNaval) {
+    if (isNaval) {
+        return Map_IsWaterPassable(cellX, cellY);
+    }
+    return Map_IsPassable(cellX, cellY);
+}
+
+// Check if unit can move to the target cell (used by combat/targeting)
+static BOOL CanMoveTo(Unit* unit, int worldX, int worldY) {
+    int cellX, cellY;
+    Map_WorldToCell(worldX, worldY, &cellX, &cellY);
+    const UnitTypeDef* def = &g_unitTypes[unit->type];
+    return IsCellPassable(cellX, cellY, def->isNaval);
+}
+// Suppress unused warning - function available for future use
+__attribute__((unused)) static BOOL (*CanMoveToRef)(Unit*, int, int) = CanMoveTo;
+
+// Direction offsets for 8-way movement
+static const int DIR_DX[8] = { 0,  1, 1, 1, 0, -1, -1, -1 };  // N, NE, E, SE, S, SW, W, NW
+static const int DIR_DY[8] = { -1, -1, 0, 1, 1,  1,  0, -1 };
+static const int DIR_COST[8] = { 10, 14, 10, 14, 10, 14, 10, 14 };  // Diagonal costs more
+
+// A* node for pathfinding
+struct PathNode {
+    int16_t cellX, cellY;
+    int g, h, f;
+    int16_t parentX, parentY;
+
+    bool operator>(const PathNode& other) const { return f > other.f; }
+};
+
+// Calculate heuristic (Manhattan distance * 10)
+static int Heuristic(int x1, int y1, int x2, int y2) {
+    return (abs(x2 - x1) + abs(y2 - y1)) * 10;
+}
+
+// Find path from start cell to target cell using A*
+// Returns true if path found, fills unit->pathCells and unit->pathLength
+static BOOL FindPath(Unit* unit, int startCellX, int startCellY, int targetCellX, int targetCellY) {
+    const UnitTypeDef* def = &g_unitTypes[unit->type];
+    BOOL isNaval = def->isNaval;
+
+    // Clear path
+    unit->pathLength = 0;
+    unit->pathIndex = 0;
+
+    // Check if target is reachable
+    if (!IsCellPassable(targetCellX, targetCellY, isNaval)) {
+        return FALSE;
+    }
+
+    // Already at target?
+    if (startCellX == targetCellX && startCellY == targetCellY) {
+        return TRUE;
+    }
+
+    int mapW = Map_GetWidth();
+    int mapH = Map_GetHeight();
+
+    // Open set (priority queue)
+    std::priority_queue<PathNode, std::vector<PathNode>, std::greater<PathNode>> openSet;
+
+    // Closed set and g-scores (simple 2D array for small maps)
+    std::vector<bool> closed(mapW * mapH, false);
+    std::vector<int> gScore(mapW * mapH, 0x7FFF);
+    std::vector<int16_t> parentX(mapW * mapH, -1);
+    std::vector<int16_t> parentY(mapW * mapH, -1);
+
+    // Start node
+    PathNode start;
+    start.cellX = startCellX;
+    start.cellY = startCellY;
+    start.g = 0;
+    start.h = Heuristic(startCellX, startCellY, targetCellX, targetCellY);
+    start.f = start.h;
+    start.parentX = -1;
+    start.parentY = -1;
+
+    openSet.push(start);
+    gScore[startCellY * mapW + startCellX] = 0;
+
+    int iterations = 0;
+    const int MAX_ITERATIONS = 2000;  // Prevent infinite loops
+
+    while (!openSet.empty() && iterations < MAX_ITERATIONS) {
+        iterations++;
+
+        PathNode current = openSet.top();
+        openSet.pop();
+
+        int idx = current.cellY * mapW + current.cellX;
+
+        // Skip if already processed
+        if (closed[idx]) continue;
+        closed[idx] = true;
+
+        // Found target?
+        if (current.cellX == targetCellX && current.cellY == targetCellY) {
+            // Reconstruct path (backwards)
+            std::vector<int16_t> pathReverse;
+            int cx = targetCellX, cy = targetCellY;
+
+            while (cx != startCellX || cy != startCellY) {
+                int cidx = cy * mapW + cx;
+                pathReverse.push_back(cy * mapW + cx);
+
+                int px = parentX[cidx];
+                int py = parentY[cidx];
+                if (px < 0 || py < 0) break;  // Safety
+                cx = px;
+                cy = py;
+
+                if ((int)pathReverse.size() > MAX_PATH_WAYPOINTS * 2) break;  // Safety
+            }
+
+            // Copy path (reversed) to unit
+            int pathLen = (int)pathReverse.size();
+            if (pathLen > MAX_PATH_WAYPOINTS) pathLen = MAX_PATH_WAYPOINTS;
+            unit->pathLength = pathLen;
+            for (int i = 0; i < pathLen; i++) {
+                unit->pathCells[i] = pathReverse[pathLen - 1 - i];
+            }
+
+            return TRUE;
+        }
+
+        // Explore neighbors
+        for (int dir = 0; dir < 8; dir++) {
+            int nx = current.cellX + DIR_DX[dir];
+            int ny = current.cellY + DIR_DY[dir];
+
+            // Bounds check
+            if (nx < 0 || nx >= mapW || ny < 0 || ny >= mapH) continue;
+
+            int nidx = ny * mapW + nx;
+
+            // Already closed?
+            if (closed[nidx]) continue;
+
+            // Passable?
+            if (!IsCellPassable(nx, ny, isNaval)) continue;
+
+            // Calculate cost
+            int newG = current.g + DIR_COST[dir];
+
+            // Better path?
+            if (newG < gScore[nidx]) {
+                gScore[nidx] = newG;
+                parentX[nidx] = current.cellX;
+                parentY[nidx] = current.cellY;
+
+                PathNode neighbor;
+                neighbor.cellX = nx;
+                neighbor.cellY = ny;
+                neighbor.g = newG;
+                neighbor.h = Heuristic(nx, ny, targetCellX, targetCellY);
+                neighbor.f = neighbor.g + neighbor.h;
+                neighbor.parentX = current.cellX;
+                neighbor.parentY = current.cellY;
+
+                openSet.push(neighbor);
+            }
+        }
+    }
+
+    return FALSE;  // No path found
+}
+
+// Set up the next waypoint from the path
+static void SetNextWaypoint(Unit* unit) {
+    if (unit->pathIndex >= unit->pathLength) {
+        // Path complete
+        unit->state = STATE_IDLE;
+        return;
+    }
+
+    int mapW = Map_GetWidth();
+    int cellIdx = unit->pathCells[unit->pathIndex];
+    int cellX = cellIdx % mapW;
+    int cellY = cellIdx / mapW;
+
+    Map_CellToWorld(cellX, cellY, &unit->nextWaypointX, &unit->nextWaypointY);
+    unit->pathIndex++;
+}
+
 static void UpdateUnitMovement(Unit* unit) {
     if (unit->state != STATE_MOVING) return;
 
-    int dx = unit->targetX - unit->worldX;
-    int dy = unit->targetY - unit->worldY;
+    // If no path, try to find one
+    if (unit->pathLength == 0) {
+        int startCellX, startCellY, targetCellX, targetCellY;
+        Map_WorldToCell(unit->worldX, unit->worldY, &startCellX, &startCellY);
+        Map_WorldToCell(unit->targetX, unit->targetY, &targetCellX, &targetCellY);
+
+        if (!FindPath(unit, startCellX, startCellY, targetCellX, targetCellY)) {
+            // No path available
+            unit->state = STATE_IDLE;
+            return;
+        }
+
+        // Initialize waypoint
+        unit->pathIndex = 0;
+        SetNextWaypoint(unit);
+    }
+
+    // Move toward current waypoint
+    int dx = unit->nextWaypointX - unit->worldX;
+    int dy = unit->nextWaypointY - unit->worldY;
     int dist = (int)sqrt((double)(dx * dx + dy * dy));
 
     if (dist <= unit->speed) {
-        // Arrived
-        unit->worldX = unit->targetX;
-        unit->worldY = unit->targetY;
-        unit->state = STATE_IDLE;
+        // Reached waypoint
+        unit->worldX = unit->nextWaypointX;
+        unit->worldY = unit->nextWaypointY;
+
+        // Move to next waypoint
+        if (unit->pathIndex < unit->pathLength) {
+            SetNextWaypoint(unit);
+        } else {
+            // Final destination reached
+            unit->state = STATE_IDLE;
+        }
     } else {
-        // Move toward target
+        // Move toward waypoint
         unit->worldX += (dx * unit->speed) / dist;
         unit->worldY += (dy * unit->speed) / dist;
 
-        // Update facing
+        // Update facing based on movement direction
         double angle = atan2((double)dy, (double)dx);
         int facing = (int)((angle + M_PI) / (M_PI / 4.0)) % 8;
-        unit->facing = (uint8_t)((facing + 2) % 8);
+        unit->facing = (uint8_t)((facing + 2) % 8);  // Adjust for N=0
     }
 }
 

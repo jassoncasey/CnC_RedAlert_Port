@@ -7,12 +7,17 @@
 #include "graphics/metal/renderer.h"
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 
 // Map state
 static MapCell g_cells[MAP_MAX_HEIGHT][MAP_MAX_WIDTH];
 static int g_mapWidth = 0;
 static int g_mapHeight = 0;
-static Viewport g_viewport = {0, 0, 640, 400};
+// Viewport dimensions (game view area, excluding sidebar)
+static constexpr int GAME_VIEW_WIDTH = 560;   // Screen width minus sidebar
+static constexpr int GAME_VIEW_HEIGHT = 368;  // Screen height minus HUD and control bars
+
+static Viewport g_viewport = {0, 0, GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT};
 
 // Terrain colors (indexed, 8-bit palette style)
 static const uint8_t g_terrainColors[TERRAIN_COUNT] = {
@@ -61,81 +66,187 @@ void Map_Create(int width, int height) {
     // Reset viewport
     g_viewport.x = 0;
     g_viewport.y = 0;
+    g_viewport.width = GAME_VIEW_WIDTH;
+    g_viewport.height = GAME_VIEW_HEIGHT;
+}
+
+// Helper: Create a forest cluster
+static void AddForestCluster(int cx, int cy, int radius) {
+    for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            int x = cx + dx;
+            int y = cy + dy;
+            if (x < 0 || x >= g_mapWidth || y < 0 || y >= g_mapHeight) continue;
+            // Circular falloff with randomness
+            int dist2 = dx * dx + dy * dy;
+            if (dist2 <= radius * radius && g_cells[y][x].terrain == TERRAIN_CLEAR) {
+                // Higher chance near center
+                if (rand() % (radius * radius + 1) > dist2 / 2) {
+                    Map_SetTerrain(x, y, TERRAIN_TREE);
+                }
+            }
+        }
+    }
+}
+
+// Helper: Create a rock ridge
+static void AddRockRidge(int x1, int y1, int x2, int y2, int thickness) {
+    // Draw a thick line of rocks
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int sx = x1 < x2 ? 1 : -1;
+    int sy = y1 < y2 ? 1 : -1;
+    int err = dx - dy;
+    int x = x1, y = y1;
+
+    while (true) {
+        // Add rocks in a cluster around this point
+        for (int ty = y - thickness / 2; ty <= y + thickness / 2; ty++) {
+            for (int tx = x - thickness / 2; tx <= x + thickness / 2; tx++) {
+                if (tx >= 0 && tx < g_mapWidth && ty >= 0 && ty < g_mapHeight) {
+                    if (g_cells[ty][tx].terrain == TERRAIN_CLEAR) {
+                        Map_SetTerrain(tx, ty, TERRAIN_ROCK);
+                    }
+                }
+            }
+        }
+
+        if (x == x2 && y == y2) break;
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x += sx; }
+        if (e2 < dx) { err += dx; y += sy; }
+    }
+}
+
+// Helper: Create ore field
+static void AddOreField(int cx, int cy, int radius) {
+    for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            int x = cx + dx;
+            int y = cy + dy;
+            if (x < 0 || x >= g_mapWidth || y < 0 || y >= g_mapHeight) continue;
+            int dist2 = dx * dx + dy * dy;
+            if (dist2 <= radius * radius && g_cells[y][x].terrain == TERRAIN_CLEAR) {
+                if (rand() % 3 != 0) {  // 67% density
+                    Map_SetTerrain(x, y, TERRAIN_ORE);
+                }
+            }
+        }
+    }
 }
 
 void Map_GenerateDemo(void) {
-    // Create a 64x64 demo map
+    // Create a 64x64 demo map - Eastern European winter terrain
     Map_Create(64, 64);
 
-    // Simple procedural generation
-    // Add some water (lake in center-ish)
-    for (int y = 20; y < 30; y++) {
-        for (int x = 25; x < 40; x++) {
-            // Oval shape
-            int dx = x - 32;
-            int dy = y - 25;
-            if (dx * dx + dy * dy * 2 < 80) {
+    // Seed for reproducible terrain
+    srand(12345);
+
+    // === WATER FEATURES ===
+    // Large frozen lake in southeast quadrant
+    for (int y = 40; y < 58; y++) {
+        for (int x = 38; x < 58; x++) {
+            int dx = x - 48;
+            int dy = y - 49;
+            // Irregular lake shape using multiple ellipses
+            if (dx * dx + dy * dy * 1.5 < 100 ||
+                (dx + 5) * (dx + 5) + (dy - 3) * (dy - 3) < 40) {
                 Map_SetTerrain(x, y, TERRAIN_WATER);
             }
         }
     }
 
-    // Add a river
-    for (int y = 0; y < 20; y++) {
-        int rx = 30 + (y % 4) - 1;
-        Map_SetTerrain(rx, y, TERRAIN_WATER);
-        Map_SetTerrain(rx + 1, y, TERRAIN_WATER);
-    }
-
-    // Add some rocks/cliffs
-    for (int i = 0; i < 30; i++) {
-        int rx = rand() % g_mapWidth;
-        int ry = rand() % g_mapHeight;
-        if (g_cells[ry][rx].terrain == TERRAIN_CLEAR) {
-            Map_SetTerrain(rx, ry, TERRAIN_ROCK);
-            // Cluster nearby
-            if (rx > 0) Map_SetTerrain(rx - 1, ry, TERRAIN_ROCK);
-            if (rx < g_mapWidth - 1) Map_SetTerrain(rx + 1, ry, TERRAIN_ROCK);
-        }
-    }
-
-    // Add trees/forests
-    for (int i = 0; i < 80; i++) {
-        int rx = rand() % g_mapWidth;
-        int ry = rand() % g_mapHeight;
-        if (g_cells[ry][rx].terrain == TERRAIN_CLEAR) {
-            Map_SetTerrain(rx, ry, TERRAIN_TREE);
-        }
-    }
-
-    // Add a road
-    for (int x = 0; x < 20; x++) {
-        Map_SetTerrain(x, 32, TERRAIN_ROAD);
-    }
-    for (int y = 32; y < 50; y++) {
-        Map_SetTerrain(19, y, TERRAIN_ROAD);
-    }
-
-    // Add ore fields
-    for (int i = 0; i < 5; i++) {
-        int ox = 45 + rand() % 15;
-        int oy = 40 + rand() % 15;
-        for (int dy = -2; dy <= 2; dy++) {
-            for (int dx = -2; dx <= 2; dx++) {
-                int tx = ox + dx;
-                int ty = oy + dy;
-                if (tx >= 0 && tx < g_mapWidth && ty >= 0 && ty < g_mapHeight) {
-                    if (g_cells[ty][tx].terrain == TERRAIN_CLEAR && rand() % 3 != 0) {
-                        Map_SetTerrain(tx, ty, TERRAIN_ORE);
-                    }
-                }
+    // River flowing from northwest into the lake
+    float rx = 5.0f;
+    for (int y = 0; y < 50; y++) {
+        // Meandering river path
+        rx += sinf(y * 0.15f) * 0.8f + 0.5f;
+        int riverX = (int)rx;
+        for (int w = 0; w < 2; w++) {
+            if (riverX + w >= 0 && riverX + w < g_mapWidth) {
+                Map_SetTerrain(riverX + w, y, TERRAIN_WATER);
             }
         }
     }
 
-    // Add a bridge over the river
-    Map_SetTerrain(30, 10, TERRAIN_BRIDGE);
-    Map_SetTerrain(31, 10, TERRAIN_BRIDGE);
+    // Small pond in northwest
+    for (int y = 8; y < 14; y++) {
+        for (int x = 48; x < 56; x++) {
+            int dx = x - 52;
+            int dy = y - 11;
+            if (dx * dx + dy * dy < 12) {
+                Map_SetTerrain(x, y, TERRAIN_WATER);
+            }
+        }
+    }
+
+    // === ROCKY TERRAIN ===
+    // Mountain ridge running diagonally across upper portion
+    AddRockRidge(2, 20, 30, 8, 2);
+    AddRockRidge(30, 8, 45, 5, 2);
+
+    // Cliff face near southern lake
+    AddRockRidge(30, 50, 38, 55, 2);
+
+    // Scattered rock outcrops
+    AddRockRidge(55, 25, 60, 30, 1);
+    AddRockRidge(10, 55, 18, 58, 2);
+
+    // === FORESTS ===
+    // Large forest in northwest
+    AddForestCluster(12, 8, 5);
+    AddForestCluster(8, 12, 4);
+
+    // Forest belt along western edge
+    AddForestCluster(4, 35, 4);
+    AddForestCluster(6, 45, 5);
+
+    // Forest near eastern edge
+    AddForestCluster(58, 15, 4);
+    AddForestCluster(55, 35, 3);
+
+    // Scattered tree clusters
+    AddForestCluster(25, 25, 3);
+    AddForestCluster(40, 20, 2);
+    AddForestCluster(20, 55, 3);
+
+    // === ROADS ===
+    // Main road from west to east
+    for (int x = 0; x < 40; x++) {
+        int y = 32 + (int)(sinf(x * 0.1f) * 2);
+        Map_SetTerrain(x, y, TERRAIN_ROAD);
+    }
+
+    // Road from north
+    for (int y = 0; y < 32; y++) {
+        int x = 28 + (y > 15 ? (y - 15) / 4 : 0);
+        Map_SetTerrain(x, y, TERRAIN_ROAD);
+    }
+
+    // Road to southern base area
+    for (int y = 32; y < 52; y++) {
+        Map_SetTerrain(20, y, TERRAIN_ROAD);
+    }
+
+    // === BRIDGES ===
+    // Bridge over river where main road crosses (around x=21 at y=32)
+    Map_SetTerrain(21, 32, TERRAIN_BRIDGE);
+    Map_SetTerrain(22, 32, TERRAIN_BRIDGE);
+
+    // Bridge where north road crosses river
+    Map_SetTerrain(13, 10, TERRAIN_BRIDGE);
+    Map_SetTerrain(14, 10, TERRAIN_BRIDGE);
+
+    // === ORE FIELDS ===
+    // Ore deposits - logical mining locations near rocky areas
+    AddOreField(52, 28, 3);  // Near eastern rocks
+    AddOreField(8, 50, 3);   // Near southwestern area
+    AddOreField(35, 15, 2);  // Near mountain ridge
+
+    // Gems near the lake (rare resource)
+    Map_SetTerrain(35, 48, TERRAIN_GEM);
+    Map_SetTerrain(36, 47, TERRAIN_GEM);
+    Map_SetTerrain(35, 47, TERRAIN_GEM);
 
     // Reveal everything for demo
     for (int y = 0; y < g_mapHeight; y++) {

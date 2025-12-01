@@ -71,6 +71,9 @@ typedef enum {
     STATE_DYING
 } UnitState;
 
+// Maximum path waypoints per unit
+#define MAX_PATH_WAYPOINTS 32
+
 // Unit structure
 typedef struct {
     uint8_t type;           // UnitType
@@ -81,8 +84,8 @@ typedef struct {
     int16_t maxHealth;      // Maximum health
     int32_t worldX;         // Position X (sub-pixel)
     int32_t worldY;         // Position Y (sub-pixel)
-    int32_t targetX;        // Movement target X
-    int32_t targetY;        // Movement target Y
+    int32_t targetX;        // Final destination X
+    int32_t targetY;        // Final destination Y
     int16_t targetUnit;     // Attack target unit ID (-1 if none)
     int16_t speed;          // Movement speed
     int16_t attackRange;    // Attack range in pixels
@@ -91,6 +94,12 @@ typedef struct {
     int16_t attackRate;     // Ticks between attacks
     uint8_t selected;       // Is unit selected?
     uint8_t active;         // Is unit slot active?
+    // Path following
+    int16_t pathCells[MAX_PATH_WAYPOINTS]; // Cell indices for path
+    int8_t pathLength;      // Total waypoints in path
+    int8_t pathIndex;       // Current waypoint index
+    int32_t nextWaypointX;  // Current waypoint world X
+    int32_t nextWaypointY;  // Current waypoint world Y
 } Unit;
 
 // Building structure

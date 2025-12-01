@@ -18,6 +18,7 @@
 #include "game/terrain.h"
 #include "audio/audio.h"
 #include "ui/menu.h"
+#include "ui/game_ui.h"
 #include "compat/assets.h"
 #include "assets/assetloader.h"
 #include "assets/shpfile.h"
@@ -62,6 +63,7 @@ static void StartDemoMission(void) {
     // Initialize map and units
     Map_Init();
     Units_Init();
+    GameUI_Init();
 
     // Generate demo map
     Map_GenerateDemo();
@@ -150,6 +152,7 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         // ESC returns to main menu
         if (Input_WasKeyPressed(VK_ESCAPE)) {
             g_inGameplay = false;
+            GameUI_Shutdown();
             Map_Shutdown();
             Units_Shutdown();
             Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
@@ -183,6 +186,16 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         uint8_t buttons = Input_GetMouseButtons();
         static bool wasLeftDown = false;
         bool leftDown = (buttons & INPUT_MOUSE_LEFT) != 0;
+        bool rightDown = (buttons & INPUT_MOUSE_RIGHT) != 0;
+
+        // Handle UI input first (sidebar, radar)
+        if (leftDown && !wasLeftDown) {
+            if (GameUI_HandleInput(mx, my, TRUE, FALSE)) {
+                // UI consumed the click, don't process as game input
+                wasLeftDown = leftDown;
+                return;
+            }
+        }
 
         if (leftDown && !wasLeftDown) {
             // Start selection
@@ -214,7 +227,6 @@ void GameUpdate(uint32_t frame, float deltaTime) {
 
         // Right click commands
         static bool wasRightDown = false;
-        bool rightDown = (buttons & INPUT_MOUSE_RIGHT) != 0;
 
         if (rightDown && !wasRightDown) {
             int worldX, worldY;
@@ -253,6 +265,7 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         // Update game systems
         Map_Update();
         Units_Update();
+        GameUI_Update();
 
         // Pause (P key)
         if (Input_WasKeyPressed('P')) {
@@ -366,11 +379,20 @@ void GameRender(void) {
     if (g_inGameplay) {
         Renderer_Clear(0);
 
+        // Clip to game view area (don't draw over sidebar)
+        Renderer_SetClipRect(0, 16, 560, 368);
+
         // Render map terrain
         Map_Render();
 
         // Render units and buildings
         Units_Render();
+
+        // Reset clip for UI
+        Renderer_ResetClip();
+
+        // Render game UI (sidebar, radar, selection panel)
+        GameUI_Render();
 
         // Draw selection box if dragging
         if (g_isSelecting) {
@@ -394,38 +416,38 @@ void GameRender(void) {
         Renderer_DrawLine(mx - 8, my, mx + 8, my, 15);
         Renderer_DrawLine(mx, my - 8, mx, my + 8, 15);
 
-        // Draw HUD
+        // Draw HUD (top bar - game view only, sidebar has its own)
         const FrameStats* stats = GameLoop_GetStats();
-        Renderer_FillRect(0, 0, 640, 16, 0);
-        Renderer_DrawText("RED ALERT - DEMO MISSION", 10, 3, 14, 0);
+        Renderer_FillRect(0, 0, 560, 16, 0);
+        Renderer_DrawText("RED ALERT - DEMO", 10, 3, 14, 0);
 
         // Unit count
         char hudText[64];
-        snprintf(hudText, sizeof(hudText), "PLAYER:%d ENEMY:%d",
+        snprintf(hudText, sizeof(hudText), "P:%d E:%d",
                  Units_CountByTeam(TEAM_PLAYER), Units_CountByTeam(TEAM_ENEMY));
-        Renderer_DrawText(hudText, 300, 3, 10, 0);
+        Renderer_DrawText(hudText, 200, 3, 10, 0);
 
         // Selected count
         int selected = Units_GetSelectedCount();
         if (selected > 0) {
-            snprintf(hudText, sizeof(hudText), "SELECTED:%d", selected);
-            Renderer_DrawText(hudText, 480, 3, 15, 0);
+            snprintf(hudText, sizeof(hudText), "SEL:%d", selected);
+            Renderer_DrawText(hudText, 300, 3, 15, 0);
         }
 
         // FPS
-        snprintf(hudText, sizeof(hudText), "FPS:%.0f", stats->currentFPS);
-        Renderer_DrawText(hudText, 580, 3, 7, 0);
+        snprintf(hudText, sizeof(hudText), "%.0f", stats->currentFPS);
+        Renderer_DrawText(hudText, 540, 3, 7, 0);
 
         // Pause overlay
         if (GameLoop_IsPaused()) {
-            Renderer_FillRect(260, 180, 120, 40, 0);
-            Renderer_DrawRect(260, 180, 120, 40, 15);
-            Renderer_DrawText("PAUSED", 285, 195, 15, 0);
+            Renderer_FillRect(220, 180, 120, 40, 0);
+            Renderer_DrawRect(220, 180, 120, 40, 15);
+            Renderer_DrawText("PAUSED", 245, 195, 15, 0);
         }
 
-        // Controls help at bottom
-        Renderer_FillRect(0, 384, 640, 16, 0);
-        Renderer_DrawText("WASD=SCROLL LMB=SELECT RMB=CMD ESC=MENU P=PAUSE F=FULLSCR", 20, 387, 7, 0);
+        // Controls help at bottom (only in game view area)
+        Renderer_FillRect(0, 384, 560, 16, 0);
+        Renderer_DrawText("WASD=SCROLL LMB=SELECT RMB=CMD ESC=MENU", 20, 387, 7, 0);
 
         return;
     }
