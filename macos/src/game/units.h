@@ -97,6 +97,7 @@ typedef struct {
     int16_t attackDamage;   // Damage per attack
     int16_t attackCooldown; // Current cooldown
     int16_t attackRate;     // Ticks between attacks
+    int16_t sightRange;     // Sight range in cells (fog of war)
     uint8_t selected;       // Is unit selected?
     uint8_t active;         // Is unit slot active?
     // Path following
@@ -124,6 +125,7 @@ typedef struct {
     uint8_t selected;       // Is building selected?
     uint8_t active;         // Is building slot active?
     int16_t attackCooldown; // For turrets
+    int16_t sightRange;     // Sight range in cells (fog of war)
 } Building;
 
 /**

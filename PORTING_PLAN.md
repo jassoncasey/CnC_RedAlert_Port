@@ -190,11 +190,20 @@ After M33-M37, we have:
 
 ## Phase 2: Combat Polish (M38-M40)
 
-### M38: Fog of War
-- Map starts black (shroud)
-- Units reveal area around them
-- Previously seen areas are dimmed
-- Enemy units only visible in sight range
+### ✓ M38: Fog of War - COMPLETE
+
+**Goal:** Map starts hidden, units reveal the area around them.
+
+**Completed:**
+- [x] Map starts black (shroud) - unrevealed cells not rendered
+- [x] Units reveal area around them (sight range per unit type)
+- [x] Buildings reveal area around them (sight range per building type)
+- [x] Previously seen areas are dimmed (REVEALED but not VISIBLE)
+- [x] Enemy units only visible in sight range
+- [x] Fog toggle option (Map_SetFogEnabled)
+- [x] Radar dome has extended sight range (10 cells)
+
+**Files:** `game/map.h`, `game/map.cpp`, `game/units.h`, `game/units.cpp`
 
 ### M39: Attack Commands
 - Attack-move (A + click)
@@ -266,9 +275,9 @@ After M33-M37, we have:
 | **Tech tree** | ✓ Done (M35) | - |
 | **Economy** | ✓ Done (M36) | - |
 | **AI opponent** | ✓ Done (M37) | - |
-| Fog of war | Missing | Medium |
+| **Fog of war** | ✓ Done (M38) | - |
 | Attack commands | Missing | Medium |
 | Campaign missions | Missing | Medium |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M38 - Fog of War, or M41 - Scenario Loading.
+**Next step:** M39 - Attack Commands, or M41 - Scenario Loading.

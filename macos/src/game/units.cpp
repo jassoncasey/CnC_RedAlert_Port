@@ -24,6 +24,7 @@ struct UnitTypeDef {
     int16_t attackRange;
     int16_t attackDamage;
     int16_t attackRate;
+    int16_t sightRange;     // Sight range in cells (fog of war)
     uint8_t size;           // Visual size in pixels
     uint8_t color;          // Base color
     BOOL isInfantry;
@@ -31,32 +32,32 @@ struct UnitTypeDef {
 };
 
 static const UnitTypeDef g_unitTypes[UNIT_TYPE_COUNT] = {
-    // UNIT_NONE
-    { 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE },
+    // UNIT_NONE                                                  sight
+    { 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE },
     // UNIT_RIFLE
-    { 50, 2, 64, 8, 30, 6, 15, TRUE, FALSE },
+    { 50, 2, 64, 8, 30, 5, 6, 15, TRUE, FALSE },
     // UNIT_GRENADIER
-    { 60, 2, 96, 20, 45, 8, 15, TRUE, FALSE },
+    { 60, 2, 96, 20, 45, 5, 8, 15, TRUE, FALSE },
     // UNIT_ROCKET
-    { 45, 2, 128, 30, 60, 8, 15, TRUE, FALSE },
+    { 45, 2, 128, 30, 60, 6, 8, 15, TRUE, FALSE },
     // UNIT_ENGINEER
-    { 25, 2, 0, 0, 0, 6, 15, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 4, 6, 15, TRUE, FALSE },
     // UNIT_HARVESTER
-    { 200, 3, 0, 0, 0, 18, 14, FALSE, FALSE },
+    { 200, 3, 0, 0, 0, 4, 18, 14, FALSE, FALSE },
     // UNIT_TANK_LIGHT
-    { 150, 5, 96, 25, 30, 14, 7, FALSE, FALSE },
+    { 150, 5, 96, 25, 30, 6, 14, 7, FALSE, FALSE },
     // UNIT_TANK_MEDIUM
-    { 250, 4, 112, 40, 35, 16, 7, FALSE, FALSE },
+    { 250, 4, 112, 40, 35, 6, 16, 7, FALSE, FALSE },
     // UNIT_TANK_HEAVY
-    { 500, 3, 128, 60, 40, 20, 7, FALSE, FALSE },
+    { 500, 3, 128, 60, 40, 7, 20, 7, FALSE, FALSE },
     // UNIT_APC
-    { 150, 6, 48, 10, 20, 14, 7, FALSE, FALSE },
+    { 150, 6, 48, 10, 20, 6, 14, 7, FALSE, FALSE },
     // UNIT_ARTILLERY
-    { 100, 3, 192, 50, 60, 16, 7, FALSE, FALSE },
+    { 100, 3, 192, 50, 60, 8, 16, 7, FALSE, FALSE },
     // UNIT_GUNBOAT
-    { 200, 4, 96, 20, 30, 16, 1, FALSE, TRUE },
+    { 200, 4, 96, 20, 30, 7, 16, 1, FALSE, TRUE },
     // UNIT_DESTROYER
-    { 350, 5, 128, 40, 35, 20, 1, FALSE, TRUE },
+    { 350, 5, 128, 40, 35, 8, 20, 1, FALSE, TRUE },
 };
 
 // Building type definitions
@@ -69,27 +70,28 @@ struct BuildingTypeDef {
     int16_t attackRange;
     int16_t attackDamage;
     int16_t attackRate;
+    int16_t sightRange;     // Sight range in cells (fog of war)
 };
 
 static const BuildingTypeDef g_buildingTypes[BUILDING_TYPE_COUNT] = {
-    // BUILDING_NONE
-    { 0, 0, 0, 0, FALSE, 0, 0, 0 },
+    // BUILDING_NONE                                        sight
+    { 0, 0, 0, 0, FALSE, 0, 0, 0, 0 },
     // BUILDING_CONSTRUCTION
-    { 500, 3, 3, 7, FALSE, 0, 0, 0 },
+    { 500, 3, 3, 7, FALSE, 0, 0, 0, 6 },
     // BUILDING_POWER
-    { 300, 2, 2, 14, FALSE, 0, 0, 0 },
+    { 300, 2, 2, 14, FALSE, 0, 0, 0, 4 },
     // BUILDING_REFINERY
-    { 400, 3, 2, 14, FALSE, 0, 0, 0 },
+    { 400, 3, 2, 14, FALSE, 0, 0, 0, 5 },
     // BUILDING_BARRACKS
-    { 350, 2, 2, 7, FALSE, 0, 0, 0 },
+    { 350, 2, 2, 7, FALSE, 0, 0, 0, 5 },
     // BUILDING_FACTORY
-    { 400, 3, 3, 7, FALSE, 0, 0, 0 },
+    { 400, 3, 3, 7, FALSE, 0, 0, 0, 5 },
     // BUILDING_RADAR
-    { 300, 2, 2, 7, FALSE, 0, 0, 0 },
+    { 300, 2, 2, 7, FALSE, 0, 0, 0, 10 },  // Radar has long sight
     // BUILDING_TURRET
-    { 200, 1, 1, 8, TRUE, 128, 30, 25 },
+    { 200, 1, 1, 8, TRUE, 128, 30, 25, 6 },
     // BUILDING_SAM
-    { 250, 2, 1, 8, TRUE, 160, 40, 40 },
+    { 250, 2, 1, 8, TRUE, 160, 40, 40, 7 },
 };
 
 // Global state
@@ -222,6 +224,7 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     unit->attackDamage = def->attackDamage;
     unit->attackRate = def->attackRate;
     unit->attackCooldown = 0;
+    unit->sightRange = def->sightRange;
     // Harvester-specific
     unit->cargo = 0;
     unit->homeRefinery = -1;
@@ -291,6 +294,7 @@ int Buildings_Spawn(BuildingType type, Team team, int cellX, int cellY) {
     bld->cellY = (int16_t)cellY;
     bld->width = def->width;
     bld->height = def->height;
+    bld->sightRange = def->sightRange;
 
     // Mark cells as occupied
     for (int dy = 0; dy < def->height; dy++) {
@@ -1012,6 +1016,33 @@ static void UpdateHarvester(Unit* unit, int unitId) {
 }
 
 void Units_Update(void) {
+    // === Fog of War: Clear visibility and reveal around player units/buildings ===
+    Map_ClearVisibility();
+
+    // Reveal around player units
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = &g_units[i];
+        if (!unit->active) continue;
+        if (unit->team != TEAM_PLAYER) continue;
+
+        int cellX, cellY;
+        Map_WorldToCell(unit->worldX, unit->worldY, &cellX, &cellY);
+        Map_RevealAround(cellX, cellY, unit->sightRange, TEAM_PLAYER);
+    }
+
+    // Reveal around player buildings
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = &g_buildings[i];
+        if (!bld->active) continue;
+        if (bld->team != TEAM_PLAYER) continue;
+
+        // Reveal from center of building
+        int centerX = bld->cellX + bld->width / 2;
+        int centerY = bld->cellY + bld->height / 2;
+        Map_RevealAround(centerX, centerY, bld->sightRange, TEAM_PLAYER);
+    }
+
+    // === Update units ===
     for (int i = 0; i < MAX_UNITS; i++) {
         Unit* unit = &g_units[i];
         if (!unit->active) continue;
@@ -1112,6 +1143,15 @@ void Units_Render(void) {
             continue;
         }
 
+        // Hide enemy buildings in fog of war
+        if (bld->team != TEAM_PLAYER) {
+            int centerX = bld->cellX + bld->width / 2;
+            int centerY = bld->cellY + bld->height / 2;
+            if (!Map_IsCellVisible(centerX, centerY)) {
+                continue;  // Don't render - in fog
+            }
+        }
+
         // Get team color
         uint8_t color = g_teamColors[bld->team];
 
@@ -1151,6 +1191,15 @@ void Units_Render(void) {
         if (screenX + halfSize < 0 || screenX - halfSize > vp->width ||
             screenY + halfSize < 0 || screenY - halfSize > vp->height) {
             continue;
+        }
+
+        // Hide enemy units in fog of war
+        if (unit->team != TEAM_PLAYER) {
+            int cellX, cellY;
+            Map_WorldToCell(unit->worldX, unit->worldY, &cellX, &cellY);
+            if (!Map_IsCellVisible(cellX, cellY)) {
+                continue;  // Don't render - in fog
+            }
         }
 
         // Get team color

@@ -13,6 +13,7 @@
 static MapCell g_cells[MAP_MAX_HEIGHT][MAP_MAX_WIDTH];
 static int g_mapWidth = 0;
 static int g_mapHeight = 0;
+static bool g_fogEnabled = true;  // Fog of war enabled by default
 // Viewport dimensions (game view area, excluding sidebar)
 static constexpr int GAME_VIEW_WIDTH = 560;   // Screen width minus sidebar
 static constexpr int GAME_VIEW_HEIGHT = 368;  // Screen height minus HUD and control bars
@@ -252,12 +253,8 @@ void Map_GenerateDemo(void) {
     Map_SetTerrain(36, 47, TERRAIN_GEM);
     Map_SetTerrain(35, 47, TERRAIN_GEM);
 
-    // Reveal everything for demo
-    for (int y = 0; y < g_mapHeight; y++) {
-        for (int x = 0; x < g_mapWidth; x++) {
-            g_cells[y][x].flags |= CELL_FLAG_REVEALED | CELL_FLAG_VISIBLE;
-        }
-    }
+    // Don't reveal everything - fog of war will handle visibility
+    // Initial visibility is set by units/buildings when they spawn
 }
 
 int Map_GetWidth(void) {
@@ -450,4 +447,84 @@ void Map_Render(void) {
 
 void Map_Update(void) {
     // Future: animate water, ore sparkles, etc.
+}
+
+//===========================================================================
+// Fog of War Functions
+//===========================================================================
+
+void Map_ClearVisibility(void) {
+    if (!g_fogEnabled) return;
+
+    // Clear VISIBLE flag on all cells (REVEALED stays set)
+    for (int y = 0; y < g_mapHeight; y++) {
+        for (int x = 0; x < g_mapWidth; x++) {
+            g_cells[y][x].flags &= ~CELL_FLAG_VISIBLE;
+        }
+    }
+}
+
+void Map_RevealAround(int cellX, int cellY, int sightRange, int team) {
+    // Only player team reveals fog
+    if (team != 1) return;  // TEAM_PLAYER = 1
+
+    // If fog disabled, just mark everything visible
+    if (!g_fogEnabled) {
+        for (int y = 0; y < g_mapHeight; y++) {
+            for (int x = 0; x < g_mapWidth; x++) {
+                g_cells[y][x].flags |= CELL_FLAG_REVEALED | CELL_FLAG_VISIBLE;
+            }
+        }
+        return;
+    }
+
+    // Reveal in a circular area
+    int rangeSquared = sightRange * sightRange;
+    for (int dy = -sightRange; dy <= sightRange; dy++) {
+        for (int dx = -sightRange; dx <= sightRange; dx++) {
+            int cx = cellX + dx;
+            int cy = cellY + dy;
+
+            // Bounds check
+            if (cx < 0 || cx >= g_mapWidth || cy < 0 || cy >= g_mapHeight) continue;
+
+            // Circle check
+            if (dx * dx + dy * dy > rangeSquared) continue;
+
+            // Mark as revealed and visible
+            g_cells[cy][cx].flags |= CELL_FLAG_REVEALED | CELL_FLAG_VISIBLE;
+        }
+    }
+}
+
+BOOL Map_IsCellVisible(int cellX, int cellY) {
+    if (!g_fogEnabled) return TRUE;
+
+    MapCell* cell = Map_GetCell(cellX, cellY);
+    if (!cell) return FALSE;
+    return (cell->flags & CELL_FLAG_VISIBLE) != 0;
+}
+
+BOOL Map_IsCellRevealed(int cellX, int cellY) {
+    if (!g_fogEnabled) return TRUE;
+
+    MapCell* cell = Map_GetCell(cellX, cellY);
+    if (!cell) return FALSE;
+    return (cell->flags & CELL_FLAG_REVEALED) != 0;
+}
+
+void Map_SetFogEnabled(BOOL enabled) {
+    g_fogEnabled = enabled;
+    if (!enabled) {
+        // When disabling fog, reveal entire map
+        for (int y = 0; y < g_mapHeight; y++) {
+            for (int x = 0; x < g_mapWidth; x++) {
+                g_cells[y][x].flags |= CELL_FLAG_REVEALED | CELL_FLAG_VISIBLE;
+            }
+        }
+    }
+}
+
+BOOL Map_IsFogEnabled(void) {
+    return g_fogEnabled;
 }

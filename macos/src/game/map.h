@@ -163,6 +163,40 @@ void Map_Render(void);
  */
 void Map_Update(void);
 
+/**
+ * Fog of War: Clear all visibility flags (call each frame before revealing)
+ */
+void Map_ClearVisibility(void);
+
+/**
+ * Fog of War: Reveal cells around a point
+ * @param cellX      Center cell X
+ * @param cellY      Center cell Y
+ * @param sightRange Sight range in cells
+ * @param team       Team doing the revealing (TEAM_PLAYER reveals for player)
+ */
+void Map_RevealAround(int cellX, int cellY, int sightRange, int team);
+
+/**
+ * Fog of War: Check if a cell is currently visible to player
+ */
+BOOL Map_IsCellVisible(int cellX, int cellY);
+
+/**
+ * Fog of War: Check if a cell has ever been revealed to player
+ */
+BOOL Map_IsCellRevealed(int cellX, int cellY);
+
+/**
+ * Fog of War: Enable or disable fog of war globally
+ */
+void Map_SetFogEnabled(BOOL enabled);
+
+/**
+ * Fog of War: Check if fog of war is enabled
+ */
+BOOL Map_IsFogEnabled(void);
+
 #ifdef __cplusplus
 }
 #endif
