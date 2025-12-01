@@ -15,6 +15,7 @@
 #include "game/units.h"
 #include "game/sprites.h"
 #include "game/sounds.h"
+#include "game/terrain.h"
 #include "audio/audio.h"
 #include "ui/menu.h"
 #include "compat/assets.h"
@@ -784,6 +785,10 @@ void GameRender(void) {
         if (Sounds_Init()) {
             NSLog(@"Sound system initialized");
         }
+        // Initialize terrain system (loads terrain tiles)
+        if (Terrain_Init()) {
+            NSLog(@"Terrain system initialized (%d templates)", Terrain_GetLoadedCount());
+        }
     } else {
         NSLog(@"Warning: AssetLoader failed to initialize (game archives not found)");
     }
@@ -839,7 +844,8 @@ void GameRender(void) {
         }
     }
 
-    // Shutdown sprite and sound systems
+    // Shutdown sprite, sound, and terrain systems
+    Terrain_Shutdown();
     Sounds_Shutdown();
     Sprites_Shutdown();
     g_assetsLoaded = false;

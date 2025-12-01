@@ -18,12 +18,16 @@ static MixFileHandle g_conquerMix = nullptr;   // CONQUER.MIX (vehicles, buildin
 static MixFileHandle g_hiresMix = nullptr;     // HIRES.MIX (infantry sprites)
 static MixFileHandle g_soundsMix = nullptr;    // SOUNDS.MIX (sound effects)
 static MixFileHandle g_localMix = nullptr;     // LOCAL.MIX (INI files, palettes)
+static MixFileHandle g_snowMix = nullptr;      // SNOW.MIX (snow tileset)
+static MixFileHandle g_temperatMix = nullptr;  // TEMPERAT.MIX (temperate tileset)
 
 // Memory-backed nested MIX data (kept alive for duration)
 static void* g_conquerData = nullptr;
 static void* g_hiresData = nullptr;
 static void* g_soundsData = nullptr;
 static void* g_localData = nullptr;
+static void* g_snowData = nullptr;
+static void* g_temperatData = nullptr;
 
 // Current palette (expanded to 8-bit)
 static uint8_t g_palette[768] = {0};
@@ -46,6 +50,23 @@ static const char* g_redalertPaths[] = {
     "../../assets/REDALERT.MIX",                              // Dev: from macos/
     "/Users/jasson/workspace/CnC_Red_Alert/assets/REDALERT.MIX",     // Absolute path
     "./assets/REDALERT.MIX",                                  // Current dir
+    nullptr
+};
+
+// Archive search paths for standalone tileset MIX files
+static const char* g_snowPaths[] = {
+    "../assets/snow.mix",
+    "../../assets/snow.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/snow.mix",
+    "./assets/snow.mix",
+    nullptr
+};
+
+static const char* g_temperatPaths[] = {
+    "../assets/temperat.mix",
+    "../../assets/temperat.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/temperat.mix",
+    "./assets/temperat.mix",
     nullptr
 };
 
@@ -108,6 +129,52 @@ BOOL Assets_Init(void) {
 
         g_localMix = OpenNestedMix(g_redalertMix, "LOCAL.MIX", &g_localData);
         if (g_localMix) printf("AssetLoader: Opened LOCAL.MIX from REDALERT\n");
+
+        // Try to open tileset archives - try various names
+        const char* snowNames[] = {"SNOW.MIX", "snow.mix", "SNOWA.MIX", nullptr};
+        const char* tempNames[] = {"TEMPERAT.MIX", "temperat.mix", "TEMPERA.MIX", nullptr};
+
+        for (int i = 0; snowNames[i] && !g_snowMix; i++) {
+            g_snowMix = OpenNestedMix(g_redalertMix, snowNames[i], &g_snowData);
+            if (g_snowMix) printf("AssetLoader: Opened %s from REDALERT\n", snowNames[i]);
+        }
+
+        for (int i = 0; tempNames[i] && !g_temperatMix; i++) {
+            g_temperatMix = OpenNestedMix(g_redalertMix, tempNames[i], &g_temperatData);
+            if (g_temperatMix) printf("AssetLoader: Opened %s from REDALERT\n", tempNames[i]);
+        }
+    }
+
+    // Also try to open tileset archives from MAIN
+    if (g_mainMix) {
+        if (!g_snowMix) {
+            g_snowMix = OpenNestedMix(g_mainMix, "SNOW.MIX", &g_snowData);
+            if (g_snowMix) printf("AssetLoader: Opened SNOW.MIX from MAIN\n");
+        }
+        if (!g_temperatMix) {
+            g_temperatMix = OpenNestedMix(g_mainMix, "TEMPERAT.MIX", &g_temperatData);
+            if (g_temperatMix) printf("AssetLoader: Opened TEMPERAT.MIX from MAIN\n");
+        }
+    }
+
+    // Try to open standalone tileset MIX files (from quick install package)
+    if (!g_snowMix) {
+        for (int i = 0; g_snowPaths[i]; i++) {
+            g_snowMix = Mix_Open(g_snowPaths[i]);
+            if (g_snowMix) {
+                printf("AssetLoader: Opened %s\n", g_snowPaths[i]);
+                break;
+            }
+        }
+    }
+    if (!g_temperatMix) {
+        for (int i = 0; g_temperatPaths[i]; i++) {
+            g_temperatMix = Mix_Open(g_temperatPaths[i]);
+            if (g_temperatMix) {
+                printf("AssetLoader: Opened %s\n", g_temperatPaths[i]);
+                break;
+            }
+        }
     }
 
     // Try to load default palette (SNOW.PAL or generate fallback)
@@ -133,6 +200,8 @@ BOOL Assets_Init(void) {
 }
 
 void Assets_Shutdown(void) {
+    if (g_snowMix) { Mix_Close(g_snowMix); g_snowMix = nullptr; }
+    if (g_temperatMix) { Mix_Close(g_temperatMix); g_temperatMix = nullptr; }
     if (g_conquerMix) { Mix_Close(g_conquerMix); g_conquerMix = nullptr; }
     if (g_hiresMix) { Mix_Close(g_hiresMix); g_hiresMix = nullptr; }
     if (g_soundsMix) { Mix_Close(g_soundsMix); g_soundsMix = nullptr; }
@@ -145,6 +214,8 @@ void Assets_Shutdown(void) {
     g_hiresData = nullptr;
     g_soundsData = nullptr;
     g_localData = nullptr;
+    g_snowData = nullptr;
+    g_temperatData = nullptr;
 
     g_paletteLoaded = false;
 }
@@ -251,8 +322,8 @@ void* Assets_LoadRaw(const char* name, uint32_t* outSize) {
     if (!name || !outSize) return nullptr;
     *outSize = 0;
 
-    // Search all archives
-    MixFileHandle searchOrder[] = { g_localMix, g_conquerMix, g_hiresMix, g_soundsMix, g_mainMix, g_redalertMix, nullptr };
+    // Search all archives (tileset archives first for terrain files)
+    MixFileHandle searchOrder[] = { g_snowMix, g_temperatMix, g_localMix, g_conquerMix, g_hiresMix, g_soundsMix, g_mainMix, g_redalertMix, nullptr };
 
     for (int i = 0; searchOrder[i]; i++) {
         if (Mix_FileExists(searchOrder[i], name)) {

@@ -3,6 +3,7 @@
  */
 
 #include "map.h"
+#include "terrain.h"
 #include "graphics/metal/renderer.h"
 #include <cstdlib>
 #include <cstring>
@@ -257,6 +258,9 @@ void Map_Render(void) {
     if (endCellX > g_mapWidth) endCellX = g_mapWidth;
     if (endCellY > g_mapHeight) endCellY = g_mapHeight;
 
+    // Check if terrain tiles are available
+    BOOL useTiles = Terrain_Available();
+
     // Render each visible cell
     for (int cy = startCellY; cy < endCellY; cy++) {
         for (int cx = startCellX; cx < endCellX; cx++) {
@@ -271,11 +275,26 @@ void Map_Render(void) {
             int screenX = cx * CELL_SIZE - g_viewport.x;
             int screenY = cy * CELL_SIZE - g_viewport.y;
 
-            // Get terrain color
-            uint8_t color = g_terrainColors[cell->terrain];
+            // Fog of war darkening
+            BOOL inFog = !(cell->flags & CELL_FLAG_VISIBLE);
 
-            // Darken if not currently visible (fog of war - revealed but not visible)
-            if (!(cell->flags & CELL_FLAG_VISIBLE)) {
+            // Try to render with terrain tiles first
+            if (useTiles) {
+                // Use cell coordinates as variant for visual variety
+                int variant = (cx * 7 + cy * 13) % 20;
+                if (Terrain_RenderTile(cell->terrain, variant, screenX, screenY)) {
+                    // Tile rendered successfully
+                    if (inFog) {
+                        // Darken the tile for fog of war
+                        Renderer_FillRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 0x80); // Semi-transparent black
+                    }
+                    continue;
+                }
+            }
+
+            // Fallback: Draw colored rectangles
+            uint8_t color = g_terrainColors[cell->terrain];
+            if (inFog) {
                 color = 8; // Dark gray for fog
             }
 

@@ -300,40 +300,46 @@ MixFileHandle Mix_OpenMemory(const void* data, uint32_t size, BOOL ownsData) {
         return nullptr;
     }
 
-    const uint8_t* ptr = (const uint8_t*)data;
+    const uint8_t* origData = (const uint8_t*)data;
+    const uint8_t* ptr = origData;
 
-    // Read first 4 bytes to check format
-    uint32_t firstWord = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+    // OpenRA format detection:
+    // - Read first 2 bytes as uint16
+    // - If != 0, it's classic C&C format (header starts at offset 0)
+    // - If == 0, read next 2 bytes as flags:
+    //   - If flags & 0x2 (encrypted), handle encryption
+    //   - Otherwise, header starts at offset 4
+    uint16_t firstWord16 = ptr[0] | (ptr[1] << 8);
 
-    // Check for new-style MIX with flags
-    if (firstWord == 0 || (firstWord & 0xFFFF) == 0) {
-        uint32_t flags = firstWord;
-        uint32_t headerOffset = 4;
+    bool isCncMix = (firstWord16 != 0);
+    uint32_t headerOffset = 0;
 
-        if (firstWord == 0) {
-            if (size < 8) return nullptr;
-            flags = ptr[4] | (ptr[5] << 8) | (ptr[6] << 16) | (ptr[7] << 24);
-            headerOffset = 8;
+    if (!isCncMix) {
+        // RA/TS/RA2 format - read flags at offset 2
+        if (size < 4) return nullptr;
+        uint16_t flags = ptr[2] | (ptr[3] << 8);
+
+        bool isEncrypted = (flags & 0x2) != 0;
+
+        if (isEncrypted) {
+            return OpenEncryptedMixMemory(origData, size, ownsData);
         }
 
-        // Check for encrypted header
-        if (flags & MIX_FLAG_ENCRYPTED) {
-            return OpenEncryptedMixMemory(ptr, size, ownsData);
-        }
-
-        // Unencrypted new-style - adjust pointer
-        ptr += headerOffset;
-        size -= headerOffset;
+        // Not encrypted - header starts at offset 4
+        headerOffset = 4;
     }
 
-    // Unencrypted MIX file (old-style)
-    if (size < sizeof(MixHeader)) {
+    ptr = origData + headerOffset;
+    uint32_t remainingSize = size - headerOffset;
+
+    // Unencrypted MIX file
+    if (remainingSize < sizeof(MixHeader)) {
         return nullptr;
     }
 
     MixFile* mix = new MixFile;
     memset(mix, 0, sizeof(MixFile));
-    mix->memData = (const uint8_t*)data;
+    mix->memData = origData;
     mix->memSize = size;
     mix->ownsMemData = ownsData;
     mix->isMemory = true;
@@ -354,8 +360,8 @@ MixFileHandle Mix_OpenMemory(const void* data, uint32_t size, BOOL ownsData) {
     mix->entries = new MixEntry[mix->header.count];
     memcpy(mix->entries, ptr, indexSize);
 
-    // Data starts after header and index
-    mix->dataStart = sizeof(MixHeader) + indexSize;
+    // Data starts after header and index (relative to original data start)
+    mix->dataStart = headerOffset + sizeof(MixHeader) + (uint32_t)indexSize;
 
     return mix;
 }
@@ -366,28 +372,40 @@ MixFileHandle Mix_Open(const char* filename) {
         return nullptr;
     }
 
-    // Read first 4 bytes to check format
-    uint32_t firstWord;
-    if (fread(&firstWord, sizeof(firstWord), 1, f) != 1) {
+    // OpenRA format detection:
+    // - Read first 2 bytes as uint16
+    // - If != 0, it's classic C&C format (header starts at offset 0)
+    // - If == 0, read next 2 bytes as flags:
+    //   - If flags & 0x2 (encrypted), handle encryption
+    //   - Otherwise, header starts at offset 4
+    uint16_t firstWord16;
+    if (fread(&firstWord16, sizeof(firstWord16), 1, f) != 1) {
         fclose(f);
         return nullptr;
     }
 
-    // Check for new-style MIX with flags
-    if (firstWord == 0 || (firstWord & 0xFFFF) == 0) {
-        // New format: flags in first 4 bytes
-        // If first word is 0, read next 4 bytes for actual flags
-        uint32_t flags = firstWord;
-        if (firstWord == 0) {
-            if (fread(&flags, sizeof(flags), 1, f) != 1) {
+    bool isCncMix = (firstWord16 != 0);
+    long headerOffset = 0;
+
+    if (!isCncMix) {
+        // RA/TS/RA2 format - read flags
+        uint16_t flags;
+        if (fread(&flags, sizeof(flags), 1, f) != 1) {
+            fclose(f);
+            return nullptr;
+        }
+
+        bool isEncrypted = (flags & 0x2) != 0;
+
+        if (isEncrypted) {
+            // Seek back and use encrypted handler (expects to start at offset 0)
+            fseek(f, 0, SEEK_SET);
+            uint32_t fullFlags;
+            if (fread(&fullFlags, sizeof(fullFlags), 1, f) != 1) {
                 fclose(f);
                 return nullptr;
             }
-        }
-
-        // Check for encrypted header
-        if (flags & MIX_FLAG_ENCRYPTED) {
-            MixFile* mix = OpenEncryptedMix(f, flags, filename);
+            MixFile* mix = OpenEncryptedMix(f, fullFlags, filename);
             if (!mix) {
                 fclose(f);
                 return nullptr;
@@ -395,12 +413,12 @@ MixFileHandle Mix_Open(const char* filename) {
             return mix;
         }
 
-        // Has checksum but not encrypted - handle like unencrypted but skip 4 bytes
-        // Fall through to unencrypted handling but don't seek back
-    } else {
-        // Old format: direct header, seek back
-        fseek(f, 0, SEEK_SET);
+        // Not encrypted - header starts at offset 4 (after the flags word)
+        headerOffset = 4;
     }
+
+    // Seek to header position
+    fseek(f, headerOffset, SEEK_SET);
 
     // Unencrypted MIX file
     MixFile* mix = new MixFile;
