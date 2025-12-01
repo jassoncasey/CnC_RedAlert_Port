@@ -63,6 +63,8 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed milestone status.
 
 | Issue | Description |
 |-------|-------------|
+| Music Distortion | Background music heavily distorted |
+| Video Audio Static | VQA playback has audio static |
 | P for Pause | Units keep moving when P pressed |
 | Mission Briefing | Garbled text after video playback |
 | Sound Volume | Can't test without sample playback button |

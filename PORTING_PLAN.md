@@ -401,6 +401,8 @@ These are known bugs that need investigation:
 |-------|-------------|----------|
 | **P for Pause** | Pressing P doesn't pause gameplay - units (harvesters) keep moving. Key detection works (other keys like arrows work fine), but pause flag not being respected by all game systems. | Medium |
 | **Mission Briefing Screen** | Shows garbled characters/artifacts instead of proper text after video playback. Palette or framebuffer state not properly restored after VQA video ends. | Medium |
+| **Music Distortion** | Background music is heavily distorted. Likely sample rate conversion or ADPCM decoding issue. | High |
+| **Video Audio Static** | VQA video playback has audio static/noise. Audio stream decoding or mixing issue. | High |
 | **Sound Volume Testing** | Sound effects volume slider in Options menu cannot be tested without a "play sample" button - no audible feedback during adjustment. | Low |
 
 **Notes:**
