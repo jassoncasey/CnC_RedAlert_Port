@@ -49,13 +49,23 @@
 
 | Feature | Status | What's Needed |
 |---------|--------|---------------|
-| **Building Placement** | Not started | Grid snapping, build radius, prerequisites |
-| **Production System** | Built, not wired | Queue units/buildings, spend credits |
-| **Fog of War** | Alpha-based | Full shroud tracking per cell |
-| **AI Opponent** | Built, not wired | Base building, attacks, difficulty levels |
-| **Real Missions** | INI parsing | Load actual SCU/SCG scenarios |
+| **Building Placement** | Working | Click sidebar → place on map |
+| **Production System** | Working | Units spawn at production buildings |
+| **Fog of War** | Working | Alpha-based shroud per cell |
+| **AI Opponent** | Working | Builds base, trains units, attacks |
+| **Tech Tree** | Working | Prerequisites unlock items |
+| **Economy** | Working | Harvesters gather ore → credits |
+| **Real Missions** | Partial | INI parser ready, using demo mission |
 
-~500 unit tests pass for systems that aren't connected to the game loop yet.
+See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed milestone status.
+
+### Known Issues
+
+| Issue | Description |
+|-------|-------------|
+| P for Pause | Units keep moving when P pressed |
+| Mission Briefing | Garbled text after video playback |
+| Sound Volume | Can't test without sample playback button |
 
 ---
 

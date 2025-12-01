@@ -67,6 +67,100 @@ static int g_placementCellY = 0;
 static bool g_placementValid = false;  // Is current placement position valid?
 
 //===========================================================================
+// Helper: Find player production building
+//===========================================================================
+
+/**
+ * Find the player's production building for a unit type.
+ * @param unitType The type of unit to produce
+ * @return Building pointer, or nullptr if not found
+ */
+static Building* FindProductionBuilding(UnitType unitType) {
+    // Determine which building type produces this unit
+    BuildingType productionType = BUILDING_NONE;
+
+    switch (unitType) {
+        case UNIT_RIFLE:
+        case UNIT_GRENADIER:
+        case UNIT_ROCKET:
+        case UNIT_ENGINEER:
+            productionType = BUILDING_BARRACKS;
+            break;
+        case UNIT_HARVESTER:
+            productionType = BUILDING_REFINERY;
+            break;
+        case UNIT_TANK_LIGHT:
+        case UNIT_TANK_MEDIUM:
+        case UNIT_TANK_HEAVY:
+        case UNIT_APC:
+        case UNIT_ARTILLERY:
+            productionType = BUILDING_FACTORY;
+            break;
+        default:
+            return nullptr;
+    }
+
+    // Find player's building of that type
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bldg = Buildings_Get(i);
+        if (!bldg || !bldg->active) continue;
+        if (bldg->team != TEAM_PLAYER) continue;
+        if (bldg->type == productionType) {
+            return bldg;
+        }
+    }
+
+    return nullptr;
+}
+
+/**
+ * Find a valid spawn location near a building.
+ * Searches in expanding rings around the building for passable terrain.
+ * @param bldg Building to spawn near
+ * @param outX Output world X coordinate
+ * @param outY Output world Y coordinate
+ * @return true if valid location found
+ */
+static bool FindSpawnLocationNearBuilding(Building* bldg, int* outX, int* outY) {
+    if (!bldg) return false;
+
+    int centerCellX = bldg->cellX + bldg->width / 2;
+    int centerCellY = bldg->cellY + bldg->height;  // Exit at bottom
+
+    // Search in expanding rings around the building exit
+    for (int radius = 0; radius <= 5; radius++) {
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                // Only check cells on the perimeter of current ring
+                if (radius > 0 && abs(dx) != radius && abs(dy) != radius) continue;
+
+                int cx = centerCellX + dx;
+                int cy = centerCellY + dy;
+
+                if (cx < 0 || cy < 0 || cx >= Map_GetWidth() || cy >= Map_GetHeight()) continue;
+
+                MapCell* cell = Map_GetCell(cx, cy);
+                if (!cell) continue;
+
+                // Check if cell is passable and unoccupied
+                if (cell->terrain == TERRAIN_WATER ||
+                    cell->terrain == TERRAIN_ROCK ||
+                    cell->terrain == TERRAIN_BUILDING) continue;
+                if (cell->unitId >= 0) continue;
+                if (cell->buildingId >= 0) continue;
+
+                // Found valid spawn point
+                *outX = cx * CELL_SIZE + CELL_SIZE / 2;
+                *outY = cy * CELL_SIZE + CELL_SIZE / 2;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+//===========================================================================
 // Build Item Definitions
 //===========================================================================
 
@@ -393,9 +487,18 @@ void GameUI_Update(void) {
         g_unitProgress += progressPerFrame;
 
         if (g_unitProgress >= 10000) {  // 100.00%
-            // Unit complete - spawn it!
-            int spawnX = 150 + (rand() % 100);
+            // Unit complete - find spawn location near production building
+            int spawnX = 150 + (rand() % 100);  // Fallback
             int spawnY = 500 + (rand() % 100);
+
+            Building* prodBldg = FindProductionBuilding((UnitType)item->spawnType);
+            if (prodBldg) {
+                int bldgSpawnX, bldgSpawnY;
+                if (FindSpawnLocationNearBuilding(prodBldg, &bldgSpawnX, &bldgSpawnY)) {
+                    spawnX = bldgSpawnX;
+                    spawnY = bldgSpawnY;
+                }
+            }
 
             Units_Spawn((UnitType)item->spawnType, TEAM_PLAYER, spawnX, spawnY);
 

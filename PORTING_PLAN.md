@@ -390,3 +390,20 @@ After M33-M37, we have:
 | **Music** | ✓ Done (M46) | - |
 
 **Next step:** M47 - Sound Polish (unit acknowledgments, building/combat sounds).
+
+---
+
+## Known Issues
+
+These are known bugs that need investigation:
+
+| Issue | Description | Severity |
+|-------|-------------|----------|
+| **P for Pause** | Pressing P doesn't pause gameplay - units (harvesters) keep moving. Key detection works (other keys like arrows work fine), but pause flag not being respected by all game systems. | Medium |
+| **Mission Briefing Screen** | Shows garbled characters/artifacts instead of proper text after video playback. Palette or framebuffer state not properly restored after VQA video ends. | Medium |
+| **Sound Volume Testing** | Sound effects volume slider in Options menu cannot be tested without a "play sample" button - no audible feedback during adjustment. | Low |
+
+**Notes:**
+- Music volume control works correctly
+- Video playback works (intro, briefings)
+- All other input handling works (arrows, WASD, mouse, ESC, Enter)
