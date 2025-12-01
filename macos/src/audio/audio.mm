@@ -36,6 +36,12 @@ static BOOL g_initialized = FALSE;
 static SoundHandle g_nextHandle = 1;
 static std::mutex g_audioMutex;
 
+// Music streaming state
+static MusicStreamCallback g_musicCallback = nullptr;
+static void* g_musicUserdata = nullptr;
+static float g_musicVolume = 1.0f;
+static int16_t g_musicBuffer[4096];  // Temp buffer for music samples
+
 // Convert 8-bit unsigned to float
 static inline Float32 Sample8ToFloat(uint8_t sample) {
     return ((Float32)sample - 128.0f) / 128.0f;
@@ -156,6 +162,25 @@ static OSStatus AudioRenderCallback(
                 } else {
                     channel->playing = FALSE;
                 }
+            }
+        }
+    }
+
+    // Mix in music (streaming audio)
+    if (g_musicCallback) {
+        // Request samples from music callback
+        int samplesToGet = (int)inNumberFrames;
+        if (samplesToGet > 4096) samplesToGet = 4096;
+
+        int samplesGot = g_musicCallback(g_musicBuffer, samplesToGet, g_musicUserdata);
+
+        if (samplesGot > 0) {
+            float musicVol = g_musicVolume * masterVol;
+            for (int i = 0; i < samplesGot && (UInt32)i < inNumberFrames; i++) {
+                Float32 sample = (Float32)g_musicBuffer[i] / 32768.0f * musicVol;
+                // Music is mono - send to both channels
+                leftBuffer[i] += sample;
+                rightBuffer[i] += sample;
             }
         }
     }
@@ -447,4 +472,24 @@ void Audio_FreeTestTone(AudioSample* sample) {
         delete[] sample->data;
         delete sample;
     }
+}
+
+//===========================================================================
+// Music Streaming
+//===========================================================================
+
+void Audio_SetMusicCallback(MusicStreamCallback callback, void* userdata) {
+    std::lock_guard<std::mutex> lock(g_audioMutex);
+    g_musicCallback = callback;
+    g_musicUserdata = userdata;
+}
+
+void Audio_SetMusicVolume(float volume) {
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 1.0f) volume = 1.0f;
+    g_musicVolume = volume;
+}
+
+float Audio_GetMusicVolume(void) {
+    return g_musicVolume;
 }

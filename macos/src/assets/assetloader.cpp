@@ -37,6 +37,10 @@ static bool g_paletteLoaded = false;
 static MixFileHandle g_moviesMix = nullptr;
 static void* g_moviesData = nullptr;
 
+// Music archive (SCORES.MIX - opened on demand)
+static MixFileHandle g_scoresMix = nullptr;
+static void* g_scoresData = nullptr;
+
 // Archive search paths for MAIN_ALLIED.MIX
 static const char* g_mainPaths[] = {
     "../assets/MAIN_ALLIED.MIX",                              // Dev: from build/
@@ -97,6 +101,15 @@ static const char* g_temperatPaths[] = {
     "../assets/temperat.mix",
     "../../assets/temperat.mix",
     "/Users/jasson/workspace/CnC_Red_Alert/assets/temperat.mix",
+    nullptr
+};
+
+static const char* g_scoresPaths[] = {
+    "../assets/scores.mix",
+    "../../assets/scores.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/scores.mix",
+    "/Volumes/CD1/SCORES.MIX",
+    "/Volumes/CD2/SCORES.MIX",
     nullptr
 };
 
@@ -446,4 +459,74 @@ void* Assets_LoadVQA(const char* name, uint32_t* outSize) {
 BOOL Assets_HasMovies(void) {
     EnsureMoviesOpen();
     return g_moviesMix != nullptr;
+}
+
+// Try to open scores archive (called on first music load)
+static void EnsureScoresOpen(void) {
+    if (g_scoresMix) return;  // Already open
+
+    // First try standalone SCORES.MIX files
+    for (int i = 0; g_scoresPaths[i]; i++) {
+        g_scoresMix = Mix_Open(g_scoresPaths[i]);
+        if (g_scoresMix) {
+            printf("Music: Opened %s (%d files)\n",
+                   g_scoresPaths[i], Mix_GetFileCount(g_scoresMix));
+            return;
+        }
+    }
+
+    // Try to find SCORES.MIX inside MAIN.MIX from CD
+    MixFileHandle mainCd = nullptr;
+    const char* cdPaths[] = { "/Volumes/CD1/MAIN.MIX", "/Volumes/CD2/MAIN.MIX", nullptr };
+
+    for (int i = 0; cdPaths[i]; i++) {
+        mainCd = Mix_Open(cdPaths[i]);
+        if (mainCd) break;
+    }
+
+    if (!mainCd) mainCd = g_mainMix;
+    if (!mainCd) return;
+
+    // Try to extract SCORES.MIX from parent
+    if (Mix_FileExists(mainCd, "SCORES.MIX")) {
+        uint32_t size = 0;
+        void* data = Mix_AllocReadFile(mainCd, "SCORES.MIX", &size);
+        if (data) {
+            g_scoresMix = Mix_OpenMemory(data, size, TRUE);
+            if (g_scoresMix) {
+                g_scoresData = data;
+                printf("Music: Opened SCORES.MIX from parent (%u KB, %d files)\n",
+                       size / 1024, Mix_GetFileCount(g_scoresMix));
+            } else {
+                free(data);
+            }
+        }
+    }
+
+    // Close temp CD handle if we opened it separately
+    if (mainCd && mainCd != g_mainMix) {
+        // Don't close - may need the data
+    }
+}
+
+void* Assets_LoadMusic(const char* name, uint32_t* outSize) {
+    if (!name || !outSize) return nullptr;
+    *outSize = 0;
+
+    // Make sure scores archive is open
+    EnsureScoresOpen();
+
+    if (!g_scoresMix) return nullptr;
+
+    // Search for music file in scores archive
+    if (Mix_FileExists(g_scoresMix, name)) {
+        return Mix_AllocReadFile(g_scoresMix, name, outSize);
+    }
+
+    return nullptr;
+}
+
+BOOL Assets_HasMusic(void) {
+    EnsureScoresOpen();
+    return g_scoresMix != nullptr;
 }

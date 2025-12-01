@@ -335,10 +335,29 @@ After M33-M37, we have:
 
 **Files:** `video/vqa.h`, `video/vqa.cpp`, `ui/menu.h`, `ui/menu.cpp`, `assets/assetloader.cpp`
 
-### M46: Music
-- Background music streaming
-- Track rotation
-- Volume control
+### ✓ M46: Music - COMPLETE
+
+**Goal:** Background music streaming from SCORES.MIX.
+
+**Completed:**
+- [x] SCORES.MIX loading (extracted from MAIN.MIX, 62MB, 21 tracks)
+- [x] Assets_LoadMusic() / Assets_HasMusic() functions
+- [x] MusicStreamer class decodes AUD files (IMA ADPCM and Westwood codec)
+- [x] Audio callback integration for real-time streaming
+- [x] Volume control (0.0-1.0)
+- [x] Fade in/out support
+- [x] Track queue and playlist
+- [x] Shuffle and random play
+- [x] Music plays automatically in main menu
+
+**Music Tracks Available:**
+- Hell March, Big Foot, Crush, Smash
+- Face the Enemy (1 & 2)
+- Run for Your Life, Trenches
+- Workmen, Await, Dense, Fogger
+- Mud Hand, Radio, Twin Guns, Vector
+
+**Files:** `video/music.h`, `video/music.cpp`, `audio/audio.h`, `audio/audio.mm`, `assets/assetloader.cpp`
 
 ### M47: Sound Polish
 - All unit acknowledgments
@@ -368,6 +387,6 @@ After M33-M37, we have:
 | **Campaign flow** | ✓ Done (M43) | - |
 | **Briefings** | ✓ Done (M44) | - |
 | **VQA Cutscenes** | ✓ Done (M45) | - |
-| Music | Missing | Low |
+| **Music** | ✓ Done (M46) | - |
 
-**Next step:** M46 - Music (background music streaming, track rotation).
+**Next step:** M47 - Sound Polish (unit acknowledgments, building/combat sounds).

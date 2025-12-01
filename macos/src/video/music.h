@@ -11,8 +11,33 @@
 #ifndef VIDEO_MUSIC_H
 #define VIDEO_MUSIC_H
 
-#include "game/scenario.h"
 #include <cstdint>
+
+//===========================================================================
+// Music Theme Types (duplicated from scenario.h to avoid header conflicts)
+//===========================================================================
+
+enum class ThemeType : int8_t {
+    NONE = -1,
+    BIGFOOT = 0,
+    CRUSH,
+    FACE_THE_ENEMY_1,
+    FACE_THE_ENEMY_2,
+    HELL_MARCH,
+    RUN_FOR_YOUR_LIFE,
+    SMASH,
+    TRENCHES,
+    WORKMEN,
+    AWAIT,
+    DENSE,
+    FOGGER,
+    MUDHAND,
+    RADIO,
+    TWIN_GUNS,
+    VECTOR,
+
+    COUNT
+};
 
 //===========================================================================
 // Music Track Information

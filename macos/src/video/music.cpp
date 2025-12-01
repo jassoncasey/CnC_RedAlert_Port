@@ -5,11 +5,19 @@
  */
 
 #include "music.h"
+#include "assets/assetloader.h"
+#include "audio/audio.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <algorithm>
 #include <vector>
+
+// Helper to clamp float value (avoid std::min/max due to macro conflicts)
+static inline float ClampFloat(float val, float minVal, float maxVal) {
+    if (val < minVal) return minVal;
+    if (val > maxVal) return maxVal;
+    return val;
+}
 
 //===========================================================================
 // Music Track Database
@@ -75,6 +83,12 @@ static int g_fadeElapsed = 0;
 static bool g_fading = false;
 static bool g_stopAfterFade = false;
 
+// Audio callback for streaming music
+static int MusicAudioCallback(int16_t* buffer, int sampleCount, void* userdata) {
+    (void)userdata;
+    return g_musicStreamer.FillBuffer(buffer, sampleCount);
+}
+
 //===========================================================================
 // Music System Functions
 //===========================================================================
@@ -85,12 +99,29 @@ void Music_Init() {
     g_musicVolume = 1.0f;
     g_musicEnabled = true;
     g_musicQueue.clear();
+
+    // Register with audio system
+    Audio_SetMusicCallback(MusicAudioCallback, nullptr);
+    Audio_SetMusicVolume(g_musicVolume);
+
+    printf("Music: Initialized\n");
+    fflush(stdout);
+    if (Assets_HasMusic()) {
+        printf("Music: SCORES.MIX available\n");
+    } else {
+        printf("Music: SCORES.MIX not found (music disabled)\n");
+    }
+    fflush(stdout);
 }
 
 void Music_Shutdown() {
     Music_Stop(false);
     g_musicStreamer.Unload();
     g_musicQueue.clear();
+
+    // Unregister from audio system
+    Audio_SetMusicCallback(nullptr, nullptr);
+    printf("Music: Shutdown\n");
 }
 
 bool Music_Play(ThemeType theme, bool loop, bool crossfade) {
@@ -105,10 +136,6 @@ bool Music_Play(ThemeType theme, bool loop, bool crossfade) {
 bool Music_PlayFile(const char* filename, bool loop, bool crossfade) {
     if (!g_musicEnabled || !filename) return false;
 
-    // TODO: Build full path from asset system
-    char fullPath[512];
-    snprintf(fullPath, sizeof(fullPath), "SCORES/%s", filename);
-
     // If crossfading and currently playing, start fade out
     if (crossfade && g_musicState == MusicState::PLAYING) {
         // Queue the new track and fade out current
@@ -117,12 +144,10 @@ bool Music_PlayFile(const char* filename, bool loop, bool crossfade) {
 
     g_musicStreamer.Unload();
 
-    if (!g_musicStreamer.Load(fullPath)) {
-        // Try without path prefix
-        if (!g_musicStreamer.Load(filename)) {
-            g_musicState = MusicState::STOPPED;
-            return false;
-        }
+    // Try to load from asset system (SCORES.MIX) or direct file
+    if (!g_musicStreamer.Load(filename)) {
+        g_musicState = MusicState::STOPPED;
+        return false;
     }
 
     g_musicStreamer.SetVolume(g_musicVolume);
@@ -180,10 +205,12 @@ ThemeType Music_GetCurrentTheme() {
 }
 
 void Music_SetVolume(float volume) {
-    g_musicVolume = std::max(0.0f, std::min(1.0f, volume));
+    g_musicVolume = ClampFloat(volume, 0.0f, 1.0f);
     if (!g_fading) {
         g_musicStreamer.SetVolume(g_musicVolume);
     }
+    // Also update audio system volume
+    Audio_SetMusicVolume(g_musicVolume);
 }
 
 float Music_GetVolume() {
@@ -191,7 +218,7 @@ float Music_GetVolume() {
 }
 
 void Music_FadeVolume(float targetVolume, int durationMs) {
-    g_fadeTargetVolume = std::max(0.0f, std::min(1.0f, targetVolume));
+    g_fadeTargetVolume = ClampFloat(targetVolume, 0.0f, 1.0f);
     g_fadeStartVolume = g_musicVolume;
     g_fadeDuration = durationMs;
     g_fadeElapsed = 0;
@@ -413,29 +440,42 @@ MusicStreamer::~MusicStreamer() {
 bool MusicStreamer::Load(const char* filename) {
     Unload();
 
-    FILE* f = fopen(filename, "rb");
-    if (!f) return false;
+    // Try asset loader first (SCORES.MIX)
+    uint32_t size = 0;
+    void* data = Assets_LoadMusic(filename, &size);
 
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    if (!data) {
+        // Fallback: try direct file access
+        FILE* f = fopen(filename, "rb");
+        if (!f) return false;
 
-    if (size < (long)sizeof(AUDHeader)) {
+        fseek(f, 0, SEEK_END);
+        long fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+
+        if (fsize < (long)sizeof(AUDHeader)) {
+            fclose(f);
+            return false;
+        }
+
+        data = new uint8_t[fsize];
+        size_t readBytes = fread(data, 1, fsize, f);
         fclose(f);
+
+        if (readBytes != (size_t)fsize) {
+            delete[] (uint8_t*)data;
+            return false;
+        }
+        size = (uint32_t)fsize;
+    }
+
+    if (size < sizeof(AUDHeader)) {
+        free(data);
         return false;
     }
 
-    fileData_ = new uint8_t[size];
-    size_t read = fread(fileData_, 1, size, f);
-    fclose(f);
-
-    if (read != (size_t)size) {
-        delete[] fileData_;
-        fileData_ = nullptr;
-        return false;
-    }
-
-    fileSize_ = (uint32_t)size;
+    fileData_ = (uint8_t*)data;
+    fileSize_ = size;
     ownsData_ = true;
 
     // Parse header
@@ -452,6 +492,10 @@ bool MusicStreamer::Load(const char* filename) {
     // Set up decode pointers
     decodePtr_ = fileData_ + sizeof(AUDHeader);
     decodeEnd_ = fileData_ + fileSize_;
+
+    printf("Music: Loaded %s (%u KB, %d Hz, %s)\n",
+           filename, size / 1024, sampleRate_,
+           compressionType_ == 99 ? "IMA ADPCM" : "Westwood");
 
     return true;
 }
@@ -501,7 +545,7 @@ void MusicStreamer::Resume() {
 }
 
 void MusicStreamer::SetVolume(float vol) {
-    volume_ = std::max(0.0f, std::min(1.0f, vol));
+    volume_ = ClampFloat(vol, 0.0f, 1.0f);
 }
 
 void MusicStreamer::Seek(int samplePosition) {

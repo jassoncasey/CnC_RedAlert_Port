@@ -19,6 +19,7 @@
 #include "game/ai.h"
 #include "game/mission.h"
 #include "audio/audio.h"
+#include "video/music.h"
 #include "ui/menu.h"
 #include "ui/game_ui.h"
 #include "compat/assets.h"
@@ -172,6 +173,9 @@ static void StartCampaignMission(int campaign, int difficulty) {
 // Called at game logic rate (15 FPS default)
 void GameUpdate(uint32_t frame, float deltaTime) {
     (void)deltaTime;
+
+    // Update music system (handles fading, track completion)
+    Music_Update((int)(deltaTime * 1000));
 
     // Handle menus
     MenuScreen currentScreen = Menu_GetCurrentScreen();
@@ -1013,6 +1017,9 @@ void GameRender(void) {
         NSLog(@"Warning: Audio initialization failed");
     }
 
+    // Initialize music system (after audio)
+    Music_Init();
+
     // Create test tones for audio demo
     for (int i = 0; i < 4; i++) {
         g_testTones[i] = Audio_CreateTestTone(g_toneFreqs[i], 200);
@@ -1029,11 +1036,15 @@ void GameRender(void) {
         // Play intro video, then show main menu
         Menu_PlayVideo("PROLOG.VQA", []() {
             Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            // Start menu music (Hell March is the classic intro track)
+            Music_PlayRandom();
             NSLog(@"Intro video complete, showing main menu");
         }, TRUE);
     } else {
         // No movies - go straight to main menu
         Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+        // Start menu music
+        Music_PlayRandom();
     }
 
     // Set up game loop callbacks
@@ -1079,6 +1090,7 @@ void GameRender(void) {
     g_assetsLoaded = false;
 
     Menu_Shutdown();
+    Music_Shutdown();
     GameLoop_Shutdown();
     Audio_Shutdown();
     Renderer_Shutdown();

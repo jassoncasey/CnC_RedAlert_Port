@@ -97,6 +97,20 @@ void* Assets_LoadVQA(const char* name, uint32_t* outSize);
  */
 BOOL Assets_HasMovies(void);
 
+/**
+ * Load music track data from SCORES.MIX archive.
+ * @param name      Music filename (e.g., "HELL226M.AUD", "BIGF226M.AUD")
+ * @param outSize   Output size
+ * @return Allocated data, or NULL if not found. Caller must free().
+ */
+void* Assets_LoadMusic(const char* name, uint32_t* outSize);
+
+/**
+ * Check if music archive is available.
+ * @return TRUE if SCORES.MIX is available
+ */
+BOOL Assets_HasMusic(void);
+
 #ifdef __cplusplus
 }
 #endif

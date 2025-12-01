@@ -114,6 +114,35 @@ AudioSample* Audio_CreateTestTone(uint32_t frequency, uint32_t durationMs);
 // Free a test tone created by Audio_CreateTestTone
 void Audio_FreeTestTone(AudioSample* sample);
 
+//===========================================================================
+// Music Streaming Support
+//===========================================================================
+
+/**
+ * Callback type for music streaming
+ * @param buffer      Output buffer for 16-bit signed PCM samples
+ * @param sampleCount Number of samples to fill
+ * @return Number of samples actually filled (0 if finished)
+ */
+typedef int (*MusicStreamCallback)(int16_t* buffer, int sampleCount, void* userdata);
+
+/**
+ * Set the music streaming callback
+ * @param callback  Function that fills audio buffer
+ * @param userdata  User data passed to callback
+ */
+void Audio_SetMusicCallback(MusicStreamCallback callback, void* userdata);
+
+/**
+ * Set music volume (0.0 to 1.0)
+ */
+void Audio_SetMusicVolume(float volume);
+
+/**
+ * Get music volume
+ */
+float Audio_GetMusicVolume(void);
+
 #ifdef __cplusplus
 }
 #endif
