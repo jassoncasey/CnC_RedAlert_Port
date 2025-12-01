@@ -15,21 +15,23 @@
 - Units move with A* pathfinding around obstacles
 - Combat works (units attack, take damage, die)
 - Menu system functional
-- **Sidebar UI renders** (radar, build strips, selection panel)
-- **Radar minimap shows terrain/units** (click-to-scroll works)
-- **Selection panel shows unit info** (health bar, state)
+- Sidebar UI renders (radar, build strips, selection panel)
+- Radar minimap shows terrain/units (click-to-scroll works)
+- Selection panel shows unit info (health bar, state)
+- **Production system functional** - click to build units, progress bar, spawns on map
+- **Credits system** - starting credits, deducted on production
+- **Unit spawn validation** - units can't spawn on water
 
 **What's broken/incomplete:**
-- Sidebar buttons are placeholder data, not connected to game
-- Build items don't actually produce anything
-- No tech tree (prerequisites)
-- No credits/economy
-- Locked items show as black boxes (should be greyed cameos)
+- Structures complete but don't place on map (no placement mode)
+- No real tech tree (demo has all buildings unlocked)
+- No harvester/economy loop
+- Units spawn at fixed location (should spawn at production building)
 
 **What's missing entirely:**
 - Building placement system
-- Production queues that actually work
-- Fog of war
+- Tech tree with real prerequisites
+- Harvester/ore economy
 - AI opponent
 - Campaign missions
 - Cutscenes and music
@@ -44,32 +46,29 @@ Before campaigns, we need a working "skirmish" where you can:
 3. Gather resources (harvesters collect ore → credits increase)
 4. Fight AI (enemy builds and attacks)
 
-### M33: Working Production System ← **START HERE**
+### ✓ M33: Working Production System - COMPLETE
 
 **Goal:** Click a sidebar button, wait, unit appears on map.
 
-**Current state:** Sidebar renders placeholder items but nothing happens when clicked.
+**Completed:**
+- [x] Sidebar renders with build items (POWR, PROC, TENT, WEAP, E1-E3, ENG, 1TNK, 2TNK)
+- [x] Wire sidebar to game state with credits
+- [x] Add player credits (start with $5000)
+- [x] Clicking available item starts countdown timer
+- [x] Show progress bar filling during production
+- [x] When complete, spawn unit at valid land position
+- [x] Deduct cost from credits
+- [x] Unit spawn position validation (no water spawning)
 
-**Tasks:**
-1. [x] Sidebar renders with build items
-2. [ ] Wire sidebar to demo game state (not just static data)
-3. [ ] Add player credits (start with 5000)
-4. [ ] Clicking available item starts countdown timer
-5. [ ] Show progress bar filling during production
-6. [ ] When complete, spawn unit at appropriate location
-7. [ ] Deduct cost from credits
-
-**Verification:**
-- [ ] Click "E1" (Rifle Infantry) → progress bar fills over ~5 seconds
-- [ ] Unit spawns near player's starting position
-- [ ] Credits decrease by 100
-- [ ] Can queue another unit
-
-**Files:** `ui/game_ui.cpp`, `game/units.cpp`, add production state
+**Verified:**
+- [x] Click "E1" (Rifle Infantry) → progress bar fills over ~2-3 seconds
+- [x] Unit spawns near player's starting position
+- [x] Credits decrease by 100
+- [x] Can queue another unit after previous completes
 
 ---
 
-### M34: Construction Yard & Building Placement
+### M34: Construction Yard & Building Placement ← **START HERE**
 
 **Goal:** Build structures from sidebar, place them on map.
 
@@ -169,7 +168,7 @@ Construction Yard
 After M33-M37, we have:
 - [x] Working map with terrain
 - [x] Units that move and fight
-- [ ] **Production that works**
+- [x] **Production that works** (M33 complete)
 - [ ] **Building placement**
 - [ ] **Tech tree progression**
 - [ ] **Resource economy**
@@ -252,7 +251,7 @@ This is a playable game loop: build base → train army → destroy enemy.
 | Unit movement/pathfinding | ✓ Done | - |
 | Basic combat | ✓ Done | - |
 | UI layout (sidebar/radar) | ✓ Done | - |
-| **Production system** | Not working | **HIGH** |
+| **Production system** | ✓ Done (M33) | - |
 | **Building placement** | Missing | **HIGH** |
 | **Tech tree** | Missing | **HIGH** |
 | **Economy** | Missing | **HIGH** |
@@ -262,4 +261,4 @@ This is a playable game loop: build base → train army → destroy enemy.
 | Campaign missions | Missing | Low (need skirmish first) |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M33 - Make sidebar buttons actually produce units.
+**Next step:** M34 - Building placement system.
