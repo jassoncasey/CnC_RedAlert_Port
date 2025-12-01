@@ -151,26 +151,29 @@ Construction Yard
 
 ---
 
-### M37: Basic AI Opponent ← **START HERE**
+### ✓ M37: Basic AI Opponent - COMPLETE
 
 **Goal:** Enemy builds base and attacks player.
 
-**Tasks:**
-1. [ ] AI player with own credits and buildings
-2. [ ] AI follows simple build order (power → refinery → barracks)
-3. [ ] AI produces units when it can afford them
-4. [ ] AI sends attack waves periodically
-5. [ ] AI defends its base when attacked
+**Completed:**
+- [x] AI player with own credits and buildings
+- [x] AI follows simple build order (power → refinery → barracks → factory → radar)
+- [x] AI produces units when it can afford them (weighted random selection)
+- [x] AI sends attack waves periodically (configurable timing)
+- [x] AI defends its base when attacked (auto-acquire targets)
+- [x] Three difficulty levels (Easy/Medium/Hard) with different timings
 
-**Verification:**
-- [ ] Enemy base exists at start
-- [ ] Enemy produces units over time
-- [ ] Enemy units attack player base
-- [ ] Can destroy enemy to win
+**Verified:**
+- [x] Enemy base exists at start
+- [x] Enemy produces units over time
+- [x] Enemy units attack player base
+- [x] Can destroy enemy to win
+
+**Files:** `game/ai.cpp`, `game/ai.h`
 
 ---
 
-## Checkpoint: Playable Skirmish
+## Checkpoint: Playable Skirmish - COMPLETE
 
 After M33-M37, we have:
 - [x] Working map with terrain
@@ -179,9 +182,9 @@ After M33-M37, we have:
 - [x] **Building placement** (M34 complete)
 - [x] **Tech tree progression** (M35 complete)
 - [x] **Resource economy** (M36 complete)
-- [ ] **AI opponent**
+- [x] **AI opponent** (M37 complete)
 
-This is a playable game loop: build base → train army → destroy enemy.
+**The game is now playable!** Build base → train army → destroy enemy.
 
 ---
 
@@ -262,10 +265,10 @@ This is a playable game loop: build base → train army → destroy enemy.
 | **Building placement** | ✓ Done (M34) | - |
 | **Tech tree** | ✓ Done (M35) | - |
 | **Economy** | ✓ Done (M36) | - |
-| **AI opponent** | Missing | **HIGH** |
+| **AI opponent** | ✓ Done (M37) | - |
 | Fog of war | Missing | Medium |
 | Attack commands | Missing | Medium |
-| Campaign missions | Missing | Low (need skirmish first) |
+| Campaign missions | Missing | Medium |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M37 - Basic AI opponent.
+**Next step:** M38 - Fog of War, or M41 - Scenario Loading.

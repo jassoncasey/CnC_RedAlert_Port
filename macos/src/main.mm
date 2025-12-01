@@ -16,6 +16,7 @@
 #include "game/sprites.h"
 #include "game/sounds.h"
 #include "game/terrain.h"
+#include "game/ai.h"
 #include "audio/audio.h"
 #include "ui/menu.h"
 #include "ui/game_ui.h"
@@ -64,6 +65,7 @@ static void StartDemoMission(void) {
     Map_Init();
     Units_Init();
     GameUI_Init();
+    AI_Init();
 
     // Generate demo map
     Map_GenerateDemo();
@@ -152,6 +154,7 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         // ESC returns to main menu
         if (Input_WasKeyPressed(VK_ESCAPE)) {
             g_inGameplay = false;
+            AI_Shutdown();
             GameUI_Shutdown();
             Map_Shutdown();
             Units_Shutdown();
@@ -266,6 +269,7 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         Map_Update();
         Units_Update();
         GameUI_Update();
+        AI_Update();
 
         // Pause (P key)
         if (Input_WasKeyPressed('P')) {
