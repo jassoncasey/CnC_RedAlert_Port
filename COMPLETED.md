@@ -183,11 +183,115 @@ This document archives completed work. See [PORTING_PLAN.md](PORTING_PLAN.md) fo
 - Unit spawning and control
 - Basic selection and commands
 
-### M32: System Integration - IN PROGRESS
+### M32: System Integration - COMPLETE
 - Demo map.cpp functional
 - Demo units.cpp functional
-- Sidebar/Radar built but not connected
-- Full entity classes built but not connected
+- Sidebar/Radar rendering functional
+- Full entity classes built (~400 tests pass)
+
+---
+
+## Phase 7: Playable Demo (M33-M37) - COMPLETE
+
+### M33: Production System - COMPLETE
+- Click sidebar to start production
+- Progress bar during build
+- Unit spawns at production building when complete
+- Credits deducted on purchase
+
+### M34: Building Placement - COMPLETE
+- Click structure in sidebar → construction starts
+- "READY" state enters placement mode
+- Footprint follows cursor (green=valid, red=invalid)
+- Click to place, ESC/right-click cancels (refunds)
+- Building appears on radar
+
+### M35: Tech Tree - COMPLETE
+- Prerequisites tracked via bitmask
+- Unavailable items greyed out
+- Building unlocks dependent items
+- Cost shown in red when can't afford
+
+### M36: Resource Economy - COMPLETE
+- Ore fields on map
+- Harvester auto-harvests when idle
+- Returns to refinery when 75%+ full
+- Credits increase on ore delivery
+- Depleted cells become clear terrain
+
+### M37: AI Opponent - COMPLETE
+- AI player with own credits/buildings
+- Follows build order (power → refinery → barracks → factory)
+- Produces units when affordable
+- Sends periodic attack waves
+- Three difficulty levels
+
+---
+
+## Phase 8: Combat Polish (M38-M40) - COMPLETE
+
+### M38: Fog of War - COMPLETE
+- Map starts black (shroud)
+- Units/buildings reveal area (sight range)
+- Previously seen areas dimmed
+- Enemy units hidden outside sight range
+
+### M39: Attack Commands - COMPLETE
+- Attack-move (A + right-click)
+- Force-attack (Ctrl + right-click)
+- Guard (G key)
+- Stop (S key)
+
+### M40: Unit Behaviors - COMPLETE
+- Auto-acquire targets
+- Return fire when attacked
+- Infantry scatter from explosions
+- Tanks crush infantry
+
+---
+
+## Phase 9: Campaign Support (M41-M44) - COMPLETE
+
+### M41: Scenario Loading - COMPLETE
+- MissionData structure
+- INI parser for mission files
+- Unit/building type string parsing
+- Mission_Start() spawns entities
+- Demo mission uses mission system
+
+### M42: Mission Objectives - COMPLETE
+- Victory/defeat detection
+- Result overlay screens
+- Auto-return to menu on dismiss
+- HUD shows mission name
+
+### M43: Campaign Flow - COMPLETE
+- Campaign selection (Allied/Soviet)
+- Difficulty selection
+- Skirmish mode option
+- Campaign infrastructure ready
+
+### M44: Briefings - COMPLETE
+- Briefing screen with mission name
+- Word-wrapped text
+- COMMENCE button
+- Integrated into campaign flow
+
+---
+
+## Phase 10: Media (M45-M46) - COMPLETE
+
+### M45: VQA Cutscenes - COMPLETE
+- VQA player with full decoder
+- Video playback screen
+- Skippable videos
+- Automatic intro on startup
+
+### M46: Background Music - COMPLETE
+- SCORES.MIX loading (21 tracks)
+- AUD streaming (IMA ADPCM)
+- Volume control, fade in/out
+- Shuffle and playlist support
 
 ---
 

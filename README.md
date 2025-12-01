@@ -45,29 +45,28 @@
 | Background Music | ✓ | IMA ADPCM streaming from SCORES.MIX |
 | Campaign Flow | ✓ | Allied/Soviet selection, difficulty, briefings |
 
-### What's Next (Phase 2)
+### Roadmap: Demo → Full Game
 
-| Feature | Status | What's Needed |
-|---------|--------|---------------|
-| **Building Placement** | Working | Click sidebar → place on map |
-| **Production System** | Working | Units spawn at production buildings |
-| **Fog of War** | Working | Alpha-based shroud per cell |
-| **AI Opponent** | Working | Builds base, trains units, attacks |
-| **Tech Tree** | Working | Prerequisites unlock items |
-| **Economy** | Working | Harvesters gather ore → credits |
-| **Real Missions** | Partial | INI parser ready, using demo mission |
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **A** | Stabilization (fix audio/UI bugs) | Not Started |
+| **B** | Real Missions (load actual campaign maps) | Not Started |
+| **C** | Campaign Progression (all 44 missions) | Not Started |
+| **D** | Skirmish Mode (random maps vs AI) | Not Started |
+| **E** | Polish (voices, animations, aircraft) | Not Started |
 
-See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed milestone status.
+See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed task breakdown.
 
 ### Known Issues
 
-| Issue | Description |
-|-------|-------------|
-| Music Distortion | Background music heavily distorted |
-| Video Audio Static | VQA playback has audio static |
-| P for Pause | Units keep moving when P pressed |
-| Mission Briefing | Garbled text after video playback |
-| Sound Volume | Can't test without sample playback button |
+| ID | Issue | Severity |
+|----|-------|----------|
+| BUG-01 | Music heavily distorted | High |
+| BUG-02 | Video audio has static | High |
+| BUG-03 | P for Pause doesn't work | Medium |
+| BUG-04 | Briefing garbled after video | Medium |
+| BUG-05 | Fog re-blacks revealed terrain | Medium |
+| BUG-06 | Sound volume untestable | Low |
 
 ---
 

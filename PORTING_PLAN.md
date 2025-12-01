@@ -1,411 +1,474 @@
-# Red Alert macOS Port - Roadmap to Full Gameplay
+# Red Alert macOS Port - Roadmap
 
-**Goal:** Play the complete Allied and Soviet campaigns with all original units, buildings, and behaviors.
+**Goal:** Full playable game with all 44 campaign missions (28 Allied + 16 Soviet) and skirmish mode against AI.
 
 **Completed work:** See [COMPLETED.md](COMPLETED.md)
 
 ---
 
-## Current State (Updated)
-
-**What works:**
-- Window opens, Metal renders at 60 FPS
-- Terrain tiles load from snow.mix
-- Unit sprites load from conquer.mix
-- Units move with A* pathfinding around obstacles
-- Combat works (units attack, take damage, die)
-- Menu system functional
-- Sidebar UI renders (radar, build strips, selection panel)
-- Radar minimap shows terrain/units (click-to-scroll works)
-- Selection panel shows unit info (health bar, state)
-- **Production system functional** - click to build units, progress bar, spawns on map
-- **Credits system** - starting credits, deducted on production
-- **Unit spawn validation** - units can't spawn on water
-- **Building placement system** - click structure in sidebar, shows footprint cursor, validates placement, places on map
-
-**What's broken/incomplete:**
-- No real tech tree (demo has all buildings unlocked)
-- No harvester/economy loop
-- Units spawn at fixed location (should spawn at production building)
-
-**What's missing entirely:**
-- Tech tree with real prerequisites
-- Harvester/ore economy
-- AI opponent
-- Campaign missions
-- Cutscenes and music
-
----
-
-## Immediate Priority: Playable Skirmish
-
-Before campaigns, we need a working "skirmish" where you can:
-1. Build a base (construction yard → power → barracks → war factory)
-2. Train units (click sidebar → unit spawns)
-3. Gather resources (harvesters collect ore → credits increase)
-4. Fight AI (enemy builds and attacks)
-
-### ✓ M33: Working Production System - COMPLETE
-
-**Goal:** Click a sidebar button, wait, unit appears on map.
-
-**Completed:**
-- [x] Sidebar renders with build items (POWR, PROC, TENT, WEAP, E1-E3, ENG, 1TNK, 2TNK)
-- [x] Wire sidebar to game state with credits
-- [x] Add player credits (start with $5000)
-- [x] Clicking available item starts countdown timer
-- [x] Show progress bar filling during production
-- [x] When complete, spawn unit at valid land position
-- [x] Deduct cost from credits
-- [x] Unit spawn position validation (no water spawning)
-
-**Verified:**
-- [x] Click "E1" (Rifle Infantry) → progress bar fills over ~2-3 seconds
-- [x] Unit spawns near player's starting position
-- [x] Credits decrease by 100
-- [x] Can queue another unit after previous completes
-
----
-
-### ✓ M34: Construction Yard & Building Placement - COMPLETE
-
-**Goal:** Build structures from sidebar, place them on map.
-
-**Completed:**
-- [x] Click structure in sidebar → starts construction
-- [x] Progress bar fills during construction
-- [x] When ready, shows "READY" and enter placement mode
-- [x] Building footprint follows cursor
-- [x] Green cells = valid placement, Red cells = invalid (water/rock/building/units)
-- [x] Invalid cells show X pattern
-- [x] Click to place building on map
-- [x] Building appears on radar
-- [x] Cells marked as occupied (terrain=BUILDING)
-- [x] Right-click or ESC cancels placement (refunds cost)
-- [x] Sidebar shows "Click map to place" hint
-
-**Verified:**
-- [x] Click "POWR" → progress fills, shows "READY"
-- [x] Cursor shows 2x2 footprint following mouse
-- [x] Can only place on valid ground
-- [x] Building appears on map and radar
-
-**Files:** `ui/game_ui.cpp`, `ui/game_ui.h`
-
----
-
-### ✓ M35: Tech Tree & Prerequisites - COMPLETE
-
-**Goal:** Advanced units/buildings require prerequisites.
-
-**Original tech tree (implemented):**
-```
-Construction Yard
-  └─ Power Plant (no prereqs)
-      ├─ Barracks (power) → Infantry (E1, E2, E3, ENG)
-      ├─ Ore Refinery (power)
-      └─ War Factory (power + refinery) → Vehicles (1TNK, 2TNK)
-          └─ Radar Dome (power + factory)
-```
-
-**Completed:**
-- [x] Track which buildings player owns (bitmask flags)
-- [x] Each build item has prerequisite bitmask
-- [x] Unavailable items greyed out with "Need:" text
-- [x] Building something unlocks dependent items
-- [x] Cost shown in red when can't afford
-
-**Verified:**
-- [x] Game start: only Power Plant available
-- [x] Build Power Plant → Barracks/Refinery unlock
-- [x] Build Barracks → Infantry unlock
-- [x] Build Refinery → War Factory unlock
-- [x] Build War Factory → Tanks unlock
-
-**Files:** `ui/game_ui.cpp`
-
----
-
-### ✓ M36: Resource Economy - COMPLETE
-
-**Goal:** Harvesters collect ore, refineries convert to credits.
-
-**Completed:**
-- [x] Ore fields on map with ore amounts (0-255 per cell)
-- [x] Harvester unit auto-harvests when idle (finds nearest ore)
-- [x] Harvester fills up (cargo system: 0-1000 capacity)
-- [x] Harvester returns to refinery when 75%+ full
-- [x] Refinery converts ore to credits (7 credits per ore unit)
-- [x] Credits display updates in real-time
-- [x] Can't build if insufficient credits (cost shown in red)
-- [x] Harvester buildable from sidebar (requires Refinery)
-
-**Verified:**
-- [x] Harvester drives to nearest ore field
-- [x] Harvester harvests ore (depletes cells)
-- [x] Returns to Refinery when full
-- [x] Credits increase on delivery
-- [x] Depleted ore cells become clear terrain
-
-**Files:** `game/units.cpp`, `game/units.h`, `game/map.cpp`, `game/map.h`, `ui/game_ui.cpp`
-
----
-
-### ✓ M37: Basic AI Opponent - COMPLETE
-
-**Goal:** Enemy builds base and attacks player.
-
-**Completed:**
-- [x] AI player with own credits and buildings
-- [x] AI follows simple build order (power → refinery → barracks → factory → radar)
-- [x] AI produces units when it can afford them (weighted random selection)
-- [x] AI sends attack waves periodically (configurable timing)
-- [x] AI defends its base when attacked (auto-acquire targets)
-- [x] Three difficulty levels (Easy/Medium/Hard) with different timings
-
-**Verified:**
-- [x] Enemy base exists at start
-- [x] Enemy produces units over time
-- [x] Enemy units attack player base
-- [x] Can destroy enemy to win
-
-**Files:** `game/ai.cpp`, `game/ai.h`
-
----
-
-## Checkpoint: Playable Skirmish - COMPLETE
-
-After M33-M37, we have:
-- [x] Working map with terrain
-- [x] Units that move and fight
-- [x] **Production that works** (M33 complete)
-- [x] **Building placement** (M34 complete)
-- [x] **Tech tree progression** (M35 complete)
-- [x] **Resource economy** (M36 complete)
-- [x] **AI opponent** (M37 complete)
-
-**The game is now playable!** Build base → train army → destroy enemy.
-
----
-
-## Phase 2: Combat Polish (M38-M40)
-
-### ✓ M38: Fog of War - COMPLETE
-
-**Goal:** Map starts hidden, units reveal the area around them.
-
-**Completed:**
-- [x] Map starts black (shroud) - unrevealed cells not rendered
-- [x] Units reveal area around them (sight range per unit type)
-- [x] Buildings reveal area around them (sight range per building type)
-- [x] Previously seen areas are dimmed (REVEALED but not VISIBLE)
-- [x] Enemy units only visible in sight range
-- [x] Fog toggle option (Map_SetFogEnabled)
-- [x] Radar dome has extended sight range (10 cells)
-
-**Files:** `game/map.h`, `game/map.cpp`, `game/units.h`, `game/units.cpp`
-
-### ✓ M39: Attack Commands - COMPLETE
-
-**Goal:** Advanced unit command options.
-
-**Completed:**
-- [x] Attack-move (A key + right-click) - move but attack enemies encountered
-- [x] Force-attack (Ctrl + right-click) - attack anything including friendlies
-- [x] Guard command (G key) - stay in place but attack nearby enemies
-- [x] Stop command (S key) - stop all movement
-- [x] HUD shows current mode (attack-move active indicator)
-- [x] ESC cancels attack-move mode
-
-**Files:** `game/units.cpp`, `game/units.h`, `main.mm`
-
-### ✓ M40: Unit Behaviors - COMPLETE
-
-**Goal:** Realistic unit combat behaviors.
-
-**Completed:**
-- [x] Auto-acquire targets (already done - units attack nearby enemies)
-- [x] Return fire when attacked (track lastAttacker, fight back when idle)
-- [x] Infantry scatter from explosions (move away from blast radius)
-- [x] Tanks crush infantry (vehicles kill infantry on contact)
-
-**Files:** `game/units.cpp`, `game/units.h`
-
----
-
-## Phase 3: Campaign Support (M41-M44)
-
-### ✓ M41: Scenario Loading - COMPLETE
-
-**Goal:** Load mission data from files and spawn game entities.
-
-**Completed:**
-- [x] MissionData structure with units, buildings, triggers
-- [x] INI parser for mission files (UNITS, STRUCTURES, INFANTRY sections)
-- [x] Unit type string parsing (E1, 1TNK, HARV, etc.)
-- [x] Building type string parsing (FACT, POWR, BARR, etc.)
-- [x] Team/faction parsing (Greece, USSR, etc.)
-- [x] Mission_Start() spawns all entities
-- [x] Mission_CheckVictory() for win/lose conditions
-- [x] Demo mission refactored to use mission system
-- [x] Auto-center viewport on player Construction Yard
-
-**Files:** `game/mission.h`, `game/mission.cpp`, `main.mm`
-
-### ✓ M42: Mission Objectives - COMPLETE
-
-**Goal:** Win/lose detection and result screens.
-
-**Completed:**
-- [x] MissionResult state tracking (ONGOING, VICTORY, DEFEAT)
-- [x] Mission_CheckVictory() called each frame
-- [x] Victory overlay with "MISSION ACCOMPLISHED"
-- [x] Defeat overlay with "MISSION FAILED"
-- [x] Result screen dismissible after 1 second
-- [x] Auto-return to main menu on dismiss
-- [x] HUD shows mission name instead of "RED ALERT - DEMO"
-- [x] Unit count display (P:# E:#)
-
-**Win condition:** Destroy all enemy units and buildings
-**Lose condition:** Lose all player units and buildings
-
-**Files:** `main.mm`
-
-### ✓ M43: Campaign Flow - COMPLETE
-
-**Goal:** Campaign selection and mission flow.
-
-**Completed:**
-- [x] Campaign selection menu (Allied/Soviet)
-- [x] Difficulty selection (Easy/Normal/Hard)
-- [x] Skirmish mode option
-- [x] Difficulty affects starting credits
-- [x] Campaign infrastructure ready (CampaignClass)
-- [x] Mission progression tracking (MissionState)
-- [x] Save/load campaign progress functions
-
-**Files:** `ui/menu.cpp`, `ui/menu.h`, `game/campaign.cpp`, `main.mm`
-
-**Note:** Full campaign INI loading not yet integrated - currently uses demo mission as placeholder for all campaign starts. Campaign data tables (AlliedMissions, SovietMissions) are defined and ready.
-
-### ✓ M44: Briefings - COMPLETE
-
-**Goal:** Pre-mission briefing screen before campaign missions.
-
-**Completed:**
-- [x] Briefing screen UI with mission name header
-- [x] Word-wrapped briefing text display
-- [x] Red banner styling matching other menus
-- [x] COMMENCE button to start mission
-- [x] Enter/Space/Click to proceed
-- [x] ESC to go back to difficulty selection
-- [x] Briefing integrated into campaign flow (shows after difficulty select)
-- [x] Campaign-specific briefing text (Allied vs Soviet)
-
-**Flow:** Main Menu → Campaign Select → Difficulty → **Briefing** → Mission
-
-**Files:** `ui/menu.h`, `ui/menu.cpp`, `main.mm`
-
----
-
-## Phase 4: Media (M45-M47)
-
-### ✓ M45: VQA Cutscenes - COMPLETE (Infrastructure)
-
-**Goal:** Video playback system for cutscenes.
-
-**Completed:**
-- [x] VQA player class with full decoder (vqa.h/vqa.cpp)
-  - IFF/WVQA container parsing
-  - LCW/RLE decompression
-  - Vector quantization decoder (4x2 blocks)
-  - Palette handling
-  - Frame timing
-  - Audio decoding (IMA ADPCM)
-- [x] Video playback screen (MENU_SCREEN_VIDEO)
-- [x] Menu_PlayVideo() API for playing videos
-- [x] Skippable videos (ESC/Space/Enter/click)
-- [x] Asset loader VQA support (Assets_LoadVQA, Assets_HasMovies)
-- [x] Automatic intro video on startup (when CD mounted)
-
-**Known Limitations:**
-- Video assets require original CD (MOVIES2.MIX inside MAIN.MIX)
-- Nested MIX extraction works but requires ~400MB RAM
-- If CD not mounted, skips gracefully to main menu
-
-**Files:** `video/vqa.h`, `video/vqa.cpp`, `ui/menu.h`, `ui/menu.cpp`, `assets/assetloader.cpp`
-
-### ✓ M46: Music - COMPLETE
-
-**Goal:** Background music streaming from SCORES.MIX.
-
-**Completed:**
-- [x] SCORES.MIX loading (extracted from MAIN.MIX, 62MB, 21 tracks)
-- [x] Assets_LoadMusic() / Assets_HasMusic() functions
-- [x] MusicStreamer class decodes AUD files (IMA ADPCM and Westwood codec)
-- [x] Audio callback integration for real-time streaming
-- [x] Volume control (0.0-1.0)
-- [x] Fade in/out support
-- [x] Track queue and playlist
-- [x] Shuffle and random play
-- [x] Music plays automatically in main menu
-
-**Music Tracks Available:**
-- Hell March, Big Foot, Crush, Smash
-- Face the Enemy (1 & 2)
-- Run for Your Life, Trenches
-- Workmen, Await, Dense, Fogger
-- Mud Hand, Radio, Twin Guns, Vector
-
-**Files:** `video/music.h`, `video/music.cpp`, `audio/audio.h`, `audio/audio.mm`, `assets/assetloader.cpp`
-
-### M47: Sound Polish
-- All unit acknowledgments
-- Building sounds
-- Combat sounds complete
-
----
-
-## Summary: What Makes It "Red Alert"
-
-| Feature | Status | Priority |
-|---------|--------|----------|
-| Graphics/rendering | ✓ Done | - |
-| Unit movement/pathfinding | ✓ Done | - |
-| Basic combat | ✓ Done | - |
-| UI layout (sidebar/radar) | ✓ Done | - |
-| **Production system** | ✓ Done (M33) | - |
-| **Building placement** | ✓ Done (M34) | - |
-| **Tech tree** | ✓ Done (M35) | - |
-| **Economy** | ✓ Done (M36) | - |
-| **AI opponent** | ✓ Done (M37) | - |
-| **Fog of war** | ✓ Done (M38) | - |
-| **Attack commands** | ✓ Done (M39) | - |
-| **Unit behaviors** | ✓ Done (M40) | - |
-| **Scenario loading** | ✓ Done (M41) | - |
-| **Mission objectives** | ✓ Done (M42) | - |
-| **Campaign flow** | ✓ Done (M43) | - |
-| **Briefings** | ✓ Done (M44) | - |
-| **VQA Cutscenes** | ✓ Done (M45) | - |
-| **Music** | ✓ Done (M46) | - |
-
-**Next step:** M47 - Sound Polish (unit acknowledgments, building/combat sounds).
+## Current State
+
+### What Works (Demo Mode)
+- Metal renderer at 60 FPS (640x400, palette-based)
+- Terrain tiles from snow.mix
+- Unit sprites from conquer.mix
+- A* pathfinding, unit movement
+- Combat (attack, damage, death)
+- Menu system (main, options, credits, campaign select)
+- Sidebar UI (radar, build strips, selection panel)
+- Production system (click to build, progress bar, spawns at building)
+- Building placement (footprint cursor, validation, placement)
+- Tech tree (prerequisites unlock items)
+- Economy (harvesters gather ore, refineries convert to credits)
+- AI opponent (builds base, produces units, attacks)
+- Fog of war (units reveal area)
+- Attack commands (A-move, guard, force-attack, stop)
+- Campaign flow (Allied/Soviet select, difficulty, briefings)
+- VQA video playback (intro, briefings)
+- Background music (streaming from SCORES.MIX)
+
+### What's Missing (Demo → Real Game)
+- Real mission loading (currently procedural demo map)
+- Multiple terrain theaters (only snow implemented)
+- Full unit roster (missing many unit types)
+- Mission triggers (win/lose beyond "destroy all")
+- Naval units
+- Aircraft
+- Superweapons
 
 ---
 
 ## Known Issues
 
-These are known bugs that need investigation:
+| ID | Issue | Description | Severity | Status |
+|----|-------|-------------|----------|--------|
+| BUG-01 | Music Distortion | Background music heavily distorted, likely ADPCM decode or sample rate issue | High | Open |
+| BUG-02 | Video Audio Static | VQA playback has audio noise/static | High | Open |
+| BUG-03 | P for Pause | Units keep moving when P pressed, pause flag not respected | Medium | Open |
+| BUG-04 | Briefing Garbled | Mission briefing shows artifacts after video playback | Medium | Open |
+| BUG-05 | Fog Re-blacks | Revealed terrain goes black when units leave (should stay dimmed) | Medium | Open |
+| BUG-06 | Sound Volume | Can't test sound slider without sample playback button | Low | Open |
 
-| Issue | Description | Severity |
-|-------|-------------|----------|
-| **P for Pause** | Pressing P doesn't pause gameplay - units (harvesters) keep moving. Key detection works (other keys like arrows work fine), but pause flag not being respected by all game systems. | Medium |
-| **Mission Briefing Screen** | Shows garbled characters/artifacts instead of proper text after video playback. Palette or framebuffer state not properly restored after VQA video ends. | Medium |
-| **Music Distortion** | Background music is heavily distorted. Likely sample rate conversion or ADPCM decoding issue. | High |
-| **Video Audio Static** | VQA video playback has audio static/noise. Audio stream decoding or mixing issue. | High |
-| **Sound Volume Testing** | Sound effects volume slider in Options menu cannot be tested without a "play sample" button - no audible feedback during adjustment. | Low |
+---
 
-**Notes:**
-- Music volume control works correctly
-- Video playback works (intro, briefings)
-- All other input handling works (arrows, WASD, mouse, ESC, Enter)
+## Phase A: Stabilization
+
+*Fix critical bugs before adding features. These impact testing and user experience.*
+
+### A1: Audio Quality - NOT STARTED
+**Goal:** Clean audio playback for music and video.
+
+**Tasks:**
+- [ ] Debug music distortion (check ADPCM decoder, sample rate conversion)
+- [ ] Debug video audio static (check VQA audio stream decoding)
+- [ ] Verify audio callback timing and buffer handling
+- [ ] Test with multiple tracks to isolate issue
+
+**Files:** `audio/audio.mm`, `video/music.cpp`, `video/vqa.cpp`, `assets/audfile.cpp`
+
+### A2: UI Polish - NOT STARTED
+**Goal:** Fix rendering and input bugs.
+
+**Tasks:**
+- [ ] Fix briefing screen rendering after video (palette/framebuffer restore)
+- [ ] Fix P for pause (trace key detection → pause flag → Units_Update gate)
+- [ ] Fix fog of war to keep revealed terrain visible (only hide enemy units)
+- [ ] Add test tone button to Options for sound volume testing
+
+**Files:** `ui/menu.cpp`, `main.mm`, `game/map.cpp`, `game/units.cpp`
+
+---
+
+## Phase B: Real Missions
+
+*The critical path from demo to real game.*
+
+### B1: Mission File Loading - NOT STARTED
+**Goal:** Load actual Red Alert missions from INI files.
+
+**Tasks:**
+- [ ] Extract mission INIs from REDALERT.MIX (SCU01EA.INI, SCG01EA.INI, etc.)
+- [ ] Parse [Basic] section (name, theater, players)
+- [ ] Parse [Map] section (dimensions, position)
+- [ ] Parse [MapPack] section (terrain data - base64 encoded)
+- [ ] Parse [OverlayPack] section (ore, walls, etc.)
+- [ ] Parse [TERRAIN] section (trees, rocks)
+- [ ] Parse [Units], [Infantry], [Structures] sections
+- [ ] Parse [Waypoints] section (spawn points, objectives)
+- [ ] Parse [CellTriggers] section
+
+**Mission file format reference:**
+```ini
+[Basic]
+Name=SCU01EA
+Theater=TEMPERATE
+Player=Greece
+
+[Map]
+X=0
+Y=0
+Width=64
+Height=64
+
+[Units]
+0=Greece,1TNK,256,64,128,Guard
+1=USSR,3TNK,512,192,64,Area Guard
+
+[Structures]
+0=Greece,FACT,256,320
+1=Greece,POWR,288,320
+```
+
+**Files:** `game/mission.cpp`, `game/ini.cpp`, `assets/assetloader.cpp`
+
+### B2: Theater Support - NOT STARTED
+**Goal:** Support all three terrain types.
+
+**Theaters:**
+| Theater | MIX File | Palette | Used In |
+|---------|----------|---------|---------|
+| Temperate | TEMPERAT.MIX | TEMPERAT.PAL | Most Allied missions |
+| Snow | SNOW.MIX | SNOW.PAL | Soviet missions, current demo |
+| Desert | DESERT.MIX | DESERT.PAL | Counterstrike expansion |
+
+**Tasks:**
+- [ ] Load theater from mission [Basic] section
+- [ ] Load correct terrain MIX file based on theater
+- [ ] Load correct palette based on theater
+- [ ] Handle theater-specific terrain tiles (TMP files differ per theater)
+
+**Files:** `assets/assetloader.cpp`, `game/terrain.cpp`, `game/map.cpp`
+
+### B3: Map Rendering - NOT STARTED
+**Goal:** Render maps from mission data instead of procedural generation.
+
+**Tasks:**
+- [ ] Decode [MapPack] base64 data to terrain template indices
+- [ ] Decode [OverlayPack] base64 data to overlay types
+- [ ] Map template indices to TMP files
+- [ ] Render terrain using correct tiles
+- [ ] Render overlays (ore, gems, walls, crates)
+- [ ] Place [TERRAIN] objects (trees, rocks)
+
+**Files:** `game/map.cpp`, `game/terrain.cpp`
+
+### B4: Entity Spawning - NOT STARTED
+**Goal:** Spawn units/buildings from mission INI.
+
+**Tasks:**
+- [ ] Parse unit entries: `ID=House,Type,Cell,Facing,Mission`
+- [ ] Parse infantry entries: `ID=House,Type,Cell,SubCell,Facing,Mission`
+- [ ] Parse structure entries: `ID=House,Type,Cell,Facing,Tag`
+- [ ] Map type strings to UnitType/BuildingType enums
+- [ ] Spawn at correct cell positions
+- [ ] Set initial mission state (Guard, Area Guard, Hunt, etc.)
+- [ ] Handle team assignments
+
+**Files:** `game/mission.cpp`, `game/units.cpp`
+
+### B5: Unit Type Expansion - NOT STARTED
+**Goal:** Add all unit types from original game.
+
+**Infantry (expand from current 4):**
+| Type | Name | Prereq |
+|------|------|--------|
+| E1 | Rifle Infantry | Barracks |
+| E2 | Grenadier | Barracks |
+| E3 | Rocket Soldier | Barracks |
+| E4 | Flamethrower | Barracks |
+| E6 | Engineer | Barracks |
+| SPY | Spy | Barracks + Tech |
+| THF | Thief | Barracks |
+| MEDI | Medic | Barracks |
+| DOG | Attack Dog | Kennel |
+| SHOK | Shock Trooper | Tesla Coil |
+
+**Vehicles (expand from current 4):**
+| Type | Name | Prereq |
+|------|------|--------|
+| HARV | Harvester | Refinery |
+| MCV | Mobile Construction Vehicle | Factory |
+| 1TNK | Light Tank | Factory |
+| 2TNK | Medium Tank | Factory |
+| 3TNK | Heavy Tank | Factory |
+| 4TNK | Mammoth Tank | Factory + Tech |
+| APC | APC | Factory |
+| ARTY | Artillery | Factory |
+| V2RL | V2 Rocket | Factory + Radar |
+| MNLY | Minelayer | Factory |
+| JEEP | Ranger | Factory |
+| TRUK | Supply Truck | Factory |
+
+**Naval (new):**
+| Type | Name | Prereq |
+|------|------|--------|
+| SS | Submarine | Sub Pen |
+| DD | Destroyer | Naval Yard |
+| CA | Cruiser | Naval Yard + Tech |
+| PT | Gunboat | Naval Yard |
+| LST | Transport | Naval Yard |
+
+**Tasks:**
+- [ ] Add infantry types to unit_types.cpp
+- [ ] Add vehicle types to unit_types.cpp
+- [ ] Add naval types (new water movement)
+- [ ] Add sprites for each type
+- [ ] Add unit stats (health, speed, weapon, cost)
+- [ ] Update sidebar with new units (conditional on prereqs)
+
+**Files:** `game/unit_types.cpp`, `game/units.cpp`, `ui/game_ui.cpp`
+
+### B6: Building Type Expansion - NOT STARTED
+**Goal:** Add all building types.
+
+**Structures (expand from current 6):**
+| Type | Name | Size | Prereq |
+|------|------|------|--------|
+| FACT | Construction Yard | 3x3 | - |
+| POWR | Power Plant | 2x2 | - |
+| APWR | Advanced Power | 2x2 | Power + Tech |
+| PROC | Ore Refinery | 3x3 | Power |
+| SILO | Ore Silo | 1x1 | Refinery |
+| BARR | Barracks | 2x2 | Power |
+| TENT | Barracks (Allied) | 2x2 | Power |
+| KENN | Kennel | 1x1 | Barracks |
+| WEAP | War Factory | 3x3 | Power + Refinery |
+| DOME | Radar Dome | 2x2 | Power + Factory |
+| FIX | Service Depot | 3x3 | Factory |
+| HPAD | Helipad | 2x2 | Radar |
+| AFLD | Airfield | 2x3 | Radar |
+| SYRD | Naval Yard | 3x3 | Power |
+| SPEN | Sub Pen | 3x3 | Power |
+| TECH | Tech Center | 2x2 | Radar |
+| GUN | Turret | 1x1 | Barracks |
+| AGUN | AA Gun | 1x1 | Radar |
+| SAM | SAM Site | 2x1 | Radar |
+| TSLA | Tesla Coil | 1x2 | Tech |
+| GAP | Gap Generator | 1x1 | Tech |
+| IRON | Iron Curtain | 2x2 | Tech |
+| PDOX | Chronosphere | 2x2 | Tech |
+| MSLO | Missile Silo | 2x1 | Tech |
+
+**Tasks:**
+- [ ] Add building types to building_types.cpp
+- [ ] Add sprites for each type
+- [ ] Add building stats (health, power, cost, size)
+- [ ] Add special building behaviors (power generation, gap generator, etc.)
+- [ ] Update sidebar with new buildings
+
+**Files:** `game/building_types.cpp`, `game/units.cpp`, `ui/game_ui.cpp`
+
+### B7: Mission Triggers - NOT STARTED
+**Goal:** Event-driven mission logic.
+
+**Trigger format:** `Name=Event,Action,Repeating,House`
+
+**Events to implement:**
+| Event | Description |
+|-------|-------------|
+| None | No trigger (always active) |
+| Time | After N ticks |
+| Discovered | Player sees location |
+| Destroyed | All of type destroyed |
+| Entered | Unit enters cell |
+| NoBuildings | House has no buildings |
+| NoUnits | House has no units |
+| CivEvac | Civilians evacuated |
+
+**Actions to implement:**
+| Action | Description |
+|--------|-------------|
+| Win | Player wins mission |
+| Lose | Player loses mission |
+| Reinforcements | Spawn reinforcement team |
+| CreateTeam | Create AI team |
+| AllHunt | All enemy units hunt |
+| Text | Display message |
+| Reveal | Reveal map area |
+
+**Tasks:**
+- [ ] Parse [Triggers] section
+- [ ] Parse [TeamTypes] section (for reinforcements)
+- [ ] Implement event detection
+- [ ] Implement action execution
+- [ ] Wire triggers to game loop
+- [ ] Test with Allied Mission 1
+
+**Files:** `game/trigger.cpp`, `game/mission.cpp`, `game/scenario.cpp`
+
+---
+
+## Phase C: Campaign Progression
+
+*Full campaign experience with mission sequencing and cutscenes.*
+
+### C1: Mission Sequencing - NOT STARTED
+**Goal:** Progress through campaign missions in order.
+
+**Allied Campaign (28 missions):**
+```
+SCU01EA → SCU02EA → SCU03EA → ... → SCU14EA
+         ↘ SCU03EB (branch)
+```
+
+**Soviet Campaign (16 missions):**
+```
+SCG01EA → SCG02EA → SCG03EA → ... → SCG14EA
+```
+
+**Tasks:**
+- [ ] Define mission sequence tables
+- [ ] Handle mission branching (A/B paths)
+- [ ] Load next mission on victory
+- [ ] Handle defeat (retry or menu)
+- [ ] Track campaign progress (save/load)
+
+**Files:** `game/campaign.cpp`, `ui/menu.cpp`
+
+### C2: Cutscenes & Briefings - NOT STARTED
+**Goal:** Play correct videos between missions.
+
+**Video mapping:**
+| Mission | Briefing Video | Victory Video |
+|---------|----------------|---------------|
+| Allied 1 | ALLY1.VQA | - |
+| Allied 14 | ALLY14.VQA | ALLYEND.VQA |
+| Soviet 1 | SOV1.VQA | - |
+| Soviet 14 | SOV14.VQA | SOVEND.VQA |
+
+**Tasks:**
+- [ ] Map missions to briefing videos
+- [ ] Map missions to victory videos
+- [ ] Play briefing before mission
+- [ ] Play victory video after mission complete
+- [ ] Handle missing videos gracefully
+
+**Files:** `ui/menu.cpp`, `video/vqa.cpp`
+
+### C3: Difficulty & Scoring - NOT STARTED
+**Goal:** Proper difficulty scaling and end-mission scoring.
+
+**Difficulty effects:**
+| Setting | Player Credits | Enemy Credits | AI Aggression |
+|---------|----------------|---------------|---------------|
+| Easy | 150% | 75% | Low |
+| Normal | 100% | 100% | Normal |
+| Hard | 75% | 150% | High |
+
+**Tasks:**
+- [ ] Scale starting credits by difficulty
+- [ ] Scale AI parameters by difficulty
+- [ ] Calculate end-mission score (time, units lost, buildings)
+- [ ] Display score screen
+- [ ] Track statistics
+
+**Files:** `game/mission.cpp`, `game/ai.cpp`, `ui/menu.cpp`
+
+---
+
+## Phase D: Skirmish Mode
+
+*Standalone battles against AI on random maps.*
+
+### D1: Skirmish Setup - NOT STARTED
+**Goal:** Configure and start skirmish battles.
+
+**Options:**
+- Map selection (or random)
+- Number of AI players (1-7)
+- AI difficulty per player
+- Starting credits
+- Superweapons on/off
+- Crates on/off
+
+**Tasks:**
+- [ ] Skirmish setup menu
+- [ ] Map browser (list available maps)
+- [ ] AI player configuration
+- [ ] Game rules configuration
+- [ ] Start game with settings
+
+**Files:** `ui/menu.cpp`, `game/scenario.cpp`
+
+### D2: Random Map Generation - NOT STARTED
+**Goal:** Generate playable random maps.
+
+**Map features:**
+- Balanced starting positions
+- Ore fields near each player
+- Varied terrain (water, cliffs, trees)
+- Multiple terrain theaters
+
+**Tasks:**
+- [ ] Generate terrain heightmap
+- [ ] Place ore fields fairly
+- [ ] Place starting positions
+- [ ] Ensure path connectivity
+- [ ] Add decorative terrain (trees, rocks)
+
+**Files:** `game/map.cpp`
+
+### D3: Enhanced AI - NOT STARTED
+**Goal:** Smarter AI for longer skirmish games.
+
+**Improvements:**
+- [ ] Multiple AI personalities (aggressive, defensive, balanced)
+- [ ] Better base building (power management, expansion)
+- [ ] Scouting behavior
+- [ ] Tech rushing
+- [ ] Counter-unit production
+- [ ] Multi-front attacks
+
+**Files:** `game/ai.cpp`
+
+---
+
+## Phase E: Polish
+
+*Nice-to-have features for complete experience.*
+
+### E1: Audio Polish - NOT STARTED
+- [ ] Unit voice acknowledgments ("Yes sir!", "Acknowledged", etc.)
+- [ ] Building construction sounds
+- [ ] Complete combat sound effects
+- [ ] Ambient sounds
+- [ ] EVA voice ("Unit ready", "Building", etc.)
+
+### E2: Visual Polish - NOT STARTED
+- [ ] Explosion animations
+- [ ] Muzzle flashes
+- [ ] Building damage states
+- [ ] Unit shadow sprites
+- [ ] Water animation
+
+### E3: Aircraft - NOT STARTED
+- [ ] Helicopter movement
+- [ ] Fixed-wing aircraft
+- [ ] Air-to-ground attacks
+- [ ] Anti-air defense
+- [ ] Helipad/Airfield landing
+
+### E4: Superweapons - NOT STARTED
+- [ ] Chronosphere (teleport units)
+- [ ] Iron Curtain (invulnerability)
+- [ ] Nuclear Missile
+- [ ] GPS Satellite
+- [ ] Parabombs
+
+---
+
+## Summary
+
+| Phase | Description | Priority | Status |
+|-------|-------------|----------|--------|
+| **A** | Stabilization (fix bugs) | High | Not Started |
+| **B** | Real Missions (demo → game) | High | Not Started |
+| **C** | Campaign Progression | Medium | Not Started |
+| **D** | Skirmish Mode | Medium | Not Started |
+| **E** | Polish | Low | Not Started |
+
+**Minimum viable "real game":** Complete Phase A + B1-B4 (can load and play Allied Mission 1)
+
+**Full campaign:** Complete through Phase C
+
+**Complete game:** All phases including E
