@@ -26,33 +26,34 @@
 
 ## Current Status
 
-**Demo Playable** - Window opens, units move with pathfinding, terrain renders, combat works, UI sidebar integrated.
+**Phase 1 Complete** - Full menu flow with intro video, campaign selection, mission briefings, and playable demo mission.
 
 ### What Works
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Metal Renderer | ✓ | 640x400 with palette-based rendering |
+| Metal Renderer | ✓ | 640x400 with palette-based rendering, fog of war |
 | CoreAudio | ✓ | 44.1kHz stereo, 16-channel mixing |
-| Input | ✓ | Mouse selection, keyboard commands |
+| Input | ✓ | Mouse selection, keyboard commands (P=pause, F=fullscreen) |
 | Terrain | ✓ | Loads tiles from snow.mix |
 | Sprites | ✓ | Loads SHP sprites from conquer.mix |
 | A* Pathfinding | ✓ | Units navigate around obstacles |
 | Combat | ✓ | Units attack, take damage, die |
-| Menu System | ✓ | Main menu, options, credits |
+| Menu System | ✓ | Main menu, options, volume controls, credits |
 | Sidebar UI | ✓ | Radar minimap, build strips, selection panel |
+| VQA Cutscenes | ✓ | Full intro video, pre-mission briefing videos |
+| Background Music | ✓ | IMA ADPCM streaming from SCORES.MIX |
+| Campaign Flow | ✓ | Allied/Soviet selection, difficulty, briefings |
 
-### What's Next
+### What's Next (Phase 2)
 
 | Feature | Status | What's Needed |
 |---------|--------|---------------|
 | **Building Placement** | Not started | Grid snapping, build radius, prerequisites |
 | **Production System** | Built, not wired | Queue units/buildings, spend credits |
-| **Fog of War** | Partial | Shroud, sight radius per unit |
+| **Fog of War** | Alpha-based | Full shroud tracking per cell |
 | **AI Opponent** | Built, not wired | Base building, attacks, difficulty levels |
-| **Campaign** | Built, not wired | Mission briefings, objectives, triggers |
-| **Cutscenes** | Built, not wired | VQA video playback |
-| **Music** | Built, not wired | AUD streaming from soundtrack |
+| **Real Missions** | INI parsing | Load actual SCU/SCG scenarios |
 
 ~500 unit tests pass for systems that aren't connected to the game loop yet.
 
