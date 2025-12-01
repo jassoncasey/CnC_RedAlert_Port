@@ -17,6 +17,7 @@
 #include "game/sounds.h"
 #include "game/terrain.h"
 #include "game/ai.h"
+#include "game/mission.h"
 #include "audio/audio.h"
 #include "ui/menu.h"
 #include "ui/game_ui.h"
@@ -58,54 +59,42 @@ static void ToggleFullscreen(void) {
     }
 }
 
-// Start a demo mission
-static void StartDemoMission(void) {
+// Current mission data
+static MissionData g_currentMission;
+
+// Start a mission from data
+static void StartMission(const MissionData* mission) {
     g_inGameplay = true;
 
-    // Initialize map and units
-    Map_Init();
-    Units_Init();
+    // Initialize game UI
     GameUI_Init();
-    AI_Init();
 
-    // Generate demo map
-    Map_GenerateDemo();
-
-    // Spawn player units (Allies)
-    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_PLAYER, 100, 400);
-    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_PLAYER, 140, 420);
-    Units_Spawn(UNIT_TANK_LIGHT, TEAM_PLAYER, 180, 400);
-    Units_Spawn(UNIT_TANK_LIGHT, TEAM_PLAYER, 180, 440);
-    Units_Spawn(UNIT_RIFLE, TEAM_PLAYER, 80, 450);
-    Units_Spawn(UNIT_RIFLE, TEAM_PLAYER, 100, 450);
-    Units_Spawn(UNIT_RIFLE, TEAM_PLAYER, 120, 450);
-    Units_Spawn(UNIT_ROCKET, TEAM_PLAYER, 60, 430);
-    Units_Spawn(UNIT_HARVESTER, TEAM_PLAYER, 200, 500);
-
-    // Spawn enemy units (Soviet)
-    Units_Spawn(UNIT_TANK_HEAVY, TEAM_ENEMY, 1200, 300);
-    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_ENEMY, 1150, 350);
-    Units_Spawn(UNIT_TANK_MEDIUM, TEAM_ENEMY, 1250, 350);
-    Units_Spawn(UNIT_RIFLE, TEAM_ENEMY, 1100, 400);
-    Units_Spawn(UNIT_RIFLE, TEAM_ENEMY, 1130, 400);
-    Units_Spawn(UNIT_RIFLE, TEAM_ENEMY, 1160, 400);
-    Units_Spawn(UNIT_ROCKET, TEAM_ENEMY, 1200, 250);
-
-    // Spawn buildings
-    Buildings_Spawn(BUILDING_CONSTRUCTION, TEAM_PLAYER, 2, 15);
-    Buildings_Spawn(BUILDING_POWER, TEAM_PLAYER, 6, 16);
-    Buildings_Spawn(BUILDING_BARRACKS, TEAM_PLAYER, 2, 19);
-    Buildings_Spawn(BUILDING_REFINERY, TEAM_PLAYER, 6, 19);
-
-    Buildings_Spawn(BUILDING_CONSTRUCTION, TEAM_ENEMY, 55, 10);
-    Buildings_Spawn(BUILDING_POWER, TEAM_ENEMY, 59, 11);
-    Buildings_Spawn(BUILDING_TURRET, TEAM_ENEMY, 52, 14);
-    Buildings_Spawn(BUILDING_TURRET, TEAM_ENEMY, 58, 8);
+    // Start the mission (spawns map, units, buildings)
+    Mission_Start(mission);
 
     // Center viewport on player base
-    Map_CenterViewport(150, 450);
+    // Find player construction yard to center on
+    int centerX = 150, centerY = 450;
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (bld && bld->team == TEAM_PLAYER && bld->type == BUILDING_CONSTRUCTION) {
+            centerX = bld->cellX * CELL_SIZE + (bld->width * CELL_SIZE) / 2;
+            centerY = bld->cellY * CELL_SIZE + (bld->height * CELL_SIZE) / 2;
+            break;
+        }
+    }
+    Map_CenterViewport(centerX, centerY);
 
-    NSLog(@"Demo mission started!");
+    NSLog(@"Mission started: %s", mission->name);
+}
+
+// Start a demo mission
+static void StartDemoMission(void) {
+    // Load demo mission data
+    Mission_GetDemo(&g_currentMission);
+
+    // Start it
+    StartMission(&g_currentMission);
 }
 
 #pragma mark - Game Callbacks

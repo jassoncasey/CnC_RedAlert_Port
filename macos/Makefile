@@ -42,7 +42,7 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/factory.cpp $(SRC_DIR)/game/sidebar.cpp \
               $(SRC_DIR)/game/radar.cpp $(SRC_DIR)/game/saveload.cpp \
               $(SRC_DIR)/game/anim.cpp $(SRC_DIR)/game/campaign.cpp \
-              $(SRC_DIR)/game/ai.cpp \
+              $(SRC_DIR)/game/ai.cpp $(SRC_DIR)/game/mission.cpp \
               $(SRC_DIR)/video/vqa.cpp $(SRC_DIR)/video/music.cpp \
               $(SRC_DIR)/ui/game_ui.cpp
 

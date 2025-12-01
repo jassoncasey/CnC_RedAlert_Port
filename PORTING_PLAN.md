@@ -235,11 +235,22 @@ After M33-M37, we have:
 
 ## Phase 3: Campaign Support (M41-M44)
 
-### M41: Scenario Loading
-- Parse original .INI mission files
-- Load correct map/terrain
-- Spawn starting units and buildings
-- Read trigger definitions
+### ✓ M41: Scenario Loading - COMPLETE
+
+**Goal:** Load mission data from files and spawn game entities.
+
+**Completed:**
+- [x] MissionData structure with units, buildings, triggers
+- [x] INI parser for mission files (UNITS, STRUCTURES, INFANTRY sections)
+- [x] Unit type string parsing (E1, 1TNK, HARV, etc.)
+- [x] Building type string parsing (FACT, POWR, BARR, etc.)
+- [x] Team/faction parsing (Greece, USSR, etc.)
+- [x] Mission_Start() spawns all entities
+- [x] Mission_CheckVictory() for win/lose conditions
+- [x] Demo mission refactored to use mission system
+- [x] Auto-center viewport on player Construction Yard
+
+**Files:** `game/mission.h`, `game/mission.cpp`, `main.mm`
 
 ### M42: Mission Objectives
 - Win/lose condition triggers
@@ -292,7 +303,8 @@ After M33-M37, we have:
 | **Fog of war** | ✓ Done (M38) | - |
 | **Attack commands** | ✓ Done (M39) | - |
 | **Unit behaviors** | ✓ Done (M40) | - |
-| Campaign missions | Missing | Medium |
+| **Scenario loading** | ✓ Done (M41) | - |
+| Campaign missions | In Progress | Medium |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M41 - Scenario Loading (Campaign support).
+**Next step:** M42 - Mission Objectives (win/lose triggers).
