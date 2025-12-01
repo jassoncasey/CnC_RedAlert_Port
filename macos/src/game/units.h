@@ -68,7 +68,9 @@ typedef enum {
     STATE_ATTACKING,
     STATE_HARVESTING,
     STATE_RETURNING,
-    STATE_DYING
+    STATE_DYING,
+    STATE_ATTACK_MOVE,      // Moving but will attack enemies in range
+    STATE_GUARDING          // Stationary but attacks nearby enemies
 } UnitState;
 
 // Maximum path waypoints per unit
@@ -194,6 +196,21 @@ void Units_CommandAttack(int unitId, int targetUnitId);
  * Command unit to stop
  */
 void Units_CommandStop(int unitId);
+
+/**
+ * Command unit to attack-move to position (attack enemies encountered)
+ */
+void Units_CommandAttackMove(int unitId, int worldX, int worldY);
+
+/**
+ * Command unit to guard position (stay but attack nearby enemies)
+ */
+void Units_CommandGuard(int unitId);
+
+/**
+ * Command unit to force-attack target (even friendlies or ground)
+ */
+void Units_CommandForceAttack(int unitId, int worldX, int worldY);
 
 /**
  * Select unit

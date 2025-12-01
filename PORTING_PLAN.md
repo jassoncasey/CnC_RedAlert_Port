@@ -205,11 +205,19 @@ After M33-M37, we have:
 
 **Files:** `game/map.h`, `game/map.cpp`, `game/units.h`, `game/units.cpp`
 
-### M39: Attack Commands
-- Attack-move (A + click)
-- Force-attack (Ctrl + click)
-- Guard command
-- Patrol waypoints
+### ✓ M39: Attack Commands - COMPLETE
+
+**Goal:** Advanced unit command options.
+
+**Completed:**
+- [x] Attack-move (A key + right-click) - move but attack enemies encountered
+- [x] Force-attack (Ctrl + right-click) - attack anything including friendlies
+- [x] Guard command (G key) - stay in place but attack nearby enemies
+- [x] Stop command (S key) - stop all movement
+- [x] HUD shows current mode (attack-move active indicator)
+- [x] ESC cancels attack-move mode
+
+**Files:** `game/units.cpp`, `game/units.h`, `main.mm`
 
 ### M40: Unit Behaviors
 - Auto-acquire targets
@@ -276,7 +284,7 @@ After M33-M37, we have:
 | **Economy** | ✓ Done (M36) | - |
 | **AI opponent** | ✓ Done (M37) | - |
 | **Fog of war** | ✓ Done (M38) | - |
-| Attack commands | Missing | Medium |
+| **Attack commands** | ✓ Done (M39) | - |
 | Campaign missions | Missing | Medium |
 | Cutscenes/music | Missing | Low |
 

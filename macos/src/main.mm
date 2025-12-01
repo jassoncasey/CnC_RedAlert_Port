@@ -46,6 +46,7 @@ static bool g_inGameplay = false;
 static int g_selectionStartX = -1;
 static int g_selectionStartY = -1;
 static bool g_isSelecting = false;
+static bool g_attackMoveMode = false;  // 'A' key activates, next click = attack-move
 
 // Assets loaded flag
 static bool g_assetsLoaded = false;
@@ -151,15 +152,19 @@ void GameUpdate(uint32_t frame, float deltaTime) {
 
     // === GAMEPLAY MODE ===
     if (g_inGameplay) {
-        // ESC returns to main menu
+        // ESC cancels attack-move mode or returns to main menu
         if (Input_WasKeyPressed(VK_ESCAPE)) {
-            g_inGameplay = false;
-            AI_Shutdown();
-            GameUI_Shutdown();
-            Map_Shutdown();
-            Units_Shutdown();
-            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-            return;
+            if (g_attackMoveMode) {
+                g_attackMoveMode = false;
+            } else {
+                g_inGameplay = false;
+                AI_Shutdown();
+                GameUI_Shutdown();
+                Map_Shutdown();
+                Units_Shutdown();
+                Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+                return;
+            }
         }
 
         // Map scrolling with arrow keys or WASD
@@ -230,6 +235,7 @@ void GameUpdate(uint32_t frame, float deltaTime) {
 
         // Right click commands
         static bool wasRightDown = false;
+        bool ctrlDown = Input_IsKeyDown(VK_CONTROL);
 
         if (rightDown && !wasRightDown) {
             int worldX, worldY;
@@ -243,7 +249,13 @@ void GameUpdate(uint32_t frame, float deltaTime) {
             for (int i = 0; i < MAX_UNITS; i++) {
                 Unit* unit = Units_Get(i);
                 if (unit && unit->selected) {
-                    if (target && target->team == TEAM_ENEMY) {
+                    if (ctrlDown) {
+                        // Force-attack (Ctrl+click) - attack anything at location
+                        Units_CommandForceAttack(i, worldX, worldY);
+                    } else if (g_attackMoveMode) {
+                        // Attack-move mode - move but attack enemies encountered
+                        Units_CommandAttackMove(i, worldX, worldY);
+                    } else if (target && target->team == TEAM_ENEMY) {
                         // Attack command
                         Units_CommandAttack(i, targetId);
                     } else {
@@ -252,6 +264,7 @@ void GameUpdate(uint32_t frame, float deltaTime) {
                     }
                 }
             }
+            g_attackMoveMode = false;  // Clear attack-move mode after click
         }
         wasRightDown = rightDown;
 
@@ -261,6 +274,21 @@ void GameUpdate(uint32_t frame, float deltaTime) {
                 Unit* unit = Units_Get(i);
                 if (unit && unit->selected) {
                     Units_CommandStop(i);
+                }
+            }
+        }
+
+        // Attack-move mode (A key) - next click will be attack-move
+        if (Input_WasKeyPressed('A') && !Input_IsKeyDown('W') && !Input_IsKeyDown('S') && !Input_IsKeyDown('D')) {
+            g_attackMoveMode = true;
+        }
+
+        // Guard command (G key) - stay in place but attack nearby enemies
+        if (Input_WasKeyPressed('G')) {
+            for (int i = 0; i < MAX_UNITS; i++) {
+                Unit* unit = Units_Get(i);
+                if (unit && unit->selected) {
+                    Units_CommandGuard(i);
                 }
             }
         }
@@ -455,7 +483,11 @@ void GameRender(void) {
 
         // Controls help at bottom (only in game view area)
         Renderer_FillRect(0, 384, 560, 16, 0);
-        Renderer_DrawText("WASD=SCROLL LMB=SELECT RMB=CMD ESC=MENU", 20, 387, 7, 0);
+        if (g_attackMoveMode) {
+            Renderer_DrawText("ATTACK-MOVE: RMB=TARGET  ESC=CANCEL", 20, 387, 14, 0);
+        } else {
+            Renderer_DrawText("WASD=SCROLL A=ATTACK-MOVE G=GUARD S=STOP", 20, 387, 7, 0);
+        }
 
         return;
     }

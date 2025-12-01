@@ -376,6 +376,76 @@ void Units_CommandStop(int unitId) {
     unit->targetY = unit->worldY;
     unit->targetUnit = -1;
     unit->state = STATE_IDLE;
+    unit->pathLength = 0;
+}
+
+void Units_CommandAttackMove(int unitId, int worldX, int worldY) {
+    Unit* unit = Units_Get(unitId);
+    if (!unit) return;
+
+    unit->targetX = worldX;
+    unit->targetY = worldY;
+    unit->targetUnit = -1;
+    unit->state = STATE_ATTACK_MOVE;
+
+    // Clear existing path - will be calculated on next update
+    unit->pathLength = 0;
+    unit->pathIndex = 0;
+
+    // Calculate facing direction
+    int dx = worldX - unit->worldX;
+    int dy = worldY - unit->worldY;
+    if (dx != 0 || dy != 0) {
+        double angle = atan2((double)dy, (double)dx);
+        int facing = (int)((angle + M_PI) / (M_PI / 4.0)) % 8;
+        unit->facing = (uint8_t)((facing + 2) % 8);
+    }
+}
+
+void Units_CommandGuard(int unitId) {
+    Unit* unit = Units_Get(unitId);
+    if (!unit) return;
+
+    // Guard at current position
+    unit->targetX = unit->worldX;
+    unit->targetY = unit->worldY;
+    unit->targetUnit = -1;
+    unit->state = STATE_GUARDING;
+    unit->pathLength = 0;
+}
+
+void Units_CommandForceAttack(int unitId, int worldX, int worldY) {
+    Unit* unit = Units_Get(unitId);
+    if (!unit) return;
+
+    // Check if there's a unit at the target position (any team)
+    int targetId = -1;
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* target = &g_units[i];
+        if (!target->active || i == unitId) continue;
+
+        const UnitTypeDef* tdef = &g_unitTypes[target->type];
+        int halfSize = tdef->size / 2;
+
+        if (worldX >= target->worldX - halfSize && worldX <= target->worldX + halfSize &&
+            worldY >= target->worldY - halfSize && worldY <= target->worldY + halfSize) {
+            targetId = i;
+            break;
+        }
+    }
+
+    if (targetId >= 0) {
+        // Force attack this unit (even if friendly)
+        unit->targetUnit = (int16_t)targetId;
+        unit->state = STATE_ATTACKING;
+    } else {
+        // Attack ground (move there)
+        unit->targetX = worldX;
+        unit->targetY = worldY;
+        unit->targetUnit = -1;
+        unit->state = STATE_MOVING;
+        unit->pathLength = 0;
+    }
 }
 
 void Units_Select(int unitId, BOOL addToSelection) {
@@ -654,7 +724,8 @@ static void SetNextWaypoint(Unit* unit) {
 }
 
 static void UpdateUnitMovement(Unit* unit, int unitId) {
-    if (unit->state != STATE_MOVING) return;
+    // Handle both MOVING and ATTACK_MOVE states
+    if (unit->state != STATE_MOVING && unit->state != STATE_ATTACK_MOVE) return;
 
     // Track current cell for occupancy updates
     int oldCellX, oldCellY;
@@ -768,12 +839,36 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
         }
     }
 
-    if (unit->state == STATE_ATTACKING && unit->targetUnit >= 0) {
+    // Attack-move: while moving, look for enemies in range and attack them
+    if (unit->state == STATE_ATTACK_MOVE && unit->attackRange > 0) {
+        int enemyId = FindNearestEnemy(unit, unit->attackRange);
+        if (enemyId >= 0) {
+            // Found enemy - attack them, but remember we're attack-moving
+            unit->targetUnit = (int16_t)enemyId;
+            // Stay in ATTACK_MOVE state so we continue after killing target
+        }
+    }
+
+    // Guard mode: attack any enemies that come in range
+    if (unit->state == STATE_GUARDING && unit->attackRange > 0) {
+        int enemyId = FindNearestEnemy(unit, unit->attackRange * 2);
+        if (enemyId >= 0) {
+            unit->targetUnit = (int16_t)enemyId;
+            // Stay in GUARDING state
+        }
+    }
+
+    // Handle combat for ATTACKING, ATTACK_MOVE (with target), and GUARDING (with target)
+    if ((unit->state == STATE_ATTACKING || unit->state == STATE_ATTACK_MOVE || unit->state == STATE_GUARDING)
+        && unit->targetUnit >= 0) {
         Unit* target = Units_Get(unit->targetUnit);
         if (!target || target->health <= 0) {
-            // Target dead
+            // Target dead - clear target but preserve state for attack-move/guard
             unit->targetUnit = -1;
-            unit->state = STATE_IDLE;
+            if (unit->state == STATE_ATTACKING) {
+                unit->state = STATE_IDLE;
+            }
+            // ATTACK_MOVE and GUARDING keep their state and will look for new targets
             return;
         }
 
