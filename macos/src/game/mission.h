@@ -15,6 +15,9 @@
 extern "C" {
 #endif
 
+// Forward declaration
+class INIClass;
+
 // Maximum entities per mission
 #define MAX_MISSION_UNITS       64
 #define MAX_MISSION_BUILDINGS   32
@@ -47,10 +50,17 @@ typedef struct {
 typedef struct {
     // Identity
     char name[64];
-    char description[256];
+    char description[512];
+
+    // Videos
+    char briefVideo[32];    // Pre-mission briefing video (e.g., "ALLY1")
+    char winVideo[32];      // Victory video
+    char loseVideo[32];     // Defeat video
 
     // Map
-    int theater;        // 0=temperate, 1=snow, 2=interior
+    int theater;        // 0=temperate, 1=snow, 2=interior, 3=desert
+    int mapX;           // Map viewport X offset
+    int mapY;           // Map viewport Y offset
     int mapWidth;
     int mapHeight;
 
@@ -86,6 +96,12 @@ void Mission_Init(MissionData* mission);
  * @return true on success
  */
 int Mission_LoadFromINI(MissionData* mission, const char* filename);
+
+/**
+ * Load mission from already-parsed INI data
+ * @return true on success
+ */
+int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini);
 
 /**
  * Load mission from memory buffer (INI format)

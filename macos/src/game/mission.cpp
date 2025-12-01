@@ -95,6 +95,10 @@ static Team ParseTeam(const char* str) {
     return TEAM_NEUTRAL;
 }
 
+// Convert cell number to X/Y coordinates (Red Alert uses 128-wide maps internally)
+#define CELL_TO_X(cell) ((cell) % 128)
+#define CELL_TO_Y(cell) ((cell) / 128)
+
 int Mission_LoadFromINI(MissionData* mission, const char* filename) {
     if (!mission || !filename) return 0;
 
@@ -103,144 +107,153 @@ int Mission_LoadFromINI(MissionData* mission, const char* filename) {
         return 0;
     }
 
+    return Mission_LoadFromINIClass(mission, &ini);
+}
+
+int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
+    if (!mission || !ini) return 0;
+
     // Initialize defaults
     Mission_Init(mission);
 
     // [Basic] section
-    ini.GetString("Basic", "Name", "Mission", mission->name, sizeof(mission->name));
-    ini.GetString("Basic", "Brief", "Complete the mission.", mission->description, sizeof(mission->description));
+    ini->GetString("Basic", "Name", "Mission", mission->name, sizeof(mission->name));
 
-    // Theater
+    // Theater from [Map] section (not [Basic])
     char theaterStr[32];
-    ini.GetString("Basic", "Theater", "TEMPERATE", theaterStr, sizeof(theaterStr));
+    ini->GetString("Map", "Theater", "TEMPERATE", theaterStr, sizeof(theaterStr));
     if (strcasecmp(theaterStr, "SNOW") == 0) mission->theater = 1;
     else if (strcasecmp(theaterStr, "INTERIOR") == 0) mission->theater = 2;
+    else if (strcasecmp(theaterStr, "DESERT") == 0) mission->theater = 3;
     else mission->theater = 0;
 
     // Player
     char playerStr[32];
-    ini.GetString("Basic", "Player", "Greece", playerStr, sizeof(playerStr));
+    ini->GetString("Basic", "Player", "Greece", playerStr, sizeof(playerStr));
     mission->playerTeam = ParseTeam(playerStr);
 
-    // Credits
-    mission->startCredits = ini.GetInt("Basic", "Credits", 5000);
+    // Briefing video
+    char briefStr[64];
+    ini->GetString("Basic", "Brief", "", briefStr, sizeof(briefStr));
+    strncpy(mission->briefVideo, briefStr, sizeof(mission->briefVideo) - 1);
 
-    // Map size
-    mission->mapWidth = ini.GetInt("Map", "Width", 64);
-    mission->mapHeight = ini.GetInt("Map", "Height", 64);
+    // Win/Lose videos
+    char winStr[64], loseStr[64];
+    ini->GetString("Basic", "Win", "", winStr, sizeof(winStr));
+    ini->GetString("Basic", "Lose", "", loseStr, sizeof(loseStr));
+    strncpy(mission->winVideo, winStr, sizeof(mission->winVideo) - 1);
+    strncpy(mission->loseVideo, loseStr, sizeof(mission->loseVideo) - 1);
 
-    // Win/lose conditions
-    mission->winCondition = ini.GetInt("Basic", "Win", 0);
-    mission->loseCondition = ini.GetInt("Basic", "Lose", 0);
-    mission->timeLimit = ini.GetInt("Basic", "TimeLimit", 0);
-
-    // [UNITS] section - Format: ID=TYPE,OWNER,HEALTH,CELLX,CELLY,FACING
-    int sectionIdx = -1;
-    for (int i = 0; i < ini.SectionCount(); i++) {
-        if (strcasecmp(ini.GetSectionName(i), "UNITS") == 0) {
-            sectionIdx = i;
-            break;
-        }
-    }
-
-    if (sectionIdx >= 0) {
-        int count = ini.EntryCount("UNITS");
-        for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
-            const char* entry = ini.GetEntry("UNITS", i);
-            if (!entry) continue;
-
-            char value[128];
-            ini.GetString("UNITS", entry, "", value, sizeof(value));
-
-            // Parse: TYPE,OWNER,HEALTH,CELLX,CELLY,FACING
-            char type[32], owner[32];
-            int health, cellX, cellY, facing;
-
-            if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%d",
-                       type, owner, &health, &cellX, &cellY, &facing) >= 4) {
-                MissionUnit* unit = &mission->units[mission->unitCount];
-                unit->type = ParseUnitType(type);
-                unit->team = ParseTeam(owner);
-                unit->cellX = cellX;
-                unit->cellY = cellY;
-
-                if (unit->type != UNIT_NONE) {
-                    mission->unitCount++;
+    // [Briefing] section for mission description
+    int briefCount = ini->EntryCount("Briefing");
+    mission->description[0] = '\0';
+    size_t descLen = 0;
+    for (int i = 0; i < briefCount && i < 10; i++) {
+        char lineKey[8];
+        snprintf(lineKey, sizeof(lineKey), "%d", i + 1);
+        char line[256];
+        ini->GetString("Briefing", lineKey, "", line, sizeof(line));
+        if (strlen(line) > 0 && descLen < sizeof(mission->description) - 2) {
+            size_t lineLen = strlen(line);
+            if (descLen + lineLen + 1 < sizeof(mission->description)) {
+                if (descLen > 0) {
+                    mission->description[descLen++] = ' ';
                 }
+                strcpy(mission->description + descLen, line);
+                descLen += lineLen;
             }
         }
     }
 
-    // [STRUCTURES] section - Format: ID=TYPE,OWNER,HEALTH,CELLX,CELLY
-    sectionIdx = -1;
-    for (int i = 0; i < ini.SectionCount(); i++) {
-        if (strcasecmp(ini.GetSectionName(i), "STRUCTURES") == 0) {
-            sectionIdx = i;
-            break;
-        }
+    // Map dimensions from [Map] section
+    mission->mapX = ini->GetInt("Map", "X", 0);
+    mission->mapY = ini->GetInt("Map", "Y", 0);
+    mission->mapWidth = ini->GetInt("Map", "Width", 64);
+    mission->mapHeight = ini->GetInt("Map", "Height", 64);
+
+    // Credits from player's house section
+    mission->startCredits = ini->GetInt(playerStr, "Credits", 5000);
+    if (mission->startCredits == 0) {
+        mission->startCredits = ini->GetInt("Basic", "Credits", 5000);
     }
 
-    if (sectionIdx >= 0) {
-        int count = ini.EntryCount("STRUCTURES");
-        for (int i = 0; i < count && mission->buildingCount < MAX_MISSION_BUILDINGS; i++) {
-            const char* entry = ini.GetEntry("STRUCTURES", i);
-            if (!entry) continue;
+    // [UNITS] section - Format: ID=House,Type,Health,Cell,Facing,Mission,Trigger
+    // Example: 0=Greece,JEEP,256,6463,128,Guard,None
+    int count = ini->EntryCount("UNITS");
+    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
+        const char* entry = ini->GetEntry("UNITS", i);
+        if (!entry) continue;
 
-            char value[128];
-            ini.GetString("STRUCTURES", entry, "", value, sizeof(value));
+        char value[128];
+        ini->GetString("UNITS", entry, "", value, sizeof(value));
 
-            // Parse: TYPE,OWNER,HEALTH,CELLX,CELLY
-            char type[32], owner[32];
-            int health, cellX, cellY;
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, facing;
 
-            if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d",
-                       type, owner, &health, &cellX, &cellY) >= 4) {
-                MissionBuilding* bld = &mission->buildings[mission->buildingCount];
-                bld->type = ParseBuildingType(type);
-                bld->team = ParseTeam(owner);
-                bld->cellX = cellX;
-                bld->cellY = cellY;
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
+                   house, type, &health, &cell, &facing, missionStr, trigger) >= 5) {
+            MissionUnit* unit = &mission->units[mission->unitCount];
+            unit->type = ParseUnitType(type);
+            unit->team = ParseTeam(house);
+            unit->cellX = CELL_TO_X(cell);
+            unit->cellY = CELL_TO_Y(cell);
 
-                if (bld->type != BUILDING_NONE) {
-                    mission->buildingCount++;
-                }
+            if (unit->type != UNIT_NONE) {
+                mission->unitCount++;
             }
         }
     }
 
-    // [INFANTRY] section - same format as UNITS
-    sectionIdx = -1;
-    for (int i = 0; i < ini.SectionCount(); i++) {
-        if (strcasecmp(ini.GetSectionName(i), "INFANTRY") == 0) {
-            sectionIdx = i;
-            break;
+    // [STRUCTURES] section - Format: ID=House,Type,Health,Cell,Facing,Trigger,Sellable,Rebuilt
+    // Example: 0=USSR,TSLA,256,7623,0,None,1,0
+    count = ini->EntryCount("STRUCTURES");
+    for (int i = 0; i < count && mission->buildingCount < MAX_MISSION_BUILDINGS; i++) {
+        const char* entry = ini->GetEntry("STRUCTURES", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("STRUCTURES", entry, "", value, sizeof(value));
+
+        char house[32], type[32], trigger[32];
+        int health, cell, facing, sellable, rebuild;
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%d",
+                   house, type, &health, &cell, &facing, trigger, &sellable, &rebuild) >= 4) {
+            MissionBuilding* bld = &mission->buildings[mission->buildingCount];
+            bld->type = ParseBuildingType(type);
+            bld->team = ParseTeam(house);
+            bld->cellX = CELL_TO_X(cell);
+            bld->cellY = CELL_TO_Y(cell);
+
+            if (bld->type != BUILDING_NONE) {
+                mission->buildingCount++;
+            }
         }
     }
 
-    if (sectionIdx >= 0) {
-        int count = ini.EntryCount("INFANTRY");
-        for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
-            const char* entry = ini.GetEntry("INFANTRY", i);
-            if (!entry) continue;
+    // [INFANTRY] section - Format: ID=House,Type,Health,Cell,SubCell,Mission,Facing,Trigger
+    // Example: 0=USSR,DOG,256,7615,2,Hunt,0,dwig
+    count = ini->EntryCount("INFANTRY");
+    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
+        const char* entry = ini->GetEntry("INFANTRY", i);
+        if (!entry) continue;
 
-            char value[128];
-            ini.GetString("INFANTRY", entry, "", value, sizeof(value));
+        char value[128];
+        ini->GetString("INFANTRY", entry, "", value, sizeof(value));
 
-            // Parse: TYPE,OWNER,HEALTH,CELLX,CELLY,FACING,ACTION,TRIGGER
-            char type[32], owner[32];
-            int health, cellX, cellY;
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, subCell, facing;
 
-            if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d",
-                       type, owner, &health, &cellX, &cellY) >= 4) {
-                MissionUnit* unit = &mission->units[mission->unitCount];
-                unit->type = ParseUnitType(type);
-                unit->team = ParseTeam(owner);
-                unit->cellX = cellX;
-                unit->cellY = cellY;
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%31s",
+                   house, type, &health, &cell, &subCell, missionStr, &facing, trigger) >= 5) {
+            MissionUnit* unit = &mission->units[mission->unitCount];
+            unit->type = ParseUnitType(type);
+            unit->team = ParseTeam(house);
+            unit->cellX = CELL_TO_X(cell);
+            unit->cellY = CELL_TO_Y(cell);
 
-                if (unit->type != UNIT_NONE) {
-                    mission->unitCount++;
-                }
+            if (unit->type != UNIT_NONE) {
+                mission->unitCount++;
             }
         }
     }

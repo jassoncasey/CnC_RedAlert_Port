@@ -452,6 +452,15 @@ void Menu_Update(Menu* menu) {
     int my = Input_GetMouseY();
     BOOL leftDown = (Input_GetMouseButtons() & INPUT_MOUSE_LEFT) != 0;
     static BOOL wasLeftDown = FALSE;
+    static MenuScreen lastScreen = MENU_SCREEN_NONE;
+
+    // Reset click state when screen changes to avoid stale state
+    MenuScreen currentScreen = Menu_GetCurrentScreen();
+    if (currentScreen != lastScreen) {
+        wasLeftDown = leftDown;
+        lastScreen = currentScreen;
+    }
+
     BOOL leftClicked = !leftDown && wasLeftDown;
 
     Menu_HandleMouse(menu, mx, my, leftDown, leftClicked);
