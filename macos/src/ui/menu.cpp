@@ -44,8 +44,9 @@ void Menu_Init(void) {
     g_hoverSound = Audio_CreateTestTone(440, 30);
 
     // Create main menu
+    // Westwood palette: BLACK=12, WHITE=15, LTGREY=14, GREY=13, RED=8, LTGREEN=4
     g_mainMenu = Menu_Create("RED ALERT");
-    Menu_SetColors(g_mainMenu, 0, 15, 14, 7);
+    Menu_SetColors(g_mainMenu, 12, 15, 8, 13);  // Black bg, white text, red highlight, grey disabled
 
     int centerX = 320;
     int btnWidth = 200;
@@ -71,7 +72,7 @@ void Menu_Init(void) {
 
     // Create options menu
     g_optionsMenu = Menu_Create("OPTIONS");
-    Menu_SetColors(g_optionsMenu, 0, 15, 10, 7);
+    Menu_SetColors(g_optionsMenu, 12, 15, 4, 13);  // Black bg, white text, green highlight, grey disabled
 
     Menu_AddLabel(g_optionsMenu, 0, "OPTIONS", centerX - 40, 50);
 
@@ -313,12 +314,13 @@ void Menu_Render(Menu* menu) {
 
         switch (item->type) {
             case MENU_ITEM_BUTTON: {
-                // Draw button background
-                uint8_t bgColor = 1; // Dark blue
-                if (item->state == MENU_STATE_PRESSED) bgColor = 4; // Dark red
-                else if (item->state == MENU_STATE_HOVER || i == menu->selectedIndex) bgColor = 2; // Dark green
+                // Draw button background using Westwood palette
+                // BLUE=11, RED=8, LTGREEN=4, GREY=13, BLACK=12
+                uint8_t bgColor = 11; // Blue for normal
+                if (item->state == MENU_STATE_PRESSED) bgColor = 8; // Red when pressed
+                else if (item->state == MENU_STATE_HOVER || i == menu->selectedIndex) bgColor = 4; // Green on hover
 
-                if (!item->enabled) bgColor = 8; // Gray
+                if (!item->enabled) bgColor = 13; // Grey for disabled
 
                 Renderer_FillRect(item->x, item->y, item->width, item->height, bgColor);
                 Renderer_DrawRect(item->x, item->y, item->width, item->height, textColor);

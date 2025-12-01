@@ -116,25 +116,41 @@ void Units_Clear(void) {
     memset(g_buildings, 0, sizeof(g_buildings));
 }
 
+// Check if a cell is occupied by any unit
+static BOOL IsCellOccupied(int cellX, int cellY) {
+    for (int i = 0; i < MAX_UNITS; i++) {
+        if (!g_units[i].active) continue;
+        if (g_units[i].state == STATE_DYING) continue;
+
+        int unitCellX = g_units[i].worldX / CELL_SIZE;
+        int unitCellY = g_units[i].worldY / CELL_SIZE;
+
+        if (unitCellX == cellX && unitCellY == cellY) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 // Find a valid spawn position near the requested location
 static BOOL FindValidSpawnPosition(int* worldX, int* worldY, BOOL isNaval) {
     int cellX, cellY;
     Map_WorldToCell(*worldX, *worldY, &cellX, &cellY);
 
-    // Check if original position is valid
-    if (IsCellPassable(cellX, cellY, isNaval)) {
+    // Check if original position is valid and unoccupied
+    if (IsCellPassable(cellX, cellY, isNaval) && !IsCellOccupied(cellX, cellY)) {
         return TRUE;
     }
 
-    // Search in expanding squares for a valid cell
-    for (int radius = 1; radius <= 5; radius++) {
+    // Search in expanding squares for a valid unoccupied cell
+    for (int radius = 1; radius <= 10; radius++) {
         for (int dy = -radius; dy <= radius; dy++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 if (abs(dx) != radius && abs(dy) != radius) continue; // Only check perimeter
 
                 int testX = cellX + dx;
                 int testY = cellY + dy;
-                if (IsCellPassable(testX, testY, isNaval)) {
+                if (IsCellPassable(testX, testY, isNaval) && !IsCellOccupied(testX, testY)) {
                     Map_CellToWorld(testX, testY, worldX, worldY);
                     return TRUE;
                 }
@@ -789,8 +805,15 @@ void Units_Update(void) {
             target->health -= def->attackDamage;
             bld->attackCooldown = def->attackRate;
 
-            // Play turret sound
-            SoundEffect sfx = (bld->type == BUILDING_SAM) ? SFX_ROCKET : SFX_CANNON;
+            // Play turret sound based on building type
+            SoundEffect sfx;
+            if (bld->type == BUILDING_SAM) {
+                sfx = SFX_ROCKET;
+            } else if (bld->type == BUILDING_TURRET) {
+                sfx = SFX_GUN_SHOT;  // Pillbox uses machine gun sound
+            } else {
+                sfx = SFX_CANNON;    // Other turrets (AA gun, etc.) use cannon
+            }
             Sounds_PlayAt(sfx, bldWorldX, bldWorldY, 200);
 
             if (target->health <= 0) {
