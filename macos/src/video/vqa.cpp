@@ -35,85 +35,89 @@ uint16_t VQAPlayer::SwapBE16(uint16_t val) {
 }
 
 //===========================================================================
-// LCW Decompression
+// LCW Decompression (Format80) - Based on OpenRA implementation
 //===========================================================================
 
 int VQAPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize) {
     const uint8_t* srcEnd = src + srcSize;
-    uint8_t* dstStart = dst;
-    uint8_t* dstEnd = dst + dstSize;
+    int destIndex = 0;
 
-    while (src < srcEnd && dst < dstEnd) {
+    while (src < srcEnd && destIndex < dstSize) {
         uint8_t cmd = *src++;
 
-        if (cmd == 0) {
-            // End of data
-            break;
-        } else if ((cmd & 0x80) == 0) {
-            // Short copy from destination (relative)
-            // 0CCCPPPP PPPPPPPP - copy C+3 bytes from dst-P
+        if ((cmd & 0x80) == 0) {
+            // Case 2: Copy from relative position in output
+            // 0CCCPPPP PPPPPPPP - copy (CCC + 3) bytes from dst[current - PPP]
             if (src >= srcEnd) break;
-            int count = ((cmd >> 4) & 0x07) + 3;
-            int offset = ((cmd & 0x0F) << 8) | *src++;
-            const uint8_t* copySrc = dst - offset;
-            if (copySrc < dstStart || dst + count > dstEnd) break;
-            while (count-- > 0) {
-                *dst++ = *copySrc++;
+            uint8_t secondByte = *src++;
+            int count = ((cmd & 0x70) >> 4) + 3;
+            int rpos = ((cmd & 0x0F) << 8) + secondByte;
+
+            if (destIndex + count > dstSize) break;
+
+            // Copy bytes, one at a time (handles overlapping)
+            int srcIdx = destIndex - rpos;
+            if (srcIdx < 0) break;
+            for (int i = 0; i < count; i++) {
+                if (destIndex - srcIdx == 1)
+                    dst[destIndex + i] = dst[destIndex - 1];
+                else
+                    dst[destIndex + i] = dst[srcIdx + i];
             }
-        } else if ((cmd & 0xC0) == 0x80) {
-            // Short literal run
-            // 10CCCCCC - copy C bytes literally
+            destIndex += count;
+        } else if ((cmd & 0x40) == 0) {
+            // Case 1: Literal copy
+            // 10CCCCCC - copy C bytes from source (C=0 = end marker)
             int count = cmd & 0x3F;
             if (count == 0) break; // End marker
-            if (src + count > srcEnd || dst + count > dstEnd) break;
-            memcpy(dst, src, count);
-            dst += count;
+
+            if (src + count > srcEnd || destIndex + count > dstSize) break;
+            memcpy(dst + destIndex, src, count);
             src += count;
-        } else if ((cmd & 0xE0) == 0xC0) {
-            // Long copy from destination (relative)
-            // 110PPPPP PPPPPPPP CCCCCCCC - copy C+3 from dst-P
-            if (src + 2 > srcEnd) break;
-            int offset = ((cmd & 0x1F) << 8) | *src++;
-            int count = *src++ + 3;
-            const uint8_t* copySrc = dst - offset;
-            if (copySrc < dstStart || dst + count > dstEnd) break;
-            while (count-- > 0) {
-                *dst++ = *copySrc++;
-            }
-        } else if ((cmd & 0xFC) == 0xFC) {
-            // Long run of same byte
-            // 111111CC CCCCCCCC VVVVVVVV - fill C+3 with V
-            if (src + 2 > srcEnd) break;
-            int count = ((cmd & 0x03) << 8) | *src++;
-            count += 3;
-            uint8_t value = *src++;
-            if (dst + count > dstEnd) count = (int)(dstEnd - dst);
-            memset(dst, value, count);
-            dst += count;
-        } else if ((cmd & 0xFE) == 0xFE) {
-            // Very long literal run
-            // 1111111C CCCCCCCC - copy C bytes literally
-            if (src + 1 > srcEnd) break;
-            int count = ((cmd & 0x01) << 8) | *src++;
-            if (src + count > srcEnd || dst + count > dstEnd) break;
-            memcpy(dst, src, count);
-            dst += count;
-            src += count;
+            destIndex += count;
         } else {
-            // Long copy from destination (absolute)
-            // 111PPPPP PPPPPPPP CCCCCCCC - copy C+3 from absolute P
-            if (src + 2 > srcEnd) break;
-            int offset = ((cmd & 0x1F) << 8) | *src++;
-            int count = *src++ + 3;
-            const uint8_t* copySrc = dstStart + offset;
-            if (copySrc >= dstEnd || dst + count > dstEnd) break;
-            while (count-- > 0) {
-                *dst++ = *copySrc++;
+            int count3 = cmd & 0x3F;
+            if (count3 == 0x3E) {
+                // Case 4: Fill with byte value
+                // 11111110 LLLLLLLL LLLLLLLL VVVVVVVV - fill L bytes with V
+                if (src + 3 > srcEnd) break;
+                int count = src[0] | (src[1] << 8);
+                src += 2;
+                uint8_t color = *src++;
+
+                if (destIndex + count > dstSize) break;
+                memset(dst + destIndex, color, count);
+                destIndex += count;
+            } else {
+                // Case 3 or 5: Copy from absolute position
+                // Case 3: 11CCCCCC PPPPPPPP PPPPPPPP - copy (C + 3) from absolute P
+                // Case 5: 11111111 LLLLLLLL LLLLLLLL PPPPPPPP PPPPPPPP - copy L from absolute P
+                int count;
+                if (count3 == 0x3F) {
+                    // Case 5: Long copy
+                    if (src + 4 > srcEnd) break;
+                    count = src[0] | (src[1] << 8);
+                    src += 2;
+                } else {
+                    // Case 3: Short copy
+                    count = count3 + 3;
+                }
+
+                if (src + 2 > srcEnd) break;
+                int srcIndex = src[0] | (src[1] << 8);
+                src += 2;
+
+                if (srcIndex >= destIndex || destIndex + count > dstSize) break;
+
+                // Copy bytes one at a time
+                for (int i = 0; i < count; i++) {
+                    dst[destIndex++] = dst[srcIndex++];
+                }
             }
         }
     }
 
-    return (int)(dst - dstStart);
+    return destIndex;
 }
 
 //===========================================================================
@@ -176,6 +180,11 @@ VQAPlayer::VQAPlayer()
     , audioSamplesReady_(0)
     , decompBuffer_(nullptr)
     , decompBufferSize_(0)
+    , cbpBuffer_(nullptr)
+    , cbpBufferSize_(0)
+    , cbpOffset_(0)
+    , cbpCount_(0)
+    , cbpIsCompressed_(false)
 {
     memset(&header_, 0, sizeof(header_));
     memset(palette_, 0, sizeof(palette_));
@@ -273,6 +282,13 @@ void VQAPlayer::Unload() {
     decompBuffer_ = nullptr;
     decompBufferSize_ = 0;
 
+    delete[] cbpBuffer_;
+    cbpBuffer_ = nullptr;
+    cbpBufferSize_ = 0;
+    cbpOffset_ = 0;
+    cbpCount_ = 0;
+    cbpIsCompressed_ = false;
+
     memset(&header_, 0, sizeof(header_));
     memset(palette_, 0, sizeof(palette_));
 
@@ -287,6 +303,7 @@ void VQAPlayer::Unload() {
 
 bool VQAPlayer::ParseHeader() {
     if (!data_ || dataSize_ < 12) {
+        printf("VQA: ParseHeader - invalid data or size (%u)\n", dataSize_);
         return false;
     }
 
@@ -295,7 +312,12 @@ bool VQAPlayer::ParseHeader() {
 
     // Check FORM header
     const IFFChunk* form = (const IFFChunk*)ptr;
-    if (SwapBE32(form->id) != VQA_ID_FORM) {
+    uint32_t formId = SwapBE32(form->id);
+    if (formId != VQA_ID_FORM) {
+        printf("VQA: ParseHeader - bad FORM header: 0x%08X (expected 0x%08X)\n", formId, VQA_ID_FORM);
+        printf("VQA: First 16 bytes: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+               data_[0], data_[1], data_[2], data_[3], data_[4], data_[5], data_[6], data_[7],
+               data_[8], data_[9], data_[10], data_[11], data_[12], data_[13], data_[14], data_[15]);
         return false;
     }
     ptr += 8;
@@ -303,9 +325,11 @@ bool VQAPlayer::ParseHeader() {
     // Check WVQA type
     uint32_t type = SwapBE32(*(uint32_t*)ptr);
     if (type != VQA_ID_WVQA) {
+        printf("VQA: ParseHeader - bad WVQA type: 0x%08X (expected 0x%08X)\n", type, VQA_ID_WVQA);
         return false;
     }
     ptr += 4;
+    printf("VQA: ParseHeader - FORM/WVQA OK\n");
 
     // Find VQHD chunk
     bool foundHeader = false;
@@ -369,6 +393,14 @@ bool VQAPlayer::ParseHeader() {
         audioBufferSize_ = header_.sampleRate * header_.channels * 2;
         audioBuffer_ = new int16_t[audioBufferSize_];
     }
+
+    // Allocate CBP accumulation buffer (same size as codebook for partial updates)
+    cbpBufferSize_ = codebookSize_;
+    cbpBuffer_ = new uint8_t[cbpBufferSize_];
+    memset(cbpBuffer_, 0, cbpBufferSize_);
+    cbpOffset_ = 0;
+    cbpCount_ = 0;
+    cbpIsCompressed_ = false;
 
     return true;
 }
@@ -486,6 +518,14 @@ bool VQAPlayer::DecodeFrame(int frameNum) {
     paletteChanged_ = false;
     audioSamplesReady_ = 0;
 
+    // Note: ADPCM state (audioPredictor_, audioStepIndex_) persists across frames
+    // because the entire video's audio is one continuous ADPCM stream.
+    // This matches OpenRA's behavior which decodes all audio with continuous state.
+
+    // Apply any accumulated partial codebook at the START of the frame
+    // This is key: CBP chunks from previous frames are applied before processing this frame
+    ApplyAccumulatedCodebook();
+
     // Scan through file to find frame
     const uint8_t* ptr = data_ + 12;  // Skip FORM header + WVQA
     const uint8_t* end = data_ + dataSize_;
@@ -500,9 +540,26 @@ bool VQAPlayer::DecodeFrame(int frameNum) {
 
         if (ptr + chunkSize > end) break;
 
+        // Handle audio chunks at top level (they come BEFORE their VQFR/VQFK)
+        // Audio at currentFrameIndex=-1 belongs to frame 0
+        // Audio at currentFrameIndex=0 belongs to frame 1, etc.
+        // So: audio belongs to frame (currentFrameIndex + 1)
+        // We need to decode ALL audio chunks for the target frame
+        if (chunkId == VQA_ID_SND0 || chunkId == VQA_ID_SND1 || chunkId == VQA_ID_SND2) {
+            if (currentFrameIndex + 1 == frameNum) {
+                // This audio chunk belongs to the target frame - decode and accumulate
+                DecodeAudio(ptr, chunkSize, chunkId);
+            }
+        }
+
         // Is this a frame chunk?
         if (chunkId == VQA_ID_VQFR || chunkId == VQA_ID_VQFK) {
             currentFrameIndex++;
+
+            // If we just passed our target frame, we're done
+            if (currentFrameIndex > frameNum) {
+                return true;
+            }
 
             if (currentFrameIndex == frameNum) {
                 // Decode this frame's sub-chunks
@@ -570,45 +627,76 @@ bool VQAPlayer::DecodeFrame(int frameNum) {
 bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size, bool compressed, bool partial) {
     if (!data || size == 0) return false;
 
-    uint8_t* dst = codebook_;
-    int dstSize = codebookSize_;
+    int blockSize = header_.blockWidth * header_.blockHeight;
+    if (blockSize == 0) blockSize = 8;
 
     if (partial) {
-        // Partial codebook updates append to existing
-        // Find end of current codebook based on entries
-        int blockSize = header_.blockWidth * header_.blockHeight;
-        if (blockSize == 0) blockSize = 8;
-        dst = codebook_ + codebookEntries_ * blockSize;
-        dstSize = codebookSize_ - codebookEntries_ * blockSize;
+        // Partial codebook update (CBP0/CBPZ) - accumulate chunks
+        // These chunks are collected across multiple frames and applied together
+        // when all parts are received (determined by header_.groupSize)
+
+        // Append to CBP accumulation buffer
+        if (cbpOffset_ + (int)size <= cbpBufferSize_) {
+            memcpy(cbpBuffer_ + cbpOffset_, data, size);
+            cbpOffset_ += size;
+        }
+        cbpCount_++;
+        cbpIsCompressed_ = compressed;  // Track if the final accumulated data needs decompression
+
+        return true;
     }
+
+    // Full codebook (CBF0/CBFZ) - decompress and replace entire codebook immediately
+    // Also reset CBP accumulation state since we have a new full codebook
+    cbpOffset_ = 0;
+    cbpCount_ = 0;
 
     if (compressed) {
         int decompSize = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
-        if (decompSize > 0 && decompSize <= dstSize) {
-            memcpy(dst, decompBuffer_, decompSize);
-
-            int blockSize = header_.blockWidth * header_.blockHeight;
-            if (blockSize == 0) blockSize = 8;
-            if (partial) {
-                codebookEntries_ += decompSize / blockSize;
-            } else {
-                codebookEntries_ = decompSize / blockSize;
-            }
+        if (decompSize > 0 && decompSize <= codebookSize_) {
+            memcpy(codebook_, decompBuffer_, decompSize);
+            codebookEntries_ = decompSize / blockSize;
+        } else {
+            return false;
         }
     } else {
-        int copySize = std::min((int)size, dstSize);
-        memcpy(dst, data, copySize);
-
-        int blockSize = header_.blockWidth * header_.blockHeight;
-        if (blockSize == 0) blockSize = 8;
-        if (partial) {
-            codebookEntries_ += copySize / blockSize;
-        } else {
-            codebookEntries_ = copySize / blockSize;
-        }
+        int copySize = std::min((int)size, codebookSize_);
+        memcpy(codebook_, data, copySize);
+        codebookEntries_ = copySize / blockSize;
     }
 
     return true;
+}
+
+void VQAPlayer::ApplyAccumulatedCodebook() {
+    // Apply accumulated CBP chunks if we have collected enough parts
+    // header_.groupSize tells us how many CBP chunks make a complete codebook update
+
+    int partsNeeded = header_.groupSize;
+    if (partsNeeded == 0) partsNeeded = 8;  // Default if not specified
+
+    if (cbpCount_ >= partsNeeded && cbpOffset_ > 0) {
+        int blockSize = header_.blockWidth * header_.blockHeight;
+        if (blockSize == 0) blockSize = 8;
+
+        if (cbpIsCompressed_) {
+            // Decompress the accumulated CBPZ data
+            int decompSize = DecompressLCW(cbpBuffer_, decompBuffer_, cbpOffset_, decompBufferSize_);
+            if (decompSize > 0 && decompSize <= codebookSize_) {
+                memcpy(codebook_, decompBuffer_, decompSize);
+                codebookEntries_ = decompSize / blockSize;
+            }
+        } else {
+            // CBP0 - uncompressed, just copy
+            int copySize = std::min(cbpOffset_, codebookSize_);
+            memcpy(codebook_, cbpBuffer_, copySize);
+            codebookEntries_ = copySize / blockSize;
+        }
+
+        // Reset accumulation state
+        cbpOffset_ = 0;
+        cbpCount_ = 0;
+    }
 }
 
 bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size, uint32_t chunkId) {
@@ -635,8 +723,16 @@ bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size, uint32_t chun
         pointerSize = rleSize;
     }
 
+    // Calculate block counts
+    int blockWidth = header_.blockWidth > 0 ? header_.blockWidth : 4;
+    int blockHeight = header_.blockHeight > 0 ? header_.blockHeight : 2;
+    int blocksX = header_.width / blockWidth;
+    int blocksY = header_.height / blockHeight;
+    int totalBlocks = blocksX * blocksY;
+
     // Decode using vector quantization
-    UnVQ_4x2(pointerData, pointerSize / 2);  // 2 bytes per pointer
+    // pointerSize should be 2 * totalBlocks (lo bytes + hi bytes)
+    UnVQ_4x2(pointerData, totalBlocks);
 
     return true;
 }
@@ -644,20 +740,30 @@ bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size, uint32_t chun
 bool VQAPlayer::DecodePalette(const uint8_t* data, uint32_t size, bool compressed) {
     if (!data || size == 0) return false;
 
+    const uint8_t* palData = data;
+
     if (compressed) {
         int decompSize = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
-        if (decompSize < 768) return false;
-
-        // Scale 6-bit to 8-bit
-        for (int i = 0; i < 768; i++) {
-            palette_[i] = (decompBuffer_[i] & 0x3F) << 2;
+        if (decompSize < 768) {
+            return false;
         }
+        palData = decompBuffer_;
     } else {
-        if (size < 768) return false;
+        if (size < 768) {
+            return false;
+        }
+    }
 
-        // Scale 6-bit to 8-bit
-        for (int i = 0; i < 768; i++) {
-            palette_[i] = (data[i] & 0x3F) << 2;
+    // VQA palette is 6-bit VGA format (0-63)
+    // Scale to 8-bit (0-255) by multiplying by 4
+    for (int i = 0; i < 768; i++) {
+        uint8_t val = palData[i];
+        // Check if already 8-bit (values > 63) or 6-bit
+        if (val > 63) {
+            palette_[i] = val;
+        } else {
+            // 6-bit, scale up: (val << 2) | (val >> 4) gives proper scaling
+            palette_[i] = (val << 2) | (val >> 4);
         }
     }
 
@@ -667,6 +773,15 @@ bool VQAPlayer::DecodePalette(const uint8_t* data, uint32_t size, bool compresse
 
 bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId) {
     if (!data || size == 0 || !audioBuffer_) return false;
+
+    // FIXME: VQA audio still has minor static/distortion artifacts.
+    // Possible causes:
+    // 1. Buffer underruns during real-time streaming (video decodes per-frame,
+    //    audio consumes continuously at 44100 Hz)
+    // 2. ADPCM decoder differences from original Westwood implementation
+    // 3. Linear interpolation resampling (22050->44100) may introduce artifacts
+    // 4. Timing jitter between video frame decode and audio consumption
+    // Consider: pre-buffering more audio, or decoding all audio upfront like OpenRA
 
     // IMA ADPCM step table
     static const int stepTable[89] = {
@@ -686,19 +801,23 @@ bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId
         -1, -1, -1, -1, 2, 4, 6, 8
     };
 
-    audioSamplesReady_ = 0;
+    // Don't reset audioSamplesReady_ - append to existing samples
+    // This allows multiple audio chunks per frame to be accumulated
 
     if (chunkId == VQA_ID_SND0) {
-        // Uncompressed audio
+        // Uncompressed audio - append to buffer
         int samples = size / 2;  // 16-bit
-        if (samples > audioBufferSize_) samples = audioBufferSize_;
-        memcpy(audioBuffer_, data, samples * 2);
-        audioSamplesReady_ = samples;
+        int remaining = audioBufferSize_ - audioSamplesReady_;
+        if (samples > remaining) samples = remaining;
+        if (samples > 0) {
+            memcpy(audioBuffer_ + audioSamplesReady_, data, samples * 2);
+            audioSamplesReady_ += samples;
+        }
     } else if (chunkId == VQA_ID_SND2) {
-        // IMA ADPCM
+        // IMA ADPCM - decode and append to buffer
         int16_t predictor = audioPredictor_;
         int stepIndex = audioStepIndex_;
-        int sampleIdx = 0;
+        int sampleIdx = audioSamplesReady_;  // Start from current position
 
         for (uint32_t i = 0; i < size && sampleIdx < audioBufferSize_; i++) {
             uint8_t byte = data[i];
@@ -750,41 +869,36 @@ void VQAPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
     int blocksY = header_.height / blockHeight;
     int totalBlocks = blocksX * blocksY;
 
-    const uint16_t* ptrData = (const uint16_t*)pointers;
-    int blockIdx = 0;
+    // VQA stores pointer data as two halves:
+    // - First half: low bytes (block index or color)
+    // - Second half: high bytes (modifier)
+    // Combined as: (mod * 256 + px) for codebook lookup
+    // Special case: mod == 0x0F means px is a literal palette color
+    const uint8_t* lowBytes = pointers;
+    const uint8_t* highBytes = pointers + totalBlocks;
 
-    for (int i = 0; i < pointerCount && blockIdx < totalBlocks; i++) {
-        uint16_t ptr = ptrData[i];
+    for (int blockIdx = 0; blockIdx < totalBlocks && blockIdx < pointerCount; blockIdx++) {
+        int bx = blockIdx % blocksX;
+        int by = blockIdx / blocksX;
+        int px = bx * blockWidth;
+        int py = by * blockHeight;
 
-        // Handle special pointer codes
-        if ((ptr & 0xFF00) == 0xFF00) {
-            // Skip blocks
-            int skipCount = ptr & 0x00FF;
-            blockIdx += skipCount;
-        } else if ((ptr & 0xFF00) == 0xFE00) {
-            // Fill with solid color
-            int color = ptr & 0x00FF;
-            int bx = blockIdx % blocksX;
-            int by = blockIdx / blocksX;
-            int px = bx * blockWidth;
-            int py = by * blockHeight;
+        uint8_t lo = lowBytes[blockIdx];
+        uint8_t hi = highBytes[blockIdx];
 
+        if (hi == 0x0F) {
+            // Special case: lo is a literal palette color - fill block with it
             for (int y = 0; y < blockHeight && py + y < header_.height; y++) {
                 uint8_t* dst = frameBuffer_ + (py + y) * header_.width + px;
                 for (int x = 0; x < blockWidth && px + x < header_.width; x++) {
-                    dst[x] = color;
+                    dst[x] = lo;
                 }
             }
-            blockIdx++;
         } else {
-            // Normal codebook lookup
-            int cbIndex = ptr;
-            if (cbIndex < codebookEntries_) {
+            // Normal codebook lookup: index = hi * 256 + lo
+            int cbIndex = hi * 256 + lo;
+            if (cbIndex < codebookEntries_ && cbIndex >= 0) {
                 const uint8_t* block = codebook_ + cbIndex * blockSize;
-                int bx = blockIdx % blocksX;
-                int by = blockIdx / blocksX;
-                int px = bx * blockWidth;
-                int py = by * blockHeight;
 
                 for (int y = 0; y < blockHeight && py + y < header_.height; y++) {
                     uint8_t* dst = frameBuffer_ + (py + y) * header_.width + px;
@@ -794,7 +908,6 @@ void VQAPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
                     }
                 }
             }
-            blockIdx++;
         }
     }
 }

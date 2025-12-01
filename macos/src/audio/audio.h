@@ -94,6 +94,17 @@ void Audio_SetMasterVolume(uint8_t volume);
 uint8_t Audio_GetMasterVolume(void);
 
 /**
+ * Set sound effects volume (only affects sound channels, not music)
+ * @param volume  0-255
+ */
+void Audio_SetSoundVolume(uint8_t volume);
+
+/**
+ * Get sound effects volume
+ */
+uint8_t Audio_GetSoundVolume(void);
+
+/**
  * Pause/unpause all audio
  */
 void Audio_Pause(BOOL pause);
@@ -142,6 +153,33 @@ void Audio_SetMusicVolume(float volume);
  * Get music volume
  */
 float Audio_GetMusicVolume(void);
+
+//===========================================================================
+// Video Audio Streaming Support
+//===========================================================================
+
+/**
+ * Callback type for video audio streaming (same signature as music)
+ */
+typedef int (*VideoAudioCallback)(int16_t* buffer, int sampleCount, void* userdata);
+
+/**
+ * Set the video audio streaming callback
+ * @param callback  Function that fills audio buffer (NULL to disable)
+ * @param userdata  User data passed to callback
+ * @param sampleRate Sample rate of video audio (e.g., 22050)
+ */
+void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata, int sampleRate);
+
+/**
+ * Set video audio volume (0.0 to 1.0)
+ */
+void Audio_SetVideoVolume(float volume);
+
+/**
+ * Get video audio volume
+ */
+float Audio_GetVideoVolume(void);
 
 #ifdef __cplusplus
 }

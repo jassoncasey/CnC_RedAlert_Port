@@ -31,6 +31,7 @@ typedef struct {
 static AudioComponentInstance g_audioUnit = nullptr;
 static AudioChannel g_channels[AUDIO_MAX_CHANNELS];
 static uint8_t g_masterVolume = 255;
+static uint8_t g_soundVolume = 255;  // Separate volume for sound effects
 static BOOL g_paused = FALSE;
 static BOOL g_initialized = FALSE;
 static SoundHandle g_nextHandle = 1;
@@ -41,6 +42,13 @@ static MusicStreamCallback g_musicCallback = nullptr;
 static void* g_musicUserdata = nullptr;
 static float g_musicVolume = 1.0f;
 static int16_t g_musicBuffer[4096];  // Temp buffer for music samples
+
+// Video audio streaming state
+static VideoAudioCallback g_videoCallback = nullptr;
+static void* g_videoUserdata = nullptr;
+static float g_videoVolume = 1.0f;
+static int g_videoSampleRate = 22050;
+static int16_t g_videoBuffer[8192];  // Temp buffer for video audio samples
 
 // Convert 8-bit unsigned to float
 static inline Float32 Sample8ToFloat(uint8_t sample) {
@@ -80,6 +88,7 @@ static OSStatus AudioRenderCallback(
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
     Float32 masterVol = (Float32)g_masterVolume / 255.0f;
+    Float32 soundVol = (Float32)g_soundVolume / 255.0f;
 
     for (int ch = 0; ch < AUDIO_MAX_CHANNELS; ch++) {
         AudioChannel* channel = &g_channels[ch];
@@ -88,7 +97,7 @@ static OSStatus AudioRenderCallback(
         }
 
         const AudioSample* sample = channel->sample;
-        Float32 channelVol = ((Float32)channel->volume / 255.0f) * masterVol;
+        Float32 channelVol = ((Float32)channel->volume / 255.0f) * masterVol * soundVol;
 
         // Calculate left/right volumes from pan
         // pan: -128 = full left, 0 = center, 127 = full right
@@ -167,9 +176,10 @@ static OSStatus AudioRenderCallback(
     }
 
     // Mix in music (streaming audio)
-    // Music is 22050 Hz, output is 44100 Hz - need to upsample 2x
+    // Music files are typically 22050 Hz mono, output is 44100 Hz stereo
+    // We need to upsample 2x with linear interpolation
     if (g_musicCallback) {
-        // Request half as many samples from decoder (22050 Hz source)
+        // Request half as many samples (22050 Hz source -> 44100 Hz output)
         int samplesToGet = (int)(inNumberFrames / 2) + 1;
         if (samplesToGet > 2048) samplesToGet = 2048;
 
@@ -177,20 +187,59 @@ static OSStatus AudioRenderCallback(
 
         if (samplesGot > 0) {
             float musicVol = g_musicVolume * masterVol;
-            // Linear interpolation to upsample 22050 Hz -> 44100 Hz
-            for (UInt32 i = 0; i < inNumberFrames; i++) {
-                // Map output sample index to input sample position (fixed-point)
-                float srcPos = (float)i * 0.5f;  // 44100->22050 ratio
-                int srcIdx = (int)srcPos;
-                float frac = srcPos - srcIdx;
 
+            // Upsample 2x with linear interpolation
+            for (UInt32 i = 0; i < inNumberFrames; i++) {
+                // Calculate source position (output 44100 maps to input 22050)
+                float srcPos = (float)i * 0.5f;
+                int srcIdx = (int)srcPos;
+                float frac = srcPos - (float)srcIdx;
+
+                // Get two adjacent samples for interpolation
                 int16_t s0 = (srcIdx < samplesGot) ? g_musicBuffer[srcIdx] : 0;
                 int16_t s1 = (srcIdx + 1 < samplesGot) ? g_musicBuffer[srcIdx + 1] : s0;
 
-                // Linear interpolation
-                Float32 sample = ((1.0f - frac) * s0 + frac * s1) / 32768.0f * musicVol;
+                // Linear interpolation between samples
+                float interpolated = (1.0f - frac) * (float)s0 + frac * (float)s1;
+                Float32 sample = interpolated / 32768.0f * musicVol;
 
                 // Music is mono - send to both channels
+                leftBuffer[i] += sample;
+                rightBuffer[i] += sample;
+            }
+        }
+    }
+
+    // Mix in video audio (streaming from VQA)
+    // Video audio is typically 22050 Hz mono, output is 44100 Hz stereo
+    if (g_videoCallback) {
+        // Calculate resampling ratio
+        float resampleRatio = (float)g_videoSampleRate / kOutputSampleRate;
+        int samplesToGet = (int)(inNumberFrames * resampleRatio) + 1;
+        if (samplesToGet > 4096) samplesToGet = 4096;
+
+        int samplesGot = g_videoCallback(g_videoBuffer, samplesToGet, g_videoUserdata);
+
+        if (samplesGot > 0) {
+            float videoVol = g_videoVolume * masterVol;
+
+            // Resample with linear interpolation
+            // Track last valid sample to avoid abrupt transitions on underrun
+            int16_t lastSample = g_videoBuffer[0];
+            for (UInt32 i = 0; i < inNumberFrames; i++) {
+                float srcPos = (float)i * resampleRatio;
+                int srcIdx = (int)srcPos;
+                float frac = srcPos - (float)srcIdx;
+
+                // Hold last sample on underrun instead of jumping to 0
+                int16_t s0 = (srcIdx < samplesGot) ? g_videoBuffer[srcIdx] : lastSample;
+                int16_t s1 = (srcIdx + 1 < samplesGot) ? g_videoBuffer[srcIdx + 1] : s0;
+                if (srcIdx < samplesGot) lastSample = s0;
+
+                float interpolated = (1.0f - frac) * (float)s0 + frac * (float)s1;
+                Float32 sample = interpolated / 32768.0f * videoVol;
+
+                // Video audio is mono - send to both channels
                 leftBuffer[i] += sample;
                 rightBuffer[i] += sample;
             }
@@ -423,6 +472,14 @@ uint8_t Audio_GetMasterVolume(void) {
     return g_masterVolume;
 }
 
+void Audio_SetSoundVolume(uint8_t volume) {
+    g_soundVolume = volume;
+}
+
+uint8_t Audio_GetSoundVolume(void) {
+    return g_soundVolume;
+}
+
 void Audio_Pause(BOOL pause) {
     g_paused = pause;
 }
@@ -504,4 +561,25 @@ void Audio_SetMusicVolume(float volume) {
 
 float Audio_GetMusicVolume(void) {
     return g_musicVolume;
+}
+
+//===========================================================================
+// Video Audio Streaming
+//===========================================================================
+
+void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata, int sampleRate) {
+    std::lock_guard<std::mutex> lock(g_audioMutex);
+    g_videoCallback = callback;
+    g_videoUserdata = userdata;
+    g_videoSampleRate = (sampleRate > 0) ? sampleRate : 22050;
+}
+
+void Audio_SetVideoVolume(float volume) {
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 1.0f) volume = 1.0f;
+    g_videoVolume = volume;
+}
+
+float Audio_GetVideoVolume(void) {
+    return g_videoVolume;
 }

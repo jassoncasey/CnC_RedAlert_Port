@@ -8,8 +8,10 @@
 #include "graphics/metal/renderer.h"
 #include "input/input.h"
 #include "audio/audio.h"
+#include "video/music.h"
 #include "game/gameloop.h"
 #include "assets/assetloader.h"
+#include "compat/assets.h"
 #include <cstring>
 #include <cstdlib>
 
@@ -477,6 +479,11 @@ void Menu_Update(Menu* menu) {
 void Menu_Render(Menu* menu) {
     if (!menu) return;
 
+    // Set menu palette - terrain palettes (SNOW.PAL etc) don't have correct UI colors
+    Palette menuPal;
+    StubAssets_CreatePalette(&menuPal);
+    Renderer_SetPalette(&menuPal);
+
     // Draw styled background
     DrawMenuBackground();
 
@@ -847,11 +854,13 @@ static void OnDifficultyButton(int itemId, int value) {
 static void OnOptionsButton(int itemId, int value) {
     switch (itemId) {
         case SLD_SOUND_VOL:
-            Audio_SetMasterVolume((uint8_t)value);
+            // Sound volume controls sound effects only (not music)
+            Audio_SetSoundVolume((uint8_t)value);
             break;
 
         case SLD_MUSIC_VOL:
-            // TODO: Set music volume
+            // Music volume controls background music
+            Music_SetVolume((float)value / 255.0f);
             break;
 
         case TGL_FULLSCREEN:
@@ -987,6 +996,15 @@ static int RenderWrappedText(const char* text, int x, int y, int maxWidth, uint8
 }
 
 void Menu_RenderBriefing(void) {
+    // Use stub palette for menu UI - terrain palettes (SNOW.PAL etc) don't have correct UI colors
+    // Create a local palette each frame so we don't affect gameplay
+    Palette menuPal;
+    StubAssets_CreatePalette(&menuPal);
+    Renderer_SetPalette(&menuPal);
+
+    // Reset clipping to full screen in case video left it restricted
+    Renderer_ResetClip();
+
     // Dark background
     Renderer_Clear(PAL_BLACK);
 
@@ -1045,6 +1063,8 @@ void Menu_RenderBriefing(void) {
 
     // Instructions
     Renderer_DrawText("PRESS ENTER OR CLICK TO BEGIN MISSION", 150, 385, PAL_GREY, 0);
+
+    // === DEBUG: Removed - calibration was successful ===
 }
 
 void Menu_UpdateBriefing(void) {
@@ -1103,6 +1123,7 @@ void Menu_UpdateBriefing(void) {
 
 #include "video/vqa.h"
 #include "assets/assetloader.h"
+#include <mutex>
 // GetTickCount() is in compat/windows.h (already included via menu.h)
 
 // Video playback state
@@ -1114,6 +1135,59 @@ static DWORD g_videoLastTime = 0;
 
 // Video palette converted to renderer format
 static Palette g_videoPalette;
+
+// Video audio circular buffer (thread-safe)
+static const int VIDEO_AUDIO_BUFFER_SIZE = 65536;  // ~1.5 sec at 22050 Hz
+static int16_t g_videoAudioBuffer[VIDEO_AUDIO_BUFFER_SIZE];
+static volatile int g_videoAudioWritePos = 0;
+static volatile int g_videoAudioReadPos = 0;
+static std::mutex g_videoAudioMutex;
+
+// Track last sample for smooth transitions on underrun
+static int16_t g_lastVideoSample = 0;
+
+// Video audio callback for audio system
+static int VideoAudioStreamCallback(int16_t* buffer, int sampleCount, void* userdata) {
+    (void)userdata;
+    std::lock_guard<std::mutex> lock(g_videoAudioMutex);
+
+    int available = g_videoAudioWritePos - g_videoAudioReadPos;
+    if (available < 0) available += VIDEO_AUDIO_BUFFER_SIZE;
+
+    int toRead = (sampleCount < available) ? sampleCount : available;
+
+    for (int i = 0; i < toRead; i++) {
+        buffer[i] = g_videoAudioBuffer[(g_videoAudioReadPos + i) % VIDEO_AUDIO_BUFFER_SIZE];
+    }
+    g_videoAudioReadPos = (g_videoAudioReadPos + toRead) % VIDEO_AUDIO_BUFFER_SIZE;
+
+    // Remember last sample for smooth transition
+    if (toRead > 0) {
+        g_lastVideoSample = buffer[toRead - 1];
+    }
+
+    // Fill remaining with last sample to avoid clicks (instead of jumping to 0)
+    for (int i = toRead; i < sampleCount; i++) {
+        buffer[i] = g_lastVideoSample;
+    }
+
+    return toRead;
+}
+
+// Add audio samples to the circular buffer
+static void QueueVideoAudio(const int16_t* samples, int count) {
+    std::lock_guard<std::mutex> lock(g_videoAudioMutex);
+
+    for (int i = 0; i < count; i++) {
+        int nextPos = (g_videoAudioWritePos + 1) % VIDEO_AUDIO_BUFFER_SIZE;
+        if (nextPos == g_videoAudioReadPos) {
+            // Buffer full - drop samples
+            break;
+        }
+        g_videoAudioBuffer[g_videoAudioWritePos] = samples[i];
+        g_videoAudioWritePos = nextPos;
+    }
+}
 
 void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete, BOOL skippable) {
     // Clean up any previous video
@@ -1151,11 +1225,35 @@ void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete, BOOL ski
     g_videoSkippable = skippable;
     g_videoLastTime = GetTickCount();
 
+    // Set up video audio if available
+    if (g_videoPlayer->HasAudio()) {
+        // Reset audio buffer
+        g_videoAudioWritePos = 0;
+        g_videoAudioReadPos = 0;
+        g_lastVideoSample = 0;
+
+        // Register audio callback with sample rate
+        int sampleRate = g_videoPlayer->GetAudioSampleRate();
+        Audio_SetVideoCallback(VideoAudioStreamCallback, nullptr, sampleRate);
+
+        printf("Video: Audio enabled (%d Hz, %d ch)\n",
+               sampleRate, g_videoPlayer->GetAudioChannels());
+    }
+
     // Start playback
     g_videoPlayer->Play();
 
     // Decode first frame
     g_videoPlayer->NextFrame();
+
+    // Queue first frame's audio
+    if (g_videoPlayer->HasAudio()) {
+        static int16_t tempAudio[8192];
+        int samples = g_videoPlayer->GetAudioSamples(tempAudio, 8192);
+        if (samples > 0) {
+            QueueVideoAudio(tempAudio, samples);
+        }
+    }
 
     // Set up initial palette
     if (g_videoPlayer->PaletteChanged()) {
@@ -1198,6 +1296,15 @@ void Menu_UpdateVideo(void) {
                 g_videoPalette.colors[i][0] = vqaPal[i * 3 + 0];  // R
                 g_videoPalette.colors[i][1] = vqaPal[i * 3 + 1];  // G
                 g_videoPalette.colors[i][2] = vqaPal[i * 3 + 2];  // B
+            }
+        }
+
+        // Queue audio for this frame
+        if (g_videoPlayer->HasAudio()) {
+            static int16_t tempAudio[8192];
+            int samples = g_videoPlayer->GetAudioSamples(tempAudio, 8192);
+            if (samples > 0) {
+                QueueVideoAudio(tempAudio, samples);
             }
         }
     }
@@ -1252,6 +1359,9 @@ BOOL Menu_IsVideoPlaying(void) {
 void Menu_StopVideo(void) {
     VideoCompleteCallback callback = g_videoCallback;
 
+    // Stop video audio
+    Audio_SetVideoCallback(nullptr, nullptr, 0);
+
     // Clean up
     if (g_videoPlayer) {
         delete g_videoPlayer;
@@ -1263,17 +1373,20 @@ void Menu_StopVideo(void) {
     }
     g_videoCallback = nullptr;
 
-    // Restore game palette (video may have set its own palette)
-    const uint8_t* gamePal = Assets_GetPalette();
-    if (gamePal) {
-        Palette restored;
-        for (int i = 0; i < 256; i++) {
-            restored.colors[i][0] = gamePal[i * 3 + 0];  // R
-            restored.colors[i][1] = gamePal[i * 3 + 1];  // G
-            restored.colors[i][2] = gamePal[i * 3 + 2];  // B
-        }
-        Renderer_SetPalette(&restored);
-    }
+    // Restore palette (video may have set its own palette)
+    // Always use stub palette for menus - it has proper UI colors
+    // (SNOW.PAL is for terrain, not menus)
+    Palette restored;
+    StubAssets_CreatePalette(&restored);
+    Renderer_SetPalette(&restored);
+    printf("Menu_StopVideo: Restored stub palette [15]=%d,%d,%d [122]=%d,%d,%d [223]=%d,%d,%d\n",
+           restored.colors[15][0], restored.colors[15][1], restored.colors[15][2],
+           restored.colors[122][0], restored.colors[122][1], restored.colors[122][2],
+           restored.colors[223][0], restored.colors[223][1], restored.colors[223][2]);
+
+    // Clear framebuffer to remove video residue
+    Renderer_ResetClip();
+    Renderer_Clear(PAL_BLACK);
 
     // Call completion callback
     if (callback) {

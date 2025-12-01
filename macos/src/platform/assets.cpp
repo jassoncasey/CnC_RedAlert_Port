@@ -30,10 +30,14 @@ void StubAssets_Shutdown(void) {
 }
 
 /**
- * Create a development palette with:
+ * Create a stub palette for the game
+ * Uses standard Westwood-style palette layout matching menu color expectations:
  * - Index 0: Black (transparent)
- * - Index 1-15: Basic colors
- * - Index 16-255: Grayscale gradient
+ * - Index 1-15: Grayscale ramp (menu buttons use these)
+ * - Index 112-127: Red ramp (menu banners)
+ * - Index 168-175: Green ramp
+ * - Index 176-191: Blue ramp
+ * - Index 216-223: Yellow/gold ramp (menu text highlights)
  */
 void StubAssets_CreatePalette(Palette* palette) {
     if (!palette) return;
@@ -41,44 +45,78 @@ void StubAssets_CreatePalette(Palette* palette) {
     // Clear to black
     memset(palette->colors, 0, sizeof(palette->colors));
 
-    // Standard VGA-like colors for first 16 entries
-    // 0: Black (transparent)
-    palette->colors[0][0] = 0;   palette->colors[0][1] = 0;   palette->colors[0][2] = 0;
-    // 1: Dark Blue
-    palette->colors[1][0] = 0;   palette->colors[1][1] = 0;   palette->colors[1][2] = 170;
-    // 2: Dark Green
-    palette->colors[2][0] = 0;   palette->colors[2][1] = 170; palette->colors[2][2] = 0;
-    // 3: Dark Cyan
-    palette->colors[3][0] = 0;   palette->colors[3][1] = 170; palette->colors[3][2] = 170;
-    // 4: Dark Red
-    palette->colors[4][0] = 170; palette->colors[4][1] = 0;   palette->colors[4][2] = 0;
-    // 5: Dark Magenta
-    palette->colors[5][0] = 170; palette->colors[5][1] = 0;   palette->colors[5][2] = 170;
-    // 6: Brown/Orange
-    palette->colors[6][0] = 170; palette->colors[6][1] = 85;  palette->colors[6][2] = 0;
-    // 7: Light Gray
-    palette->colors[7][0] = 170; palette->colors[7][1] = 170; palette->colors[7][2] = 170;
-    // 8: Dark Gray
-    palette->colors[8][0] = 85;  palette->colors[8][1] = 85;  palette->colors[8][2] = 85;
-    // 9: Bright Blue
-    palette->colors[9][0] = 85;  palette->colors[9][1] = 85;  palette->colors[9][2] = 255;
-    // 10: Bright Green
-    palette->colors[10][0] = 85;  palette->colors[10][1] = 255; palette->colors[10][2] = 85;
-    // 11: Bright Cyan
-    palette->colors[11][0] = 85;  palette->colors[11][1] = 255; palette->colors[11][2] = 255;
-    // 12: Bright Red
-    palette->colors[12][0] = 255; palette->colors[12][1] = 85;  palette->colors[12][2] = 85;
-    // 13: Bright Magenta
-    palette->colors[13][0] = 255; palette->colors[13][1] = 85;  palette->colors[13][2] = 255;
-    // 14: Yellow
-    palette->colors[14][0] = 255; palette->colors[14][1] = 255; palette->colors[14][2] = 85;
-    // 15: White
-    palette->colors[15][0] = 255; palette->colors[15][1] = 255; palette->colors[15][2] = 255;
+    // Grayscale ramp for indices 0-15 (used by menu buttons)
+    // This matches menu.cpp's expectations: BTN_SHADOW=2, BTN_FACE=8, BTN_HIGHLIGHT=12, PAL_WHITE=15
+    for (int i = 0; i <= 15; i++) {
+        uint8_t gray = (uint8_t)((i * 255) / 15);
+        palette->colors[i][0] = gray;
+        palette->colors[i][1] = gray;
+        palette->colors[i][2] = gray;
+    }
 
-    // Fill remaining with grayscale gradient (16-255)
-    for (int i = 16; i < 256; i++) {
-        // Map 16-255 to 0-255 grayscale
-        uint8_t gray = (uint8_t)(((i - 16) * 255) / 239);
+    // Red ramp for indices 112-127 (used for menu banner gradients)
+    // Menu uses indices ~115-127 for red gradient backgrounds
+    for (int i = 112; i <= 127; i++) {
+        int level = i - 112;  // 0-15
+        uint8_t r = (uint8_t)(80 + (level * 175) / 15);  // 80-255
+        uint8_t g = (uint8_t)((level * 40) / 15);        // 0-40
+        uint8_t b = (uint8_t)((level * 40) / 15);        // 0-40
+        palette->colors[i][0] = r;
+        palette->colors[i][1] = g;
+        palette->colors[i][2] = b;
+    }
+
+    // Green ramp for indices 168-175
+    for (int i = 168; i <= 175; i++) {
+        int level = i - 168;  // 0-7
+        uint8_t g = (uint8_t)(100 + (level * 155) / 7);
+        palette->colors[i][0] = (uint8_t)(level * 10);
+        palette->colors[i][1] = g;
+        palette->colors[i][2] = (uint8_t)(level * 10);
+    }
+
+    // Blue ramp for indices 176-191
+    for (int i = 176; i <= 191; i++) {
+        int level = i - 176;  // 0-15
+        uint8_t b = (uint8_t)(80 + (level * 175) / 15);
+        palette->colors[i][0] = (uint8_t)((level * 60) / 15);
+        palette->colors[i][1] = (uint8_t)((level * 100) / 15);
+        palette->colors[i][2] = b;
+    }
+
+    // Yellow/Gold ramp for indices 216-223 (used for PAL_GOLD=223, PAL_YELLOW=220)
+    for (int i = 216; i <= 223; i++) {
+        int level = i - 216;  // 0-7
+        uint8_t r = (uint8_t)(180 + (level * 75) / 7);   // 180-255
+        uint8_t g = (uint8_t)(140 + (level * 115) / 7);  // 140-255
+        uint8_t b = (uint8_t)((level * 60) / 7);         // 0-60
+        palette->colors[i][0] = r;
+        palette->colors[i][1] = g;
+        palette->colors[i][2] = b;
+    }
+
+    // Fill remaining indices with darker grayscale to avoid pure black
+    // This prevents other palette indices from being invisible
+    for (int i = 16; i < 112; i++) {
+        uint8_t gray = (uint8_t)(20 + ((i - 16) * 60) / 96);
+        palette->colors[i][0] = gray;
+        palette->colors[i][1] = gray;
+        palette->colors[i][2] = gray;
+    }
+    for (int i = 128; i < 168; i++) {
+        uint8_t gray = (uint8_t)(40 + ((i - 128) * 60) / 40);
+        palette->colors[i][0] = gray;
+        palette->colors[i][1] = gray;
+        palette->colors[i][2] = gray;
+    }
+    for (int i = 192; i < 216; i++) {
+        uint8_t gray = (uint8_t)(60 + ((i - 192) * 60) / 24);
+        palette->colors[i][0] = gray;
+        palette->colors[i][1] = gray;
+        palette->colors[i][2] = gray;
+    }
+    for (int i = 224; i < 256; i++) {
+        uint8_t gray = (uint8_t)(80 + ((i - 224) * 80) / 32);
         palette->colors[i][0] = gray;
         palette->colors[i][1] = gray;
         palette->colors[i][2] = gray;

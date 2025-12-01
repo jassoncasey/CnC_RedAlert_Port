@@ -260,6 +260,13 @@ private:
     uint8_t* decompBuffer_;
     int decompBufferSize_;
 
+    // Partial codebook (CBP) accumulation state
+    uint8_t* cbpBuffer_;        // Buffer to accumulate partial codebook chunks
+    int cbpBufferSize_;         // Size of cbpBuffer_
+    int cbpOffset_;             // Current write offset in cbpBuffer_
+    int cbpCount_;              // Number of CBP chunks accumulated
+    bool cbpIsCompressed_;      // True if accumulated chunks are CBPZ (compressed)
+
     //-----------------------------------------------------------------------
     // Internal Methods
     //-----------------------------------------------------------------------
@@ -276,6 +283,9 @@ private:
     bool DecodePointers(const uint8_t* data, uint32_t size, uint32_t chunkId);
     bool DecodePalette(const uint8_t* data, uint32_t size, bool compressed);
     bool DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId);
+
+    // Apply accumulated partial codebook if complete
+    void ApplyAccumulatedCodebook();
 
     // Vector quantization decoder
     void UnVQ_4x2(const uint8_t* pointers, int pointerCount);

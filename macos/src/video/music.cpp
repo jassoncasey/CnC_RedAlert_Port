@@ -608,6 +608,7 @@ int MusicStreamer::FillBuffer(int16_t* buffer, int sampleCount) {
 int MusicStreamer::DecodeIMA(int16_t* output, int maxSamples) {
     int samples = 0;
 
+    // Original working implementation - decode chunks with IMA ADPCM
     while (samples < maxSamples && decodePtr_ + sizeof(AUDChunkHeader) <= decodeEnd_) {
         const AUDChunkHeader* chunk = (const AUDChunkHeader*)decodePtr_;
         decodePtr_ += sizeof(AUDChunkHeader);
@@ -616,7 +617,7 @@ int MusicStreamer::DecodeIMA(int16_t* output, int maxSamples) {
             break;
         }
 
-        // Decode chunk
+        // Decode chunk using standard IMA ADPCM bit operations
         for (uint16_t i = 0; i < chunk->compSize && samples < maxSamples; i++) {
             uint8_t byte = *decodePtr_++;
 

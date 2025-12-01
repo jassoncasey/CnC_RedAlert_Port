@@ -116,6 +116,8 @@ static int g_pendingDifficulty = 0;
 // Actually start the mission after briefing
 static void OnBriefingConfirmed(void) {
     NSLog(@"Briefing confirmed, starting mission");
+    // Restore game palette (briefing may have changed it)
+    Renderer_LoadPalette("SNOW.PAL");
     StartMission(&g_currentMission);
 }
 
@@ -231,6 +233,16 @@ void GameUpdate(uint32_t frame, float deltaTime) {
 
     // === GAMEPLAY MODE ===
     if (g_inGameplay) {
+        // Pause (P key) - check early before any early returns
+        if (Input_WasKeyPressed('P')) {
+            GameLoop_Pause(!GameLoop_IsPaused());
+        }
+
+        // Fullscreen (F key) - check early before any early returns
+        if (Input_WasKeyPressed('F')) {
+            ToggleFullscreen();
+        }
+
         // ESC cancels attack-move mode or returns to main menu
         if (Input_WasKeyPressed(VK_ESCAPE)) {
             if (g_attackMoveMode) {
@@ -412,16 +424,6 @@ void GameUpdate(uint32_t frame, float deltaTime) {
             }
         }
 
-        // Pause (P key)
-        if (Input_WasKeyPressed('P')) {
-            GameLoop_Pause(!GameLoop_IsPaused());
-        }
-
-        // Fullscreen (F key)
-        if (Input_WasKeyPressed('F')) {
-            ToggleFullscreen();
-        }
-
         return;
     }
 
@@ -478,6 +480,11 @@ static const uint8_t g_testSprite[16 * 16] = {
 
 // Render credits screen
 static void RenderCredits(void) {
+    // Set menu palette for proper colors
+    Palette menuPal;
+    StubAssets_CreatePalette(&menuPal);
+    Renderer_SetPalette(&menuPal);
+
     Renderer_Clear(0);
     Renderer_DrawText("CREDITS", 280, 50, 15, 0);
     Renderer_HLine(100, 540, 70, 7);
