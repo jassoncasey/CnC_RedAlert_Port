@@ -31,17 +31,21 @@ static bool g_paletteLoaded = false;
 
 // Archive search paths for MAIN_ALLIED.MIX
 static const char* g_mainPaths[] = {
-    "../assets/MAIN_ALLIED.MIX",     // Dev path from build/
-    "../../assets/MAIN_ALLIED.MIX",  // Alternate dev path
-    "/Volumes/CD1/MAIN.MIX",         // Mounted game CD
+    "../assets/MAIN_ALLIED.MIX",                              // Dev: from build/
+    "../../assets/MAIN_ALLIED.MIX",                           // Dev: from macos/
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/MAIN_ALLIED.MIX",  // Absolute path
+    "./assets/MAIN_ALLIED.MIX",                               // Current dir
+    "/Volumes/CD1/MAIN.MIX",                                  // Mounted game CD
     "/Volumes/CD2/MAIN.MIX",
     nullptr
 };
 
 // Archive search paths for REDALERT.MIX
 static const char* g_redalertPaths[] = {
-    "../assets/REDALERT.MIX",        // Dev path from build/
-    "../../assets/REDALERT.MIX",     // Alternate dev path
+    "../assets/REDALERT.MIX",                                 // Dev: from build/
+    "../../assets/REDALERT.MIX",                              // Dev: from macos/
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/REDALERT.MIX",     // Absolute path
+    "./assets/REDALERT.MIX",                                  // Current dir
     nullptr
 };
 
