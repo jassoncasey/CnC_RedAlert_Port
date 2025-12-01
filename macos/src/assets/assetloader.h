@@ -83,6 +83,20 @@ void Assets_SHPToRGBA(const ShpFrame* frame, uint32_t* output, uint8_t transpare
  */
 void* Assets_LoadRaw(const char* name, uint32_t* outSize);
 
+/**
+ * Load VQA video data from MOVIES MIX archive.
+ * @param name      Video filename (e.g., "PROLOG.VQA", "ALLY1.VQA")
+ * @param outSize   Output size
+ * @return Allocated data, or NULL if not found. Caller must free().
+ */
+void* Assets_LoadVQA(const char* name, uint32_t* outSize);
+
+/**
+ * Check if movies archive is available.
+ * @return TRUE if MOVIES.MIX or MOVIES2.MIX is available
+ */
+BOOL Assets_HasMovies(void);
+
 #ifdef __cplusplus
 }
 #endif

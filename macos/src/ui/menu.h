@@ -73,6 +73,7 @@ typedef enum {
     MENU_SCREEN_CAMPAIGN_SELECT,
     MENU_SCREEN_DIFFICULTY_SELECT,
     MENU_SCREEN_BRIEFING,
+    MENU_SCREEN_VIDEO,
     MENU_SCREEN_OPTIONS,
     MENU_SCREEN_CREDITS,
     MENU_SCREEN_INGAME
@@ -262,6 +263,39 @@ void Menu_RenderBriefing(void);
  * Update the briefing screen (handle input)
  */
 void Menu_UpdateBriefing(void);
+
+//===========================================================================
+// Video Playback
+//===========================================================================
+
+/**
+ * Start playing a video
+ * @param name              VQA filename (e.g., "PROLOG.VQA")
+ * @param onComplete        Callback when video finishes or is skipped
+ * @param skippable         If TRUE, can be skipped with any key/click
+ */
+typedef void (*VideoCompleteCallback)(void);
+void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete, BOOL skippable);
+
+/**
+ * Update video playback (call each frame)
+ */
+void Menu_UpdateVideo(void);
+
+/**
+ * Render current video frame
+ */
+void Menu_RenderVideo(void);
+
+/**
+ * Check if video is currently playing
+ */
+BOOL Menu_IsVideoPlaying(void);
+
+/**
+ * Stop current video playback
+ */
+void Menu_StopVideo(void);
 
 #ifdef __cplusplus
 }

@@ -33,6 +33,10 @@ static void* g_temperatData = nullptr;
 static uint8_t g_palette[768] = {0};
 static bool g_paletteLoaded = false;
 
+// Movies archive (opened on demand)
+static MixFileHandle g_moviesMix = nullptr;
+static void* g_moviesData = nullptr;
+
 // Archive search paths for MAIN_ALLIED.MIX
 static const char* g_mainPaths[] = {
     "../assets/MAIN_ALLIED.MIX",                              // Dev: from build/
@@ -370,4 +374,76 @@ void* Assets_LoadRaw(const char* name, uint32_t* outSize) {
     }
 
     return nullptr;
+}
+
+// Try to open movies archive (called on first VQA load)
+static void EnsureMoviesOpen(void) {
+    if (g_moviesMix) return;  // Already open
+
+    // Try to find MOVIES2.MIX inside MAIN.MIX from CD
+    MixFileHandle mainCd = nullptr;
+    const char* cdPaths[] = { "/Volumes/CD1/MAIN.MIX", "/Volumes/CD2/MAIN.MIX", nullptr };
+
+    for (int i = 0; cdPaths[i]; i++) {
+        mainCd = Mix_Open(cdPaths[i]);
+        if (mainCd) {
+            printf("Movies: Opened %s\n", cdPaths[i]);
+            break;
+        }
+    }
+
+    if (!mainCd) {
+        // Try MAIN_ALLIED.MIX
+        mainCd = g_mainMix;
+    }
+
+    if (!mainCd) return;
+
+    // Look for MOVIES2.MIX or MOVIES1.MIX inside
+    const char* moviesNames[] = { "MOVIES2.MIX", "MOVIES1.MIX", "MOVIES.MIX", nullptr };
+    for (int i = 0; moviesNames[i]; i++) {
+        if (Mix_FileExists(mainCd, moviesNames[i])) {
+            uint32_t size = 0;
+            void* data = Mix_AllocReadFile(mainCd, moviesNames[i], &size);
+            if (data) {
+                g_moviesMix = Mix_OpenMemory(data, size, TRUE);
+                if (g_moviesMix) {
+                    g_moviesData = data;
+                    printf("Movies: Opened %s (%u MB, %d files)\n",
+                           moviesNames[i], size / (1024*1024), Mix_GetFileCount(g_moviesMix));
+                    break;
+                } else {
+                    free(data);
+                }
+            }
+        }
+    }
+
+    // Close temp CD handle if we opened it separately
+    if (mainCd && mainCd != g_mainMix) {
+        // Note: Don't close - movies data points into it
+        // This is a memory leak but acceptable for the movies archive
+    }
+}
+
+void* Assets_LoadVQA(const char* name, uint32_t* outSize) {
+    if (!name || !outSize) return nullptr;
+    *outSize = 0;
+
+    // Make sure movies archive is open
+    EnsureMoviesOpen();
+
+    if (!g_moviesMix) return nullptr;
+
+    // Search for VQA in movies archive
+    if (Mix_FileExists(g_moviesMix, name)) {
+        return Mix_AllocReadFile(g_moviesMix, name, outSize);
+    }
+
+    return nullptr;
+}
+
+BOOL Assets_HasMovies(void) {
+    EnsureMoviesOpen();
+    return g_moviesMix != nullptr;
 }

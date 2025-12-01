@@ -589,7 +589,7 @@ void Menu_Render(Menu* menu) {
     }
 
     // Version info at bottom
-    Renderer_DrawText("MACOS PORT - M44", 260, 370, PAL_DARKGREY, 0);
+    Renderer_DrawText("MACOS PORT - M45", 260, 370, PAL_DARKGREY, 0);
 }
 
 void Menu_HandleKey(Menu* menu, int vkCode) {
@@ -1093,5 +1093,177 @@ void Menu_UpdateBriefing(void) {
         if (g_clickSound) Audio_Play(g_clickSound, 100, 0, FALSE);
         // Go back to difficulty selection
         Menu_SetCurrentScreen(MENU_SCREEN_DIFFICULTY_SELECT);
+    }
+}
+
+//===========================================================================
+// Video Playback
+//===========================================================================
+
+#include "video/vqa.h"
+#include "assets/assetloader.h"
+// GetTickCount() is in compat/windows.h (already included via menu.h)
+
+// Video playback state
+static VQAPlayer* g_videoPlayer = nullptr;
+static void* g_videoData = nullptr;
+static VideoCompleteCallback g_videoCallback = nullptr;
+static BOOL g_videoSkippable = TRUE;
+static DWORD g_videoLastTime = 0;
+
+// Video palette converted to renderer format
+static Palette g_videoPalette;
+
+void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete, BOOL skippable) {
+    // Clean up any previous video
+    Menu_StopVideo();
+
+    if (!name) return;
+
+    // Load VQA data from assets
+    uint32_t dataSize = 0;
+    g_videoData = Assets_LoadVQA(name, &dataSize);
+    if (!g_videoData) {
+        printf("Video: Failed to load %s\n", name);
+        // Call completion callback immediately if video not found
+        if (onComplete) onComplete();
+        return;
+    }
+
+    // Create player and load video
+    g_videoPlayer = new VQAPlayer();
+    if (!g_videoPlayer->Load(g_videoData, dataSize)) {
+        printf("Video: Failed to parse %s\n", name);
+        delete g_videoPlayer;
+        g_videoPlayer = nullptr;
+        free(g_videoData);
+        g_videoData = nullptr;
+        if (onComplete) onComplete();
+        return;
+    }
+
+    printf("Video: Playing %s (%dx%d, %d frames, %d fps)\n",
+           name, g_videoPlayer->GetWidth(), g_videoPlayer->GetHeight(),
+           g_videoPlayer->GetFrameCount(), g_videoPlayer->GetFPS());
+
+    g_videoCallback = onComplete;
+    g_videoSkippable = skippable;
+    g_videoLastTime = GetTickCount();
+
+    // Start playback
+    g_videoPlayer->Play();
+
+    // Decode first frame
+    g_videoPlayer->NextFrame();
+
+    // Set up initial palette
+    if (g_videoPlayer->PaletteChanged()) {
+        const uint8_t* vqaPal = g_videoPlayer->GetPalette();
+        for (int i = 0; i < 256; i++) {
+            g_videoPalette.colors[i][0] = vqaPal[i * 3 + 0];  // R
+            g_videoPalette.colors[i][1] = vqaPal[i * 3 + 1];  // G
+            g_videoPalette.colors[i][2] = vqaPal[i * 3 + 2];  // B
+        }
+    }
+
+    // Switch to video screen
+    Menu_SetCurrentScreen(MENU_SCREEN_VIDEO);
+}
+
+void Menu_UpdateVideo(void) {
+    if (!g_videoPlayer) return;
+
+    // Check for skip input
+    if (g_videoSkippable) {
+        // Any key or mouse click skips
+        if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
+            Input_WasKeyPressed(VK_SPACE) || (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
+            Menu_StopVideo();
+            return;
+        }
+    }
+
+    // Update video timing
+    DWORD now = GetTickCount();
+    int elapsed = (int)(now - g_videoLastTime);
+    g_videoLastTime = now;
+
+    // Advance video if needed
+    if (g_videoPlayer->Update(elapsed)) {
+        // New frame decoded - check for palette change
+        if (g_videoPlayer->PaletteChanged()) {
+            const uint8_t* vqaPal = g_videoPlayer->GetPalette();
+            for (int i = 0; i < 256; i++) {
+                g_videoPalette.colors[i][0] = vqaPal[i * 3 + 0];  // R
+                g_videoPalette.colors[i][1] = vqaPal[i * 3 + 1];  // G
+                g_videoPalette.colors[i][2] = vqaPal[i * 3 + 2];  // B
+            }
+        }
+    }
+
+    // Check if video finished
+    if (g_videoPlayer->GetState() == VQAState::FINISHED ||
+        g_videoPlayer->GetState() == VQAState::ERROR) {
+        Menu_StopVideo();
+    }
+}
+
+void Menu_RenderVideo(void) {
+    if (!g_videoPlayer) {
+        Renderer_Clear(0);
+        return;
+    }
+
+    // Set video palette
+    Renderer_SetPalette(&g_videoPalette);
+
+    // Get frame buffer
+    const uint8_t* frameBuffer = g_videoPlayer->GetFrameBuffer();
+    int vidWidth = g_videoPlayer->GetWidth();
+    int vidHeight = g_videoPlayer->GetHeight();
+
+    // Clear screen
+    Renderer_Clear(0);
+
+    // Center video on screen
+    int screenW = Renderer_GetWidth();
+    int screenH = Renderer_GetHeight();
+    int destX = (screenW - vidWidth) / 2;
+    int destY = (screenH - vidHeight) / 2;
+
+    // Blit video frame to framebuffer
+    if (frameBuffer) {
+        Renderer_Blit(frameBuffer, vidWidth, vidHeight, destX, destY, FALSE);
+    }
+
+    // Show "Press any key to skip" if skippable
+    if (g_videoSkippable) {
+        Renderer_DrawText("Press any key to skip", 220, 385, 15, 0);
+    }
+}
+
+BOOL Menu_IsVideoPlaying(void) {
+    return g_videoPlayer != nullptr &&
+           (g_videoPlayer->GetState() == VQAState::PLAYING ||
+            g_videoPlayer->GetState() == VQAState::PAUSED);
+}
+
+void Menu_StopVideo(void) {
+    VideoCompleteCallback callback = g_videoCallback;
+
+    // Clean up
+    if (g_videoPlayer) {
+        delete g_videoPlayer;
+        g_videoPlayer = nullptr;
+    }
+    if (g_videoData) {
+        free(g_videoData);
+        g_videoData = nullptr;
+    }
+    g_videoCallback = nullptr;
+
+    // Call completion callback
+    if (callback) {
+        callback();
     }
 }

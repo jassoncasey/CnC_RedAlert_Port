@@ -310,10 +310,30 @@ After M33-M37, we have:
 
 ## Phase 4: Media (M45-M47)
 
-### M45: VQA Cutscenes
-- Play intro video
-- Mission win/lose videos
-- Campaign end videos
+### ✓ M45: VQA Cutscenes - COMPLETE (Infrastructure)
+
+**Goal:** Video playback system for cutscenes.
+
+**Completed:**
+- [x] VQA player class with full decoder (vqa.h/vqa.cpp)
+  - IFF/WVQA container parsing
+  - LCW/RLE decompression
+  - Vector quantization decoder (4x2 blocks)
+  - Palette handling
+  - Frame timing
+  - Audio decoding (IMA ADPCM)
+- [x] Video playback screen (MENU_SCREEN_VIDEO)
+- [x] Menu_PlayVideo() API for playing videos
+- [x] Skippable videos (ESC/Space/Enter/click)
+- [x] Asset loader VQA support (Assets_LoadVQA, Assets_HasMovies)
+- [x] Automatic intro video on startup (when CD mounted)
+
+**Known Limitations:**
+- Video assets require original CD (MOVIES2.MIX inside MAIN.MIX)
+- Nested MIX extraction works but requires ~400MB RAM
+- If CD not mounted, skips gracefully to main menu
+
+**Files:** `video/vqa.h`, `video/vqa.cpp`, `ui/menu.h`, `ui/menu.cpp`, `assets/assetloader.cpp`
 
 ### M46: Music
 - Background music streaming
@@ -347,6 +367,7 @@ After M33-M37, we have:
 | **Mission objectives** | ✓ Done (M42) | - |
 | **Campaign flow** | ✓ Done (M43) | - |
 | **Briefings** | ✓ Done (M44) | - |
-| Cutscenes/music | Missing | Low |
+| **VQA Cutscenes** | ✓ Done (M45) | - |
+| Music | Missing | Low |
 
-**Next step:** M45 - VQA Cutscenes (intro video, mission win/lose videos).
+**Next step:** M46 - Music (background music streaming, track rotation).

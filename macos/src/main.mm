@@ -201,6 +201,9 @@ void GameUpdate(uint32_t frame, float deltaTime) {
             case MENU_SCREEN_BRIEFING:
                 Menu_UpdateBriefing();
                 break;
+            case MENU_SCREEN_VIDEO:
+                Menu_UpdateVideo();
+                break;
             default:
                 break;
         }
@@ -515,6 +518,9 @@ void GameRender(void) {
                 return;
             case MENU_SCREEN_BRIEFING:
                 Menu_RenderBriefing();
+                return;
+            case MENU_SCREEN_VIDEO:
+                Menu_RenderVideo();
                 return;
             default:
                 break;
@@ -1016,7 +1022,19 @@ void GameRender(void) {
     Menu_Init();
     Menu_SetNewGameCallback(StartDemoMission);
     Menu_SetStartCampaignCallback(StartCampaignMission);
-    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+
+    // Check if movies are available and play intro
+    if (Assets_HasMovies()) {
+        NSLog(@"Movies available - will play intro video");
+        // Play intro video, then show main menu
+        Menu_PlayVideo("PROLOG.VQA", []() {
+            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            NSLog(@"Intro video complete, showing main menu");
+        }, TRUE);
+    } else {
+        // No movies - go straight to main menu
+        Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+    }
 
     // Set up game loop callbacks
     GameLoop_SetUpdateCallback(GameUpdate);
