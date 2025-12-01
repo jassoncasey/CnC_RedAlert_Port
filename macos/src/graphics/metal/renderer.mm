@@ -61,6 +61,7 @@ static struct {
     MTKView* view;
 
     uint8_t* framebuffer;       // 8-bit indexed framebuffer
+    uint8_t* alphaBuffer;       // 8-bit alpha buffer (255=opaque, 0=black)
     uint32_t* rgbaBuffer;       // RGBA conversion buffer
     Palette palette;            // Current palette
 
@@ -131,13 +132,17 @@ BOOL Renderer_Init(void* metalView) {
     // Allocate CPU-side buffers
     size_t pixelCount = FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT;
     g_renderer.framebuffer = (uint8_t*)calloc(pixelCount, sizeof(uint8_t));
+    g_renderer.alphaBuffer = (uint8_t*)malloc(pixelCount);
     g_renderer.rgbaBuffer = (uint32_t*)calloc(pixelCount, sizeof(uint32_t));
 
-    if (!g_renderer.framebuffer || !g_renderer.rgbaBuffer) {
+    if (!g_renderer.framebuffer || !g_renderer.alphaBuffer || !g_renderer.rgbaBuffer) {
         NSLog(@"Renderer_Init: Failed to allocate framebuffer");
         Renderer_Shutdown();
         return FALSE;
     }
+
+    // Initialize alpha buffer to fully opaque
+    memset(g_renderer.alphaBuffer, 255, pixelCount);
 
     // Initialize with default palette
     StubAssets_CreatePalette(&g_renderer.palette);
@@ -156,6 +161,10 @@ void Renderer_Shutdown(void) {
     if (g_renderer.framebuffer) {
         free(g_renderer.framebuffer);
         g_renderer.framebuffer = nullptr;
+    }
+    if (g_renderer.alphaBuffer) {
+        free(g_renderer.alphaBuffer);
+        g_renderer.alphaBuffer = nullptr;
     }
     if (g_renderer.rgbaBuffer) {
         free(g_renderer.rgbaBuffer);
@@ -194,13 +203,24 @@ void Renderer_Present(void) {
         return;
     }
 
-    // Convert indexed framebuffer to RGBA
+    // Convert indexed framebuffer to RGBA, applying alpha for fog of war
     size_t pixelCount = FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT;
     for (size_t i = 0; i < pixelCount; i++) {
         uint8_t idx = g_renderer.framebuffer[i];
+        uint8_t alpha = g_renderer.alphaBuffer[i];
+
         uint8_t r = g_renderer.palette.colors[idx][0];
         uint8_t g = g_renderer.palette.colors[idx][1];
         uint8_t b = g_renderer.palette.colors[idx][2];
+
+        // Apply alpha: blend toward black (0,0,0) based on alpha
+        // alpha=255 means full color, alpha=0 means black
+        if (alpha < 255) {
+            r = (r * alpha) >> 8;
+            g = (g * alpha) >> 8;
+            b = (b * alpha) >> 8;
+        }
+
         // RGBA8 format: 0xAABBGGRR (little-endian)
         g_renderer.rgbaBuffer[i] = 0xFF000000 | (b << 16) | (g << 8) | r;
     }
@@ -238,6 +258,10 @@ void Renderer_Present(void) {
 void Renderer_Clear(uint8_t colorIndex) {
     if (g_renderer.framebuffer) {
         memset(g_renderer.framebuffer, colorIndex, FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT);
+    }
+    // Also clear alpha to fully opaque so menus/UI render correctly
+    if (g_renderer.alphaBuffer) {
+        memset(g_renderer.alphaBuffer, 255, FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT);
     }
 }
 
@@ -559,6 +583,36 @@ void Renderer_DimRect(int x, int y, int width, int height, int amount) {
             row++;
         }
     }
+}
+
+void Renderer_SetAlpha(int x, int y, int width, int height, uint8_t alpha) {
+    if (!g_renderer.alphaBuffer) return;
+
+    // Clip to framebuffer bounds
+    int x1 = (x < 0) ? 0 : x;
+    int y1 = (y < 0) ? 0 : y;
+    int x2 = x + width;
+    int y2 = y + height;
+    if (x2 > FRAMEBUFFER_WIDTH) x2 = FRAMEBUFFER_WIDTH;
+    if (y2 > FRAMEBUFFER_HEIGHT) y2 = FRAMEBUFFER_HEIGHT;
+
+    if (x1 >= x2 || y1 >= y2) return;
+
+    int rowWidth = x2 - x1;
+    for (int py = y1; py < y2; py++) {
+        uint8_t* row = g_renderer.alphaBuffer + py * FRAMEBUFFER_WIDTH + x1;
+        memset(row, alpha, rowWidth);
+    }
+}
+
+void Renderer_ClearAlpha(void) {
+    if (g_renderer.alphaBuffer) {
+        memset(g_renderer.alphaBuffer, 255, FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT);
+    }
+}
+
+uint8_t* Renderer_GetAlphaBuffer(void) {
+    return g_renderer.alphaBuffer;
 }
 
 // Simple 8x8 bitmap font for basic text rendering

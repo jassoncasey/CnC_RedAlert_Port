@@ -404,9 +404,9 @@ void Map_Render(void) {
                 // Use cell coordinates as variant for visual variety
                 int variant = (cx * 7 + cy * 13) % 20;
                 if (Terrain_RenderTile(cell->terrain, variant, screenX, screenY)) {
-                    // Tile rendered successfully - dim if in fog
+                    // Tile rendered successfully - dim if in fog using alpha
                     if (inFog) {
-                        Renderer_DimRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 2);
+                        Renderer_SetAlpha(screenX, screenY, CELL_SIZE, CELL_SIZE, 128);
                     }
                     continue;
                 }
@@ -435,9 +435,9 @@ void Map_Render(void) {
                 Renderer_PutPixel(screenX + 16, screenY + 14, 7);
             }
 
-            // Dim the cell if in fog
+            // Dim the cell if in fog using alpha
             if (inFog) {
-                Renderer_DimRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 2);
+                Renderer_SetAlpha(screenX, screenY, CELL_SIZE, CELL_SIZE, 128);
             }
         }
     }

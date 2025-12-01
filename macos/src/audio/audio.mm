@@ -167,17 +167,29 @@ static OSStatus AudioRenderCallback(
     }
 
     // Mix in music (streaming audio)
+    // Music is 22050 Hz, output is 44100 Hz - need to upsample 2x
     if (g_musicCallback) {
-        // Request samples from music callback
-        int samplesToGet = (int)inNumberFrames;
-        if (samplesToGet > 4096) samplesToGet = 4096;
+        // Request half as many samples from decoder (22050 Hz source)
+        int samplesToGet = (int)(inNumberFrames / 2) + 1;
+        if (samplesToGet > 2048) samplesToGet = 2048;
 
         int samplesGot = g_musicCallback(g_musicBuffer, samplesToGet, g_musicUserdata);
 
         if (samplesGot > 0) {
             float musicVol = g_musicVolume * masterVol;
-            for (int i = 0; i < samplesGot && (UInt32)i < inNumberFrames; i++) {
-                Float32 sample = (Float32)g_musicBuffer[i] / 32768.0f * musicVol;
+            // Linear interpolation to upsample 22050 Hz -> 44100 Hz
+            for (UInt32 i = 0; i < inNumberFrames; i++) {
+                // Map output sample index to input sample position (fixed-point)
+                float srcPos = (float)i * 0.5f;  // 44100->22050 ratio
+                int srcIdx = (int)srcPos;
+                float frac = srcPos - srcIdx;
+
+                int16_t s0 = (srcIdx < samplesGot) ? g_musicBuffer[srcIdx] : 0;
+                int16_t s1 = (srcIdx + 1 < samplesGot) ? g_musicBuffer[srcIdx + 1] : s0;
+
+                // Linear interpolation
+                Float32 sample = ((1.0f - frac) * s0 + frac * s1) / 32768.0f * musicVol;
+
                 // Music is mono - send to both channels
                 leftBuffer[i] += sample;
                 rightBuffer[i] += sample;

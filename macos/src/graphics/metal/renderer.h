@@ -149,8 +149,28 @@ void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap);
  * Dim a rectangular region (fog of war effect)
  * Darkens existing pixels by shifting to darker palette entries.
  * @param amount  Dimming amount (0=none, 1=slight, 2=heavy)
+ * @deprecated Use Renderer_SetAlpha() for better visual quality
  */
 void Renderer_DimRect(int x, int y, int width, int height, int amount);
+
+/**
+ * Set alpha (transparency) for a rectangular region.
+ * Used for fog of war: 255=fully visible, 0=fully dark/hidden.
+ * The alpha blends the rendered color toward black.
+ * @param alpha  Alpha value (0=black, 128=50% dim, 255=fully visible)
+ */
+void Renderer_SetAlpha(int x, int y, int width, int height, uint8_t alpha);
+
+/**
+ * Clear alpha buffer to fully opaque (255).
+ */
+void Renderer_ClearAlpha(void);
+
+/**
+ * Get pointer to the alpha buffer.
+ * Same dimensions as framebuffer.
+ */
+uint8_t* Renderer_GetAlphaBuffer(void);
 
 /**
  * Draw text (simple bitmap font)

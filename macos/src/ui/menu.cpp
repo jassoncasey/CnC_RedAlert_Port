@@ -9,6 +9,7 @@
 #include "input/input.h"
 #include "audio/audio.h"
 #include "game/gameloop.h"
+#include "assets/assetloader.h"
 #include <cstring>
 #include <cstdlib>
 
@@ -1261,6 +1262,18 @@ void Menu_StopVideo(void) {
         g_videoData = nullptr;
     }
     g_videoCallback = nullptr;
+
+    // Restore game palette (video may have set its own palette)
+    const uint8_t* gamePal = Assets_GetPalette();
+    if (gamePal) {
+        Palette restored;
+        for (int i = 0; i < 256; i++) {
+            restored.colors[i][0] = gamePal[i * 3 + 0];  // R
+            restored.colors[i][1] = gamePal[i * 3 + 1];  // G
+            restored.colors[i][2] = gamePal[i * 3 + 2];  // B
+        }
+        Renderer_SetPalette(&restored);
+    }
 
     // Call completion callback
     if (callback) {
