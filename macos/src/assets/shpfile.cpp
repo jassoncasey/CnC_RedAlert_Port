@@ -1,34 +1,27 @@
 /**
  * Red Alert macOS Port - SHP Sprite File Reader Implementation
  *
- * SHP file format (TD/RA style):
- *   Header:
+ * TD/RA SHP file format:
+ *   Header (14 bytes):
  *     uint16_t frameCount
  *     uint16_t unknown1 (usually 0)
  *     uint16_t unknown2 (usually 0)
- *     uint16_t width      - Maximum frame width
- *     uint16_t height     - Maximum frame height
- *     uint16_t unknown3   - Delta/largest frame size
- *   Frame offsets (frameCount + 2 entries):
- *     uint32_t offset[frameCount+2] - Offsets to each frame, plus 2 end markers
- *   Frame data:
- *     Each frame starts with a header, then pixel data
+ *     uint16_t width      - Frame width (all frames same size)
+ *     uint16_t height     - Frame height
+ *     uint32_t largestFrameSize
  *
- * Frame header (8 bytes):
- *     uint16_t offsetX
- *     uint16_t offsetY
- *     uint16_t width
- *     uint16_t height
- *     uint8_t  compressionType
- *     uint8_t  unknown
- *     uint16_t unknown2 (refOffset or 0)
- *     uint16_t unknown3
+ *   Frame offset table (8 bytes per entry, frameCount+2 entries):
+ *     uint32_t offsetAndFormat  - Low 24 bits: file offset, High 8 bits: format
+ *     uint16_t refOffset        - Reference frame index (for XOR formats)
+ *     uint16_t refFormat        - Reference format
  *
- * Compression types:
- *     0x00 - Uncompressed (just raw pixels)
- *     0x20 - LCW compressed (Format20)
- *     0x40 - Format40 (XOR with previous frame)
- *     0x80 - Format80 (LCW variant)
+ *   Compressed frame data follows the offset table
+ *
+ * Format types (high byte of offsetAndFormat):
+ *     0x00 - Uncompressed raw pixels
+ *     0x20 - XORPrev (LCW + XOR with previous frame)
+ *     0x40 - XORLCW (LCW + XOR with referenced frame)
+ *     0x80 - LCW compressed
  */
 
 #include "shpfile.h"
@@ -36,27 +29,31 @@
 #include <cstdlib>
 #include <cstring>
 
+// TD/RA SHP file format (differs from later C&C games)
 #pragma pack(push, 1)
 struct ShpHeader {
     uint16_t frameCount;
-    uint16_t unknown1;
-    uint16_t unknown2;
-    uint16_t width;
-    uint16_t height;
-    uint16_t largestFrameSize;
-};
+    uint16_t unknown1;      // Usually 0
+    uint16_t unknown2;      // Usually 0
+    uint16_t width;         // Max frame width
+    uint16_t height;        // Max frame height
+    uint32_t largestFrameSize;  // Note: 4 bytes, not 2
+};  // 14 bytes total
 
-struct ShpFrameHeader {
-    uint16_t offsetX;
-    uint16_t offsetY;
-    uint16_t width;
-    uint16_t height;
-    uint8_t  compressionType;
-    uint8_t  unknown;
-    uint16_t refOffset;
-    uint16_t unknown2;
+// Per-frame offset entry (8 bytes each)
+struct ShpFrameOffset {
+    // Low 24 bits = file offset, high 8 bits = format type
+    // Format: 0x20=XORPrev, 0x40=XORLCW, 0x80=LCW
+    uint32_t offsetAndFormat;
+    uint16_t refOffset;     // Reference frame offset (for XOR formats)
+    uint16_t refFormat;     // Reference format
 };
 #pragma pack(pop)
+
+// Format types
+constexpr uint8_t SHP_FORMAT_XORPREV = 0x20;
+constexpr uint8_t SHP_FORMAT_XORLCW  = 0x40;
+constexpr uint8_t SHP_FORMAT_LCW     = 0x80;
 
 struct ShpFile {
     ShpFrame* frames;
@@ -229,14 +226,15 @@ ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
         return nullptr;
     }
 
-    // Read frame offsets
-    size_t offsetsStart = sizeof(ShpHeader);
-    size_t offsetsSize = (header->frameCount + 2) * sizeof(uint32_t);
+    // Frame offset entries are 8 bytes each (ShpFrameOffset struct)
+    // There are (frameCount + 2) entries: frameCount frames + EOF marker + zero marker
+    size_t offsetsStart = sizeof(ShpHeader);  // 14 bytes
+    size_t offsetsSize = (header->frameCount + 2) * sizeof(ShpFrameOffset);  // 8 bytes each
     if (offsetsStart + offsetsSize > dataSize) {
         return nullptr;
     }
 
-    const uint32_t* offsets = (const uint32_t*)(bytes + offsetsStart);
+    const ShpFrameOffset* frameOffsets = (const ShpFrameOffset*)(bytes + offsetsStart);
 
     // Allocate SHP structure
     ShpFile* shp = new ShpFile;
@@ -246,16 +244,25 @@ ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
     shp->frames = new ShpFrame[header->frameCount];
     memset(shp->frames, 0, sizeof(ShpFrame) * header->frameCount);
 
-    // Temporary buffer for decompression
+    // Temporary buffers for decompression
     int maxPixels = header->width * header->height;
     uint8_t* tempBuffer = new uint8_t[maxPixels];
-    uint8_t* prevFrame = new uint8_t[maxPixels];
-    memset(prevFrame, 0, maxPixels);
+
+    // Store decoded frames for XOR reference (need all frames, not just previous)
+    uint8_t** decodedFrames = new uint8_t*[header->frameCount];
+    for (int i = 0; i < header->frameCount; i++) {
+        decodedFrames[i] = new uint8_t[maxPixels];
+        memset(decodedFrames[i], 0, maxPixels);
+    }
 
     // Load each frame
     for (int i = 0; i < header->frameCount; i++) {
-        uint32_t frameOffset = offsets[i];
-        if (frameOffset == 0 || frameOffset + sizeof(ShpFrameHeader) > dataSize) {
+        // Extract offset (low 24 bits) and format (high 8 bits)
+        uint32_t offsetAndFormat = frameOffsets[i].offsetAndFormat;
+        uint32_t frameOffset = offsetAndFormat & 0x00FFFFFF;
+        uint8_t format = (offsetAndFormat >> 24) & 0xFF;
+
+        if (frameOffset == 0 || frameOffset >= dataSize) {
             // Empty or invalid frame
             shp->frames[i].pixels = nullptr;
             shp->frames[i].width = 0;
@@ -263,62 +270,96 @@ ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
             continue;
         }
 
-        const ShpFrameHeader* frameHdr = (const ShpFrameHeader*)(bytes + frameOffset);
-        const uint8_t* frameData = bytes + frameOffset + sizeof(ShpFrameHeader);
-        uint32_t frameDataSize = (i + 1 < header->frameCount) ?
-            (offsets[i + 1] - frameOffset - sizeof(ShpFrameHeader)) :
-            (dataSize - frameOffset - sizeof(ShpFrameHeader));
+        // Frame data starts directly at the offset (no per-frame header in TD format)
+        const uint8_t* frameData = bytes + frameOffset;
 
-        // Frame dimensions
-        uint16_t fw = frameHdr->width;
-        uint16_t fh = frameHdr->height;
-        if (fw == 0 || fh == 0 || fw > header->width || fh > header->height) {
-            shp->frames[i].pixels = nullptr;
-            shp->frames[i].width = 0;
-            shp->frames[i].height = 0;
-            continue;
+        // Calculate frame data size from next offset
+        uint32_t nextOffset;
+        if (i + 1 < header->frameCount) {
+            nextOffset = frameOffsets[i + 1].offsetAndFormat & 0x00FFFFFF;
+        } else {
+            // Use EOF marker
+            nextOffset = frameOffsets[header->frameCount].offsetAndFormat & 0x00FFFFFF;
         }
 
+        if (nextOffset <= frameOffset) {
+            nextOffset = dataSize;
+        }
+        uint32_t frameDataSize = nextOffset - frameOffset;
+
+        // All frames have the same dimensions in TD SHP
+        uint16_t fw = header->width;
+        uint16_t fh = header->height;
         int framePixels = fw * fh;
+
         shp->frames[i].width = fw;
         shp->frames[i].height = fh;
-        shp->frames[i].offsetX = (int16_t)frameHdr->offsetX;
-        shp->frames[i].offsetY = (int16_t)frameHdr->offsetY;
+        shp->frames[i].offsetX = 0;
+        shp->frames[i].offsetY = 0;
         shp->frames[i].pixels = new uint8_t[framePixels];
 
-        // Decompress based on type
-        uint8_t compType = frameHdr->compressionType;
+        // Decompress based on format type
         memset(tempBuffer, 0, maxPixels);
 
-        if (compType == 0x00) {
-            // Uncompressed
-            if (frameData + framePixels <= bytes + dataSize) {
-                memcpy(shp->frames[i].pixels, frameData, framePixels);
+        if (format == 0x00) {
+            // Uncompressed raw pixels
+            size_t copySize = (frameDataSize < (size_t)framePixels) ? frameDataSize : framePixels;
+            if (frameData + copySize <= bytes + dataSize) {
+                memcpy(shp->frames[i].pixels, frameData, copySize);
             }
-        } else if (compType == 0x80 || compType == 0x20) {
-            // LCW compressed
+        } else if (format == SHP_FORMAT_LCW) {
+            // 0x80: LCW compressed
             DecompressLCW(frameData, tempBuffer, frameDataSize, framePixels);
             memcpy(shp->frames[i].pixels, tempBuffer, framePixels);
-        } else if (compType == 0x40) {
-            // XOR delta (relative to previous frame)
-            memcpy(tempBuffer, prevFrame, framePixels);
-            DecompressFormat40(frameData, tempBuffer, nullptr, frameDataSize, framePixels);
-            memcpy(shp->frames[i].pixels, tempBuffer, framePixels);
+        } else if (format == SHP_FORMAT_XORPREV) {
+            // 0x20: XOR with previous frame
+            // First decompress with LCW, then XOR with reference
+            DecompressLCW(frameData, tempBuffer, frameDataSize, framePixels);
+
+            // XOR with previous frame (i-1) if it exists
+            if (i > 0) {
+                for (int p = 0; p < framePixels; p++) {
+                    shp->frames[i].pixels[p] = decodedFrames[i-1][p] ^ tempBuffer[p];
+                }
+            } else {
+                memcpy(shp->frames[i].pixels, tempBuffer, framePixels);
+            }
+        } else if (format == SHP_FORMAT_XORLCW) {
+            // 0x40: XOR with LCW-referenced frame
+            // The refOffset tells us which frame to reference
+            uint16_t refIdx = frameOffsets[i].refOffset;
+
+            // First decompress this frame's data
+            DecompressLCW(frameData, tempBuffer, frameDataSize, framePixels);
+
+            // XOR with reference frame
+            if (refIdx < i && refIdx < header->frameCount) {
+                for (int p = 0; p < framePixels; p++) {
+                    shp->frames[i].pixels[p] = decodedFrames[refIdx][p] ^ tempBuffer[p];
+                }
+            } else {
+                memcpy(shp->frames[i].pixels, tempBuffer, framePixels);
+            }
         } else {
-            // Unknown compression, try as raw
-            if (frameData + framePixels <= bytes + dataSize) {
-                memcpy(shp->frames[i].pixels, frameData, framePixels);
+            // Unknown format, try as raw
+            size_t copySize = (frameDataSize < (size_t)framePixels) ? frameDataSize : framePixels;
+            if (frameData + copySize <= bytes + dataSize) {
+                memcpy(shp->frames[i].pixels, frameData, copySize);
             } else {
                 memset(shp->frames[i].pixels, 0, framePixels);
             }
         }
 
-        // Store for delta frames
-        memcpy(prevFrame, shp->frames[i].pixels, framePixels);
+        // Store decoded frame for XOR reference
+        memcpy(decodedFrames[i], shp->frames[i].pixels, framePixels);
     }
 
+    // Clean up temporary buffers
     delete[] tempBuffer;
-    delete[] prevFrame;
+    for (int i = 0; i < header->frameCount; i++) {
+        delete[] decodedFrames[i];
+    }
+    delete[] decodedFrames;
 
     return shp;
 }
