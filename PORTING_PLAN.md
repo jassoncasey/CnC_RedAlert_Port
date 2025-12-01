@@ -252,10 +252,24 @@ After M33-M37, we have:
 
 **Files:** `game/mission.h`, `game/mission.cpp`, `main.mm`
 
-### M42: Mission Objectives
-- Win/lose condition triggers
-- Objective tracking UI
-- Victory/defeat detection
+### ✓ M42: Mission Objectives - COMPLETE
+
+**Goal:** Win/lose detection and result screens.
+
+**Completed:**
+- [x] MissionResult state tracking (ONGOING, VICTORY, DEFEAT)
+- [x] Mission_CheckVictory() called each frame
+- [x] Victory overlay with "MISSION ACCOMPLISHED"
+- [x] Defeat overlay with "MISSION FAILED"
+- [x] Result screen dismissible after 1 second
+- [x] Auto-return to main menu on dismiss
+- [x] HUD shows mission name instead of "RED ALERT - DEMO"
+- [x] Unit count display (P:# E:#)
+
+**Win condition:** Destroy all enemy units and buildings
+**Lose condition:** Lose all player units and buildings
+
+**Files:** `main.mm`
 
 ### M43: Campaign Flow
 - Campaign selection (Allied/Soviet)
@@ -304,7 +318,8 @@ After M33-M37, we have:
 | **Attack commands** | ✓ Done (M39) | - |
 | **Unit behaviors** | ✓ Done (M40) | - |
 | **Scenario loading** | ✓ Done (M41) | - |
+| **Mission objectives** | ✓ Done (M42) | - |
 | Campaign missions | In Progress | Medium |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M42 - Mission Objectives (win/lose triggers).
+**Next step:** M43 - Campaign Flow (mission progression).

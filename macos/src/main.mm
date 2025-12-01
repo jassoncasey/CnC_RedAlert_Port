@@ -49,6 +49,15 @@ static int g_selectionStartY = -1;
 static bool g_isSelecting = false;
 static bool g_attackMoveMode = false;  // 'A' key activates, next click = attack-move
 
+// Mission result state
+typedef enum {
+    MISSION_ONGOING = 0,
+    MISSION_VICTORY,
+    MISSION_DEFEAT
+} MissionResult;
+static MissionResult g_missionResult = MISSION_ONGOING;
+static int g_resultDisplayTimer = 0;   // Frames to show result screen
+
 // Assets loaded flag
 static bool g_assetsLoaded = false;
 
@@ -65,6 +74,8 @@ static MissionData g_currentMission;
 // Start a mission from data
 static void StartMission(const MissionData* mission) {
     g_inGameplay = true;
+    g_missionResult = MISSION_ONGOING;
+    g_resultDisplayTimer = 0;
 
     // Initialize game UI
     GameUI_Init();
@@ -288,6 +299,40 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         GameUI_Update();
         AI_Update();
 
+        // Check victory/defeat conditions (only if game still ongoing)
+        if (g_missionResult == MISSION_ONGOING) {
+            int result = Mission_CheckVictory(&g_currentMission);
+            if (result == 1) {
+                g_missionResult = MISSION_VICTORY;
+                g_resultDisplayTimer = 180;  // 3 seconds at 60fps render rate
+                NSLog(@"VICTORY!");
+            } else if (result == -1) {
+                g_missionResult = MISSION_DEFEAT;
+                g_resultDisplayTimer = 180;
+                NSLog(@"DEFEAT!");
+            }
+        }
+
+        // Handle result screen timer
+        if (g_missionResult != MISSION_ONGOING && g_resultDisplayTimer > 0) {
+            g_resultDisplayTimer--;
+            // Any key or click dismisses result screen after delay
+            if (g_resultDisplayTimer < 120) {  // Allow dismiss after 1 second
+                if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
+                    Input_WasKeyPressed(VK_SPACE) || (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
+                    // Return to main menu
+                    g_inGameplay = false;
+                    g_missionResult = MISSION_ONGOING;
+                    AI_Shutdown();
+                    GameUI_Shutdown();
+                    Map_Shutdown();
+                    Units_Shutdown();
+                    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+                    return;
+                }
+            }
+        }
+
         // Pause (P key)
         if (Input_WasKeyPressed('P')) {
             GameLoop_Pause(!GameLoop_IsPaused());
@@ -444,10 +489,13 @@ void GameRender(void) {
         // Draw HUD (top bar - game view only, sidebar has its own)
         const FrameStats* stats = GameLoop_GetStats();
         Renderer_FillRect(0, 0, 560, 16, 0);
-        Renderer_DrawText("RED ALERT - DEMO", 10, 3, 14, 0);
+
+        // Mission name/objective
+        char hudText[64];
+        snprintf(hudText, sizeof(hudText), "%s", g_currentMission.name);
+        Renderer_DrawText(hudText, 10, 3, 14, 0);
 
         // Unit count
-        char hudText[64];
         snprintf(hudText, sizeof(hudText), "P:%d E:%d",
                  Units_CountByTeam(TEAM_PLAYER), Units_CountByTeam(TEAM_ENEMY));
         Renderer_DrawText(hudText, 200, 3, 10, 0);
@@ -468,6 +516,35 @@ void GameRender(void) {
             Renderer_FillRect(220, 180, 120, 40, 0);
             Renderer_DrawRect(220, 180, 120, 40, 15);
             Renderer_DrawText("PAUSED", 245, 195, 15, 0);
+        }
+
+        // Victory/Defeat overlay
+        if (g_missionResult != MISSION_ONGOING) {
+            // Semi-transparent overlay effect (draw dark rects)
+            for (int y = 0; y < 400; y += 2) {
+                Renderer_HLine(0, 560, y, 0);
+            }
+
+            // Result box
+            int boxW = 300, boxH = 100;
+            int boxX = (560 - boxW) / 2;
+            int boxY = (400 - boxH) / 2 - 20;
+
+            Renderer_FillRect(boxX, boxY, boxW, boxH, 0);
+            Renderer_DrawRect(boxX, boxY, boxW, boxH, 15);
+            Renderer_DrawRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4, 7);
+
+            if (g_missionResult == MISSION_VICTORY) {
+                // Green text for victory
+                Renderer_DrawText("MISSION ACCOMPLISHED", boxX + 50, boxY + 20, 10, 0);
+                Renderer_DrawText("You have defeated the enemy!", boxX + 40, boxY + 45, 15, 0);
+            } else {
+                // Red text for defeat
+                Renderer_DrawText("MISSION FAILED", boxX + 75, boxY + 20, 4, 0);
+                Renderer_DrawText("Your forces were destroyed.", boxX + 45, boxY + 45, 15, 0);
+            }
+
+            Renderer_DrawText("Press any key to continue...", boxX + 55, boxY + 75, 7, 0);
         }
 
         // Controls help at bottom (only in game view area)
