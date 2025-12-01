@@ -70,6 +70,18 @@ static bool g_placementValid = false;  // Is current placement position valid?
 // Build Item Definitions
 //===========================================================================
 
+// Building type flags for prerequisite tracking
+enum PrereqFlag {
+    PREREQ_NONE      = 0,
+    PREREQ_POWER     = (1 << 0),   // Requires Power Plant
+    PREREQ_BARRACKS  = (1 << 1),   // Requires Barracks
+    PREREQ_REFINERY  = (1 << 2),   // Requires Ore Refinery
+    PREREQ_FACTORY   = (1 << 3),   // Requires War Factory
+    PREREQ_RADAR     = (1 << 4),   // Requires Radar Dome
+    PREREQ_TECH      = (1 << 5),   // Requires Tech Center
+    PREREQ_CONYARD   = (1 << 6),   // Requires Construction Yard
+};
+
 struct BuildItemDef {
     const char* name;
     const char* fullName;
@@ -79,39 +91,80 @@ struct BuildItemDef {
     int spawnType;  // UnitType or BuildingType to spawn
     int width;      // Building width in cells (structures only)
     int height;     // Building height in cells (structures only)
-    bool requiresBarracks;
-    bool requiresFactory;
+    uint32_t prerequisites; // Bitmask of PrereqFlag requirements
 };
 
-// Available structures (simplified tech tree for demo)
-// Dimensions: Power=2x2, Refinery=3x3, Barracks=2x2, Factory=3x3
+// Available structures with proper tech tree
+// Original tech tree:
+//   Construction Yard (starting building)
+//   └─ Power Plant (no prereq)
+//       ├─ Barracks (power) → Infantry
+//       ├─ Ore Refinery (power) → Harvester
+//       └─ War Factory (power + refinery) → Vehicles
+//           └─ Radar Dome (power + factory)
+//               └─ Tech Center → Advanced units
 static BuildItemDef g_structureDefs[] = {
-    {"POWR", "Power Plant", 300, 300, false, BUILDING_POWER, 2, 2, false, false},
-    {"PROC", "Refinery", 2000, 600, false, BUILDING_REFINERY, 3, 3, false, false},
-    {"TENT", "Barracks", 500, 400, false, BUILDING_BARRACKS, 2, 2, false, false},
-    {"WEAP", "War Factory", 2000, 600, false, BUILDING_FACTORY, 3, 3, true, false},
+    {"POWR", "Power Plant",   300,  300, false, BUILDING_POWER,    2, 2, PREREQ_NONE},
+    {"PROC", "Ore Refinery", 2000,  600, false, BUILDING_REFINERY, 3, 3, PREREQ_POWER},
+    {"TENT", "Barracks",      500,  400, false, BUILDING_BARRACKS, 2, 2, PREREQ_POWER},
+    {"WEAP", "War Factory",  2000,  600, false, BUILDING_FACTORY,  3, 3, PREREQ_POWER | PREREQ_REFINERY},
+    {"DOME", "Radar Dome",   1000,  500, false, BUILDING_RADAR,    2, 2, PREREQ_POWER | PREREQ_FACTORY},
 };
-static const int g_structureDefCount = 4;
+static const int g_structureDefCount = 5;
 
-// Available units (simplified tech tree)
-// Units have width/height=1 (unused but struct requires it)
+// Available units with proper tech tree
+// Infantry requires Barracks, Vehicles require War Factory
 static BuildItemDef g_unitDefs[] = {
-    {"E1", "Rifle Infantry", 100, 150, true, UNIT_RIFLE, 1, 1, true, false},
-    {"E2", "Grenadier", 160, 180, true, UNIT_GRENADIER, 1, 1, true, false},
-    {"E3", "Rocket Soldier", 300, 200, true, UNIT_ROCKET, 1, 1, true, false},
-    {"ENG", "Engineer", 500, 200, true, UNIT_ENGINEER, 1, 1, true, false},
-    {"1TNK", "Light Tank", 700, 300, true, UNIT_TANK_LIGHT, 1, 1, false, true},
-    {"2TNK", "Medium Tank", 800, 350, true, UNIT_TANK_MEDIUM, 1, 1, false, true},
+    {"E1",   "Rifle Infantry",  100, 150, true, UNIT_RIFLE,       1, 1, PREREQ_BARRACKS},
+    {"E2",   "Grenadier",       160, 180, true, UNIT_GRENADIER,   1, 1, PREREQ_BARRACKS},
+    {"E3",   "Rocket Soldier",  300, 200, true, UNIT_ROCKET,      1, 1, PREREQ_BARRACKS},
+    {"ENG",  "Engineer",        500, 200, true, UNIT_ENGINEER,    1, 1, PREREQ_BARRACKS},
+    {"1TNK", "Light Tank",      700, 300, true, UNIT_TANK_LIGHT,  1, 1, PREREQ_FACTORY},
+    {"2TNK", "Medium Tank",     800, 350, true, UNIT_TANK_MEDIUM, 1, 1, PREREQ_FACTORY},
 };
 static const int g_unitDefCount = 6;
 
-// Player has these buildings (for prerequisites)
-static bool g_hasBarracks = true;   // Demo starts with barracks
-static bool g_hasFactory = true;    // Demo starts with factory
+// Player-owned buildings bitmask (dynamically tracked)
+static uint32_t g_playerBuildings = 0;
 
 //===========================================================================
 // Initialization
 //===========================================================================
+
+// Scan player buildings and update prerequisite bitmask
+static void UpdatePlayerBuildings(void) {
+    g_playerBuildings = 0;
+
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bldg = Buildings_Get(i);
+        if (!bldg || !bldg->active) continue;
+        if (bldg->team != TEAM_PLAYER) continue;
+
+        switch (bldg->type) {
+            case BUILDING_CONSTRUCTION:
+                g_playerBuildings |= PREREQ_CONYARD;
+                break;
+            case BUILDING_POWER:
+                g_playerBuildings |= PREREQ_POWER;
+                break;
+            case BUILDING_BARRACKS:
+                g_playerBuildings |= PREREQ_BARRACKS;
+                break;
+            case BUILDING_REFINERY:
+                g_playerBuildings |= PREREQ_REFINERY;
+                break;
+            case BUILDING_FACTORY:
+                g_playerBuildings |= PREREQ_FACTORY;
+                break;
+            case BUILDING_RADAR:
+                g_playerBuildings |= PREREQ_RADAR;
+                break;
+            // BUILDING_TECH doesn't exist yet - tech center would go here
+            default:
+                break;
+        }
+    }
+}
 
 void GameUI_Init(void) {
     g_uiInitialized = true;
@@ -125,8 +178,10 @@ void GameUI_Init(void) {
     g_placementMode = false;
     g_placementType = -1;
     g_placementValid = false;
-    g_hasBarracks = true;
-    g_hasFactory = true;
+    g_playerBuildings = 0;
+
+    // Initial scan of buildings
+    UpdatePlayerBuildings();
 }
 
 void GameUI_Shutdown(void) {
@@ -138,13 +193,23 @@ void GameUI_Shutdown(void) {
 //===========================================================================
 
 static bool CheckPrerequisites(const BuildItemDef* item) {
-    if (item->requiresBarracks && !g_hasBarracks) {
-        return false;
-    }
-    if (item->requiresFactory && !g_hasFactory) {
-        return false;
-    }
-    return true;
+    // Check if player has all required buildings
+    return (item->prerequisites & g_playerBuildings) == item->prerequisites;
+}
+
+// Get the name of the first missing prerequisite for an item
+static const char* GetMissingPrereq(const BuildItemDef* item) {
+    uint32_t missing = item->prerequisites & ~g_playerBuildings;
+
+    if (missing & PREREQ_POWER)    return "Power Plant";
+    if (missing & PREREQ_BARRACKS) return "Barracks";
+    if (missing & PREREQ_REFINERY) return "Refinery";
+    if (missing & PREREQ_FACTORY)  return "War Factory";
+    if (missing & PREREQ_RADAR)    return "Radar";
+    if (missing & PREREQ_TECH)     return "Tech Center";
+    if (missing & PREREQ_CONYARD)  return "Const. Yard";
+
+    return nullptr;
 }
 
 //===========================================================================
@@ -239,10 +304,8 @@ static bool TryPlaceBuilding(void) {
         }
     }
 
-    // Update prerequisites based on what was built
-    BuildingType btype = (BuildingType)item->spawnType;
-    if (btype == BUILDING_BARRACKS) g_hasBarracks = true;
-    if (btype == BUILDING_FACTORY) g_hasFactory = true;
+    // Update player building flags to unlock new items
+    UpdatePlayerBuildings();
 
     // Exit placement mode
     g_placementMode = false;
@@ -295,6 +358,9 @@ bool GameUI_HandleEscape(void) {
 void GameUI_Update(void) {
     g_radarPulse = (g_radarPulse + 1) % 30;
     g_flashFrame = (g_flashFrame + 1) % 20;
+
+    // Refresh player building flags (in case buildings were destroyed)
+    UpdatePlayerBuildings();
 
     // Update structure production
     if (g_structureProducing >= 0 && !g_placementMode) {
@@ -683,9 +749,11 @@ void GameUI_RenderSidebar(void) {
     startY += 14;
 
     // Structure buttons
-    for (int i = 0; i < 4 && i < g_structureDefCount; i++) {
+    for (int i = 0; i < g_structureDefCount; i++) {
         const BuildItemDef* item = &g_structureDefs[i];
-        bool available = CheckPrerequisites(item) && g_playerCredits >= item->cost;
+        bool hasPrereqs = CheckPrerequisites(item);
+        bool canAfford = g_playerCredits >= item->cost;
+        bool available = hasPrereqs && canAfford;
         bool isBuilding = (g_structureProducing == i);
         int progress = isBuilding ? (g_structureProgress / 100) : 0;  // Convert from fixed point
 
@@ -698,7 +766,7 @@ void GameUI_RenderSidebar(void) {
         // Item name
         Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 2, textColor, 0);
 
-        // Cost or progress
+        // Cost, progress, or requirement
         if (isBuilding) {
             if (g_placementMode && g_placementType == i) {
                 // Ready for placement - pulsing text
@@ -713,7 +781,19 @@ void GameUI_RenderSidebar(void) {
                 int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
                 Renderer_FillRect(SIDEBAR_X + 8, startY + 16, barW, 2, PAL_LTGREEN);
             }
-        } else if (available) {
+        } else if (!hasPrereqs) {
+            // Show missing prerequisite
+            const char* missing = GetMissingPrereq(item);
+            if (missing) {
+                Renderer_DrawText("Need:", SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
+            }
+        } else if (!canAfford) {
+            // Show cost in red (can't afford)
+            char costStr[16];
+            snprintf(costStr, sizeof(costStr), "$%d", item->cost);
+            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
+        } else {
+            // Available - show cost in yellow
             char costStr[16];
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
             Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_YELLOW, 0);
@@ -738,9 +818,11 @@ void GameUI_RenderSidebar(void) {
     startY += 14;
 
     // Unit buttons
-    for (int i = 0; i < 4 && i < g_unitDefCount; i++) {
+    for (int i = 0; i < g_unitDefCount; i++) {
         const BuildItemDef* item = &g_unitDefs[i];
-        bool available = CheckPrerequisites(item) && g_playerCredits >= item->cost;
+        bool hasPrereqs = CheckPrerequisites(item);
+        bool canAfford = g_playerCredits >= item->cost;
+        bool available = hasPrereqs && canAfford;
         bool isBuilding = (g_unitProducing == i);
         int progress = isBuilding ? (g_unitProgress / 100) : 0;
 
@@ -758,7 +840,19 @@ void GameUI_RenderSidebar(void) {
 
             int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
             Renderer_FillRect(SIDEBAR_X + 8, startY + 16, barW, 2, PAL_LTGREEN);
-        } else if (available) {
+        } else if (!hasPrereqs) {
+            // Show missing prerequisite
+            const char* missing = GetMissingPrereq(item);
+            if (missing) {
+                Renderer_DrawText("Need:", SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
+            }
+        } else if (!canAfford) {
+            // Show cost in red (can't afford)
+            char costStr[16];
+            snprintf(costStr, sizeof(costStr), "$%d", item->cost);
+            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
+        } else {
+            // Available - show cost in yellow
             char costStr[16];
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
             Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_YELLOW, 0);
@@ -775,23 +869,23 @@ BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
     int startY = STRIP_Y + 14;  // After "STRUCTURES" header
 
     // Check structure buttons
-    for (int i = 0; i < 4 && i < g_structureDefCount; i++) {
+    for (int i = 0; i < g_structureDefCount; i++) {
         if (mouseY >= startY && mouseY < startY + 20) {
             BuildItemDef* item = &g_structureDefs[i];
 
-            // Check if already building something
-            if (g_structureProducing >= 0) {
+            // Check if already building or in placement mode
+            if (g_structureProducing >= 0 || g_placementMode) {
                 return TRUE;
             }
 
             // Check prerequisites
             if (!CheckPrerequisites(item)) {
-                return TRUE;
+                return TRUE;  // Click consumed but no action
             }
 
             // Check if player can afford it
             if (g_playerCredits < item->cost) {
-                return TRUE;
+                return TRUE;  // Click consumed but no action
             }
 
             // Start production
@@ -803,10 +897,15 @@ BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
         startY += 22;
     }
 
+    // Skip placement hint area if visible
+    if (g_placementMode) {
+        startY += 34;
+    }
+
     startY += 4 + 14;  // Skip gap and "UNITS" header
 
     // Check unit buttons
-    for (int i = 0; i < 4 && i < g_unitDefCount; i++) {
+    for (int i = 0; i < g_unitDefCount; i++) {
         if (mouseY >= startY && mouseY < startY + 20) {
             BuildItemDef* item = &g_unitDefs[i];
 
@@ -817,12 +916,12 @@ BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
 
             // Check prerequisites
             if (!CheckPrerequisites(item)) {
-                return TRUE;
+                return TRUE;  // Click consumed but no action
             }
 
             // Check if player can afford it
             if (g_playerCredits < item->cost) {
-                return TRUE;
+                return TRUE;  // Click consumed but no action
             }
 
             // Start production

@@ -94,37 +94,39 @@ Before campaigns, we need a working "skirmish" where you can:
 
 ---
 
-### M35: Tech Tree & Prerequisites ← **START HERE**
+### ✓ M35: Tech Tree & Prerequisites - COMPLETE
 
 **Goal:** Advanced units/buildings require prerequisites.
 
-**Original tech tree (simplified):**
+**Original tech tree (implemented):**
 ```
 Construction Yard
-  └─ Power Plant
-      └─ Barracks → Infantry (E1, E2)
-      └─ Ore Refinery → Harvester
-          └─ War Factory → Vehicles (1TNK, 2TNK)
-              └─ Radar Dome
-                  └─ Tech Center → Advanced units
+  └─ Power Plant (no prereqs)
+      ├─ Barracks (power) → Infantry (E1, E2, E3, ENG)
+      ├─ Ore Refinery (power)
+      └─ War Factory (power + refinery) → Vehicles (1TNK, 2TNK)
+          └─ Radar Dome (power + factory)
 ```
 
-**Tasks:**
-1. [ ] Track which buildings player owns
-2. [ ] Each build item has prerequisite list
-3. [ ] Unavailable items greyed out (not black)
-4. [ ] Tooltip shows "Requires: Barracks"
-5. [ ] Building something unlocks dependent items
+**Completed:**
+- [x] Track which buildings player owns (bitmask flags)
+- [x] Each build item has prerequisite bitmask
+- [x] Unavailable items greyed out with "Need:" text
+- [x] Building something unlocks dependent items
+- [x] Cost shown in red when can't afford
 
-**Verification:**
-- [ ] Game start: only Power Plant available
-- [ ] Build Power Plant → Barracks/Refinery unlock
-- [ ] Build Barracks → E1/E2 infantry unlock
-- [ ] Build War Factory → Tanks unlock
+**Verified:**
+- [x] Game start: only Power Plant available
+- [x] Build Power Plant → Barracks/Refinery unlock
+- [x] Build Barracks → Infantry unlock
+- [x] Build Refinery → War Factory unlock
+- [x] Build War Factory → Tanks unlock
+
+**Files:** `ui/game_ui.cpp`
 
 ---
 
-### M36: Resource Economy
+### M36: Resource Economy ← **START HERE**
 
 **Goal:** Harvesters collect ore, refineries convert to credits.
 
@@ -171,7 +173,7 @@ After M33-M37, we have:
 - [x] Units that move and fight
 - [x] **Production that works** (M33 complete)
 - [x] **Building placement** (M34 complete)
-- [ ] **Tech tree progression**
+- [x] **Tech tree progression** (M35 complete)
 - [ ] **Resource economy**
 - [ ] **AI opponent**
 
@@ -254,7 +256,7 @@ This is a playable game loop: build base → train army → destroy enemy.
 | UI layout (sidebar/radar) | ✓ Done | - |
 | **Production system** | ✓ Done (M33) | - |
 | **Building placement** | ✓ Done (M34) | - |
-| **Tech tree** | Missing | **HIGH** |
+| **Tech tree** | ✓ Done (M35) | - |
 | **Economy** | Missing | **HIGH** |
 | **AI opponent** | Missing | **HIGH** |
 | Fog of war | Missing | Medium |
@@ -262,4 +264,4 @@ This is a playable game loop: build base → train army → destroy enemy.
 | Campaign missions | Missing | Low (need skirmish first) |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M35 - Tech tree with prerequisites.
+**Next step:** M36 - Resource economy (harvesters + ore).
