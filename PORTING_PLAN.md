@@ -219,11 +219,17 @@ After M33-M37, we have:
 
 **Files:** `game/units.cpp`, `game/units.h`, `main.mm`
 
-### M40: Unit Behaviors
-- Auto-acquire targets
-- Return fire when attacked
-- Infantry scatter from explosions
-- Tanks crush infantry
+### ✓ M40: Unit Behaviors - COMPLETE
+
+**Goal:** Realistic unit combat behaviors.
+
+**Completed:**
+- [x] Auto-acquire targets (already done - units attack nearby enemies)
+- [x] Return fire when attacked (track lastAttacker, fight back when idle)
+- [x] Infantry scatter from explosions (move away from blast radius)
+- [x] Tanks crush infantry (vehicles kill infantry on contact)
+
+**Files:** `game/units.cpp`, `game/units.h`
 
 ---
 
@@ -285,7 +291,8 @@ After M33-M37, we have:
 | **AI opponent** | ✓ Done (M37) | - |
 | **Fog of war** | ✓ Done (M38) | - |
 | **Attack commands** | ✓ Done (M39) | - |
+| **Unit behaviors** | ✓ Done (M40) | - |
 | Campaign missions | Missing | Medium |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M39 - Attack Commands, or M41 - Scenario Loading.
+**Next step:** M41 - Scenario Loading (Campaign support).

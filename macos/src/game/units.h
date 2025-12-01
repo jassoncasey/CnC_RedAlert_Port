@@ -112,6 +112,9 @@ typedef struct {
     int16_t cargo;          // Ore currently carried (0-1000)
     int16_t homeRefinery;   // Building ID of assigned refinery (-1 if none)
     int16_t harvestTimer;   // Ticks remaining in current harvest action
+    // Combat behavior fields
+    int16_t lastAttacker;   // Unit ID that last attacked this unit (-1 if none)
+    int16_t scatterTimer;   // Ticks remaining before scatter movement allowed again
 } Unit;
 
 // Building structure
@@ -211,6 +214,20 @@ void Units_CommandGuard(int unitId);
  * Command unit to force-attack target (even friendlies or ground)
  */
 void Units_CommandForceAttack(int unitId, int worldX, int worldY);
+
+/**
+ * Notify that a unit was attacked (for return fire behavior)
+ * @param victimId Unit that was attacked
+ * @param attackerId Unit that attacked
+ */
+void Units_NotifyAttacked(int victimId, int attackerId);
+
+/**
+ * Cause infantry near a position to scatter (from explosions)
+ * @param worldX, worldY Center of explosion
+ * @param radius Scatter radius in pixels
+ */
+void Units_ScatterInfantryNear(int worldX, int worldY, int radius);
 
 /**
  * Select unit

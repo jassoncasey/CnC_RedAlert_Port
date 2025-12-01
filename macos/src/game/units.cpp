@@ -229,6 +229,9 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     unit->cargo = 0;
     unit->homeRefinery = -1;
     unit->harvestTimer = 0;
+    // Combat behavior
+    unit->lastAttacker = -1;
+    unit->scatterTimer = 0;
 
     // Mark the spawn cell as occupied
     int cellX, cellY;
@@ -445,6 +448,53 @@ void Units_CommandForceAttack(int unitId, int worldX, int worldY) {
         unit->targetUnit = -1;
         unit->state = STATE_MOVING;
         unit->pathLength = 0;
+    }
+}
+
+void Units_NotifyAttacked(int victimId, int attackerId) {
+    Unit* victim = Units_Get(victimId);
+    if (!victim) return;
+
+    // Record who attacked us
+    victim->lastAttacker = (int16_t)attackerId;
+}
+
+void Units_ScatterInfantryNear(int worldX, int worldY, int radius) {
+    int radiusSq = radius * radius;
+
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = &g_units[i];
+        if (!unit->active) continue;
+
+        const UnitTypeDef* def = &g_unitTypes[unit->type];
+        if (!def->isInfantry) continue;  // Only infantry scatter
+
+        // Check if in scatter radius
+        int dx = unit->worldX - worldX;
+        int dy = unit->worldY - worldY;
+        int distSq = dx * dx + dy * dy;
+
+        if (distSq > radiusSq) continue;
+        if (distSq == 0) continue;  // Don't scatter unit at explosion center
+
+        // Scatter cooldown to prevent constant movement
+        if (unit->scatterTimer > 0) continue;
+
+        // Calculate scatter direction (away from explosion)
+        int dist = (int)sqrt((double)distSq);
+        int scatterDist = CELL_SIZE + (rand() % CELL_SIZE);  // 1-2 cells away
+
+        int newX = unit->worldX + (dx * scatterDist) / dist;
+        int newY = unit->worldY + (dy * scatterDist) / dist;
+
+        // Validate position
+        int cellX, cellY;
+        Map_WorldToCell(newX, newY, &cellX, &cellY);
+        if (Map_IsPassable(cellX, cellY)) {
+            // Command move to scatter position
+            Units_CommandMove(i, newX, newY);
+            unit->scatterTimer = 30;  // Cooldown before can scatter again
+        }
     }
 }
 
@@ -723,6 +773,51 @@ static void SetNextWaypoint(Unit* unit) {
     unit->pathIndex++;
 }
 
+// Check if unit can crush infantry (tanks only)
+static BOOL CanCrushInfantry(Unit* unit) {
+    // Only non-infantry ground vehicles can crush
+    const UnitTypeDef* def = &g_unitTypes[unit->type];
+    if (def->isInfantry) return FALSE;
+    if (def->isNaval) return FALSE;
+
+    // Harvesters can't crush (too slow/not military)
+    if (unit->type == UNIT_HARVESTER) return FALSE;
+
+    return TRUE;
+}
+
+// Check for and crush any enemy infantry at the given position
+static void TryCrushInfantry(Unit* crusher, int unitId, int worldX, int worldY) {
+    if (!CanCrushInfantry(crusher)) return;
+
+    const UnitTypeDef* crusherDef = &g_unitTypes[crusher->type];
+    int crushRadius = crusherDef->size / 2;
+
+    for (int i = 0; i < MAX_UNITS; i++) {
+        if (i == unitId) continue;
+        Unit* target = &g_units[i];
+        if (!target->active) continue;
+        if (target->state == STATE_DYING) continue;
+
+        const UnitTypeDef* targetDef = &g_unitTypes[target->type];
+        if (!targetDef->isInfantry) continue;  // Can only crush infantry
+
+        // Check distance
+        int dx = target->worldX - worldX;
+        int dy = target->worldY - worldY;
+        int dist = (int)sqrt((double)(dx * dx + dy * dy));
+
+        if (dist < crushRadius + targetDef->size / 2) {
+            // Crush! Infantry dies instantly
+            target->health = 0;
+            target->state = STATE_DYING;
+
+            // Play squish sound
+            Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX, target->worldY, 120);
+        }
+    }
+}
+
 static void UpdateUnitMovement(Unit* unit, int unitId) {
     // Handle both MOVING and ATTACK_MOVE states
     if (unit->state != STATE_MOVING && unit->state != STATE_ATTACK_MOVE) return;
@@ -769,6 +864,9 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
         unit->worldX = unit->nextWaypointX;
         unit->worldY = unit->nextWaypointY;
 
+        // Try to crush any infantry at this position
+        TryCrushInfantry(unit, unitId, unit->worldX, unit->worldY);
+
         // Update cell occupancy if we changed cells
         int newCellX, newCellY;
         Map_WorldToCell(unit->worldX, unit->worldY, &newCellX, &newCellY);
@@ -787,6 +885,9 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
         // Move toward waypoint
         unit->worldX += (dx * unit->speed) / dist;
         unit->worldY += (dy * unit->speed) / dist;
+
+        // Try to crush any infantry at this position
+        TryCrushInfantry(unit, unitId, unit->worldX, unit->worldY);
 
         // Update cell occupancy if we changed cells
         int newCellX, newCellY;
@@ -828,6 +929,23 @@ static int FindNearestEnemy(Unit* unit, int maxRange) {
 static void UpdateUnitCombat(Unit* unit, int unitId) {
     if (unit->attackCooldown > 0) {
         unit->attackCooldown--;
+    }
+
+    // Scatter timer countdown
+    if (unit->scatterTimer > 0) {
+        unit->scatterTimer--;
+    }
+
+    // Return fire: if idle/moving and we were attacked, fight back
+    if ((unit->state == STATE_IDLE || unit->state == STATE_MOVING) &&
+        unit->attackRange > 0 && unit->lastAttacker >= 0) {
+        Unit* attacker = Units_Get(unit->lastAttacker);
+        if (attacker && attacker->health > 0 && attacker->team != unit->team) {
+            // Return fire!
+            unit->targetUnit = unit->lastAttacker;
+            unit->state = STATE_ATTACKING;
+        }
+        unit->lastAttacker = -1;  // Clear after processing
     }
 
     // Auto-engage: if idle and has attack capability, look for enemies
@@ -887,6 +1005,9 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
             target->health -= unit->attackDamage;
             unit->attackCooldown = unit->attackRate;
 
+            // Notify target they were attacked (for return fire)
+            Units_NotifyAttacked(unit->targetUnit, unitId);
+
             // Face target
             double angle = atan2((double)dy, (double)dx);
             int facing = (int)((angle + M_PI) / (M_PI / 4.0)) % 8;
@@ -895,18 +1016,31 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
             // Play attack sound based on unit type
             const UnitTypeDef* def = &g_unitTypes[unit->type];
             SoundEffect sfx = SFX_GUN_SHOT;
+            BOOL isExplosive = FALSE;
             if (unit->type == UNIT_ROCKET) {
                 sfx = SFX_ROCKET;
+                isExplosive = TRUE;
+            } else if (unit->type == UNIT_GRENADIER) {
+                sfx = SFX_EXPLOSION_SM;
+                isExplosive = TRUE;
             } else if (!def->isInfantry) {
                 sfx = SFX_CANNON;
+                isExplosive = TRUE;
             }
             Sounds_PlayAt(sfx, unit->worldX, unit->worldY, 200);
+
+            // Infantry scatter from explosive attacks
+            if (isExplosive) {
+                Units_ScatterInfantryNear(target->worldX, target->worldY, CELL_SIZE * 2);
+            }
 
             // Check if target dies
             if (target->health <= 0) {
                 target->state = STATE_DYING;
                 // Play death sound
                 Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX, target->worldY, 180);
+                // Scatter infantry near the explosion
+                Units_ScatterInfantryNear(target->worldX, target->worldY, CELL_SIZE * 3);
             }
         }
     }
