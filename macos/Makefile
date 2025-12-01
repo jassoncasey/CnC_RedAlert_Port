@@ -28,6 +28,7 @@ LDFLAGS = $(ARCH) $(MIN_VERSION) $(FRAMEWORKS)
 OBJCXX_SOURCES = $(SRC_DIR)/main.mm $(SRC_DIR)/graphics/metal/renderer.mm $(SRC_DIR)/input/input.mm $(SRC_DIR)/audio/audio.mm
 CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_DIR)/platform/assets.cpp $(SRC_DIR)/platform/asset_paths.cpp \
               $(SRC_DIR)/game/gameloop.cpp $(SRC_DIR)/ui/menu.cpp \
+              $(SRC_DIR)/crypto/blowfish.cpp $(SRC_DIR)/crypto/mixkey.cpp \
               $(SRC_DIR)/assets/mixfile.cpp $(SRC_DIR)/assets/shpfile.cpp $(SRC_DIR)/assets/palfile.cpp $(SRC_DIR)/assets/audfile.cpp \
               $(SRC_DIR)/game/map.cpp $(SRC_DIR)/game/units.cpp \
               $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp \
@@ -284,4 +285,15 @@ $(BUILD_DIR)/test_music: $(SRC_DIR)/tests/test_music.cpp $(BUILD_DIR)/video/musi
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music
+# Test MIX decryption
+test_mix_decrypt: $(BUILD_DIR)/test_mix_decrypt
+	@echo "Running MIX decryption test..."
+	@cd $(BUILD_DIR) && ./test_mix_decrypt
+
+MIX_DECRYPT_TEST_OBJS = $(BUILD_DIR)/assets/mixfile.o $(BUILD_DIR)/crypto/blowfish.o $(BUILD_DIR)/crypto/mixkey.o
+
+$(BUILD_DIR)/test_mix_decrypt: $(SRC_DIR)/tests/test_mix_decrypt.cpp $(MIX_DECRYPT_TEST_OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+
+.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music test_mix_decrypt

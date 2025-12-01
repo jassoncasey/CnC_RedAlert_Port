@@ -1,7 +1,9 @@
 /**
  * Red Alert macOS Port - MIX File Reader Implementation
  *
- * MIX file format (unencrypted, as used in RA):
+ * Supports both encrypted and unencrypted MIX files.
+ *
+ * MIX file format (unencrypted):
  *   Header:
  *     short count     - Number of files in archive
  *     long size       - Total size of data section
@@ -11,9 +13,18 @@
  *     long size       - Size of file
  *   Data section:
  *     Raw file data
+ *
+ * MIX file format (encrypted - RA new format):
+ *   4 bytes: flags (0x00020000 = encrypted header)
+ *   80 bytes: RSA-encrypted key block
+ *   6 bytes: Blowfish-encrypted header (file count + data size)
+ *   N*12 bytes: Blowfish-encrypted index
+ *   Data section (unencrypted)
  */
 
 #include "mixfile.h"
+#include "crypto/blowfish.h"
+#include "crypto/mixkey.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -37,57 +48,57 @@ struct MixEntry {
 
 // Internal MIX file structure
 struct MixFile {
+    // File-based access
     FILE* file;
+
+    // Memory-based access
+    const uint8_t* memData;
+    uint32_t memSize;
+    bool ownsMemData;
+
+    // Common fields
     MixHeader header;
     MixEntry* entries;
     uint32_t dataStart;     // Offset to start of data section
     char filename[256];
+    bool encrypted;         // Whether file has encrypted header
+    bool isMemory;          // True if opened from memory
 };
 
-// Westwood CRC table (generated from polynomial)
-static uint32_t g_crcTable[256];
-static bool g_crcTableInit = false;
+// MIX file flags
+constexpr uint32_t MIX_FLAG_CHECKSUM  = 0x00010000;
+constexpr uint32_t MIX_FLAG_ENCRYPTED = 0x00020000;
 
-static void InitCRCTable(void) {
-    if (g_crcTableInit) return;
-
-    for (int i = 0; i < 256; i++) {
-        uint32_t crc = i;
-        for (int j = 0; j < 8; j++) {
-            if (crc & 1) {
-                crc = (crc >> 1) ^ 0xEDB88320;
-            } else {
-                crc >>= 1;
-            }
-        }
-        g_crcTable[i] = crc;
-    }
-    g_crcTableInit = true;
-}
-
+// Classic Westwood hash function (used by C&C and RA1)
+// This is NOT a CRC - it's a rotate-left-and-add hash
 uint32_t Mix_CalculateCRC(const char* name) {
-    InitCRCTable();
-
-    // Westwood uses upper-case for CRC calculation
-    uint32_t crc = 0;
+    // Get length and calculate padding
     int len = 0;
+    while (name[len]) len++;
 
-    // Calculate CRC on uppercase filename
-    while (name[len]) {
-        char c = (char)toupper(name[len]);
-        uint32_t index = ((crc >> 24) ^ c) & 0xFF;
-        crc = (crc << 8) ^ g_crcTable[index];
-        len++;
+    int padding = (len % 4 != 0) ? (4 - len % 4) : 0;
+    int paddedLen = len + padding;
+
+    // Convert to uppercase and pad with zeros
+    uint8_t buffer[256];
+    for (int i = 0; i < len; i++) {
+        buffer[i] = (uint8_t)toupper((unsigned char)name[i]);
+    }
+    for (int i = len; i < paddedLen; i++) {
+        buffer[i] = 0;
     }
 
-    // Pad with zeros to make length multiple of 4
-    while (len % 4 != 0) {
-        uint32_t index = (crc >> 24) & 0xFF;
-        crc = (crc << 8) ^ g_crcTable[index];
-        len++;
+    // Hash: rotate left 1 bit and add, processing 4 bytes at a time
+    uint32_t result = 0;
+    for (int i = 0; i < paddedLen; i += 4) {
+        uint32_t val = buffer[i] |
+                       ((uint32_t)buffer[i + 1] << 8) |
+                       ((uint32_t)buffer[i + 2] << 16) |
+                       ((uint32_t)buffer[i + 3] << 24);
+        result = ((result << 1) | (result >> 31)) + val;
     }
 
-    return crc;
+    return result;
 }
 
 // Binary search for entry by CRC
@@ -112,31 +123,290 @@ static MixEntry* FindEntry(MixFile* mix, uint32_t crc) {
     return nullptr;
 }
 
+// Helper to read encrypted MIX file
+static MixFile* OpenEncryptedMix(FILE* f, uint32_t flags, const char* filename) {
+    (void)flags;  // Currently unused
+
+    // Read the 80-byte RSA-encrypted key block
+    uint8_t encryptedKey[MIXKEY_ENCRYPTED_SIZE];
+    if (fread(encryptedKey, MIXKEY_ENCRYPTED_SIZE, 1, f) != 1) {
+        return nullptr;
+    }
+
+    // Decrypt the key using RSA
+    uint8_t blowfishKey[MIXKEY_DECRYPTED_SIZE];
+    if (!MixKey_DecryptKey(encryptedKey, blowfishKey)) {
+        return nullptr;
+    }
+
+    // Initialize Blowfish with the decrypted key
+    Blowfish bf;
+    bf.SetKey(blowfishKey, MIXKEY_DECRYPTED_SIZE);
+
+    // Read and decrypt the header (first 8 bytes, but header is 6 bytes)
+    // We read 8 bytes because Blowfish works in 8-byte blocks
+    uint8_t headerBlock[8];
+    if (fread(headerBlock, 8, 1, f) != 1) {
+        return nullptr;
+    }
+    bf.DecryptBlock(headerBlock);
+
+    // Parse header (6 bytes: 2-byte count + 4-byte size)
+    MixHeader header;
+    header.count = (int16_t)(headerBlock[0] | (headerBlock[1] << 8));
+    header.dataSize = (int32_t)(headerBlock[2] | (headerBlock[3] << 8) |
+                                (headerBlock[4] << 16) | (headerBlock[5] << 24));
+
+    // Sanity check
+    if (header.count < 0 || header.count > 10000) {
+        return nullptr;
+    }
+
+    // Calculate index size (12 bytes per entry)
+    size_t indexSize = header.count * sizeof(MixEntry);
+
+    // We already consumed 2 bytes of the index (from the 8-byte block)
+    // Calculate remaining bytes needed (including padding to 8-byte boundary)
+    size_t totalHeaderIndex = 6 + indexSize;  // Header + index
+    size_t blocksNeeded = (totalHeaderIndex + 7) / 8;
+    size_t totalEncrypted = blocksNeeded * 8;
+    size_t remaining = totalEncrypted - 8;  // We already read first 8 bytes
+
+    // Allocate buffer for remaining encrypted data
+    uint8_t* encryptedData = new uint8_t[remaining + 8];  // Extra space
+    memcpy(encryptedData, headerBlock, 8);  // Copy first block
+
+    if (remaining > 0) {
+        if (fread(encryptedData + 8, remaining, 1, f) != 1) {
+            delete[] encryptedData;
+            return nullptr;
+        }
+
+        // Decrypt remaining blocks
+        for (size_t i = 8; i < remaining + 8; i += 8) {
+            bf.DecryptBlock(encryptedData + i);
+        }
+    }
+
+    // Create MixFile structure
+    MixFile* mix = new MixFile;
+    memset(mix, 0, sizeof(MixFile));
+    mix->file = f;
+    mix->header = header;
+    mix->encrypted = true;
+    strncpy(mix->filename, filename, sizeof(mix->filename) - 1);
+
+    // Copy index entries from decrypted data (starts at offset 6)
+    mix->entries = new MixEntry[header.count];
+    memcpy(mix->entries, encryptedData + 6, indexSize);
+
+    delete[] encryptedData;
+
+    // Data starts after: flags(4) + key(80) + encrypted_header_index(rounded up to 8)
+    mix->dataStart = 4 + MIXKEY_ENCRYPTED_SIZE + (uint32_t)totalEncrypted;
+
+    return mix;
+}
+
+// Helper to open encrypted MIX from memory
+static MixFile* OpenEncryptedMixMemory(const uint8_t* data, uint32_t size, bool ownsData) {
+    if (size < 4 + MIXKEY_ENCRYPTED_SIZE + 8) {
+        return nullptr;  // Too small
+    }
+
+    uint32_t pos = 4;  // Skip flags word
+
+    // Get the RSA-encrypted key block
+    const uint8_t* encryptedKey = data + pos;
+    pos += MIXKEY_ENCRYPTED_SIZE;
+
+    // Decrypt the key using RSA
+    uint8_t blowfishKey[MIXKEY_DECRYPTED_SIZE];
+    if (!MixKey_DecryptKey(encryptedKey, blowfishKey)) {
+        return nullptr;
+    }
+
+    // Initialize Blowfish with the decrypted key
+    Blowfish bf;
+    bf.SetKey(blowfishKey, MIXKEY_DECRYPTED_SIZE);
+
+    // Read and decrypt the header (first 8 bytes)
+    if (pos + 8 > size) return nullptr;
+    uint8_t headerBlock[8];
+    memcpy(headerBlock, data + pos, 8);
+    bf.DecryptBlock(headerBlock);
+    pos += 8;
+
+    // Parse header
+    MixHeader header;
+    header.count = (int16_t)(headerBlock[0] | (headerBlock[1] << 8));
+    header.dataSize = (int32_t)(headerBlock[2] | (headerBlock[3] << 8) |
+                                (headerBlock[4] << 16) | (headerBlock[5] << 24));
+
+    if (header.count < 0 || header.count > 10000) {
+        return nullptr;
+    }
+
+    // Calculate total encrypted size
+    size_t indexSize = header.count * sizeof(MixEntry);
+    size_t totalHeaderIndex = 6 + indexSize;
+    size_t blocksNeeded = (totalHeaderIndex + 7) / 8;
+    size_t totalEncrypted = blocksNeeded * 8;
+    size_t remaining = totalEncrypted - 8;
+
+    // Allocate buffer for all encrypted data
+    uint8_t* encryptedData = new uint8_t[totalEncrypted];
+    memcpy(encryptedData, headerBlock, 8);
+
+    if (remaining > 0) {
+        if (pos + remaining > size) {
+            delete[] encryptedData;
+            return nullptr;
+        }
+        memcpy(encryptedData + 8, data + pos, remaining);
+        pos += remaining;
+
+        // Decrypt remaining blocks
+        for (size_t i = 8; i < totalEncrypted; i += 8) {
+            bf.DecryptBlock(encryptedData + i);
+        }
+    }
+
+    // Create MixFile structure
+    MixFile* mix = new MixFile;
+    memset(mix, 0, sizeof(MixFile));
+    mix->memData = data;
+    mix->memSize = size;
+    mix->ownsMemData = ownsData;
+    mix->isMemory = true;
+    mix->header = header;
+    mix->encrypted = true;
+    strncpy(mix->filename, "(memory)", sizeof(mix->filename) - 1);
+
+    // Copy index entries
+    mix->entries = new MixEntry[header.count];
+    memcpy(mix->entries, encryptedData + 6, indexSize);
+
+    delete[] encryptedData;
+
+    // Data starts after: flags(4) + key(80) + encrypted_header_index
+    mix->dataStart = 4 + MIXKEY_ENCRYPTED_SIZE + (uint32_t)totalEncrypted;
+
+    return mix;
+}
+
+MixFileHandle Mix_OpenMemory(const void* data, uint32_t size, BOOL ownsData) {
+    if (!data || size < 6) {
+        return nullptr;
+    }
+
+    const uint8_t* ptr = (const uint8_t*)data;
+
+    // Read first 4 bytes to check format
+    uint32_t firstWord = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+
+    // Check for new-style MIX with flags
+    if (firstWord == 0 || (firstWord & 0xFFFF) == 0) {
+        uint32_t flags = firstWord;
+        uint32_t headerOffset = 4;
+
+        if (firstWord == 0) {
+            if (size < 8) return nullptr;
+            flags = ptr[4] | (ptr[5] << 8) | (ptr[6] << 16) | (ptr[7] << 24);
+            headerOffset = 8;
+        }
+
+        // Check for encrypted header
+        if (flags & MIX_FLAG_ENCRYPTED) {
+            return OpenEncryptedMixMemory(ptr, size, ownsData);
+        }
+
+        // Unencrypted new-style - adjust pointer
+        ptr += headerOffset;
+        size -= headerOffset;
+    }
+
+    // Unencrypted MIX file (old-style)
+    if (size < sizeof(MixHeader)) {
+        return nullptr;
+    }
+
+    MixFile* mix = new MixFile;
+    memset(mix, 0, sizeof(MixFile));
+    mix->memData = (const uint8_t*)data;
+    mix->memSize = size;
+    mix->ownsMemData = ownsData;
+    mix->isMemory = true;
+    mix->encrypted = false;
+    strncpy(mix->filename, "(memory)", sizeof(mix->filename) - 1);
+
+    // Read header
+    memcpy(&mix->header, ptr, sizeof(MixHeader));
+    ptr += sizeof(MixHeader);
+
+    if (mix->header.count < 0 || mix->header.count > 10000) {
+        delete mix;
+        return nullptr;
+    }
+
+    // Read index
+    size_t indexSize = mix->header.count * sizeof(MixEntry);
+    mix->entries = new MixEntry[mix->header.count];
+    memcpy(mix->entries, ptr, indexSize);
+
+    // Data starts after header and index
+    mix->dataStart = sizeof(MixHeader) + indexSize;
+
+    return mix;
+}
+
 MixFileHandle Mix_Open(const char* filename) {
     FILE* f = fopen(filename, "rb");
     if (!f) {
         return nullptr;
     }
 
-    // Check for encrypted header (first 2 bytes would be large)
-    uint16_t firstWord;
+    // Read first 4 bytes to check format
+    uint32_t firstWord;
     if (fread(&firstWord, sizeof(firstWord), 1, f) != 1) {
         fclose(f);
         return nullptr;
     }
-    fseek(f, 0, SEEK_SET);
 
-    // For now, only support unencrypted MIX files
-    // Encrypted files have a different header structure
-    if (firstWord == 0) {
-        // Potentially new-style encrypted MIX, skip for now
-        fclose(f);
-        return nullptr;
+    // Check for new-style MIX with flags
+    if (firstWord == 0 || (firstWord & 0xFFFF) == 0) {
+        // New format: flags in first 4 bytes
+        // If first word is 0, read next 4 bytes for actual flags
+        uint32_t flags = firstWord;
+        if (firstWord == 0) {
+            if (fread(&flags, sizeof(flags), 1, f) != 1) {
+                fclose(f);
+                return nullptr;
+            }
+        }
+
+        // Check for encrypted header
+        if (flags & MIX_FLAG_ENCRYPTED) {
+            MixFile* mix = OpenEncryptedMix(f, flags, filename);
+            if (!mix) {
+                fclose(f);
+                return nullptr;
+            }
+            return mix;
+        }
+
+        // Has checksum but not encrypted - handle like unencrypted but skip 4 bytes
+        // Fall through to unencrypted handling but don't seek back
+    } else {
+        // Old format: direct header, seek back
+        fseek(f, 0, SEEK_SET);
     }
 
+    // Unencrypted MIX file
     MixFile* mix = new MixFile;
     memset(mix, 0, sizeof(MixFile));
     mix->file = f;
+    mix->encrypted = false;
     strncpy(mix->filename, filename, sizeof(mix->filename) - 1);
 
     // Read header
@@ -166,7 +436,7 @@ MixFileHandle Mix_Open(const char* filename) {
     }
 
     // Data section starts after header and index
-    mix->dataStart = sizeof(MixHeader) + (uint32_t)indexSize;
+    mix->dataStart = (uint32_t)ftell(f);
 
     return mix;
 }
@@ -175,6 +445,9 @@ void Mix_Close(MixFileHandle mix) {
     if (mix) {
         if (mix->file) {
             fclose(mix->file);
+        }
+        if (mix->isMemory && mix->ownsMemData && mix->memData) {
+            delete[] mix->memData;
         }
         if (mix->entries) {
             delete[] mix->entries;
@@ -208,12 +481,20 @@ uint32_t Mix_ReadFileByCRC(MixFileHandle mix, uint32_t crc, void* buffer, uint32
 
     uint32_t readSize = (entry->size < bufSize) ? entry->size : bufSize;
 
-    // Seek to file position
-    fseek(mix->file, mix->dataStart + entry->offset, SEEK_SET);
-
-    // Read data
-    size_t bytesRead = fread(buffer, 1, readSize, mix->file);
-    return (uint32_t)bytesRead;
+    if (mix->isMemory) {
+        // Memory-based read
+        uint32_t offset = mix->dataStart + entry->offset;
+        if (offset + readSize > mix->memSize) {
+            return 0;  // Out of bounds
+        }
+        memcpy(buffer, mix->memData + offset, readSize);
+        return readSize;
+    } else {
+        // File-based read
+        fseek(mix->file, mix->dataStart + entry->offset, SEEK_SET);
+        size_t bytesRead = fread(buffer, 1, readSize, mix->file);
+        return (uint32_t)bytesRead;
+    }
 }
 
 uint32_t Mix_ReadFile(MixFileHandle mix, const char* name, void* buffer, uint32_t bufSize) {

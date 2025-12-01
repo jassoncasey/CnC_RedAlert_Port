@@ -26,6 +26,15 @@ typedef struct MixFile* MixFileHandle;
 MixFileHandle Mix_Open(const char* filename);
 
 /**
+ * Open a MIX archive from memory
+ * @param data      Pointer to MIX data in memory
+ * @param size      Size of the data
+ * @param ownsData  If TRUE, Mix_Close will free the data
+ * @return Handle to the MIX file, or NULL on failure
+ */
+MixFileHandle Mix_OpenMemory(const void* data, uint32_t size, BOOL ownsData);
+
+/**
  * Close a MIX archive
  */
 void Mix_Close(MixFileHandle mix);
