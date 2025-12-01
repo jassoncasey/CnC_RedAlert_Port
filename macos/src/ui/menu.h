@@ -70,10 +70,26 @@ typedef struct {
 typedef enum {
     MENU_SCREEN_NONE,
     MENU_SCREEN_MAIN,
+    MENU_SCREEN_CAMPAIGN_SELECT,
+    MENU_SCREEN_DIFFICULTY_SELECT,
     MENU_SCREEN_OPTIONS,
     MENU_SCREEN_CREDITS,
     MENU_SCREEN_INGAME
 } MenuScreen;
+
+// Campaign selection
+typedef enum {
+    CAMPAIGN_NONE = 0,
+    CAMPAIGN_ALLIED,
+    CAMPAIGN_SOVIET
+} MenuCampaignChoice;
+
+// Difficulty selection
+typedef enum {
+    DIFFICULTY_EASY = 0,
+    DIFFICULTY_NORMAL,
+    DIFFICULTY_HARD
+} MenuDifficultyChoice;
 
 /**
  * Initialize the menu system
@@ -188,10 +204,33 @@ Menu* Menu_GetMainMenu(void);
 Menu* Menu_GetOptionsMenu(void);
 
 /**
+ * Get the campaign selection menu
+ */
+Menu* Menu_GetCampaignMenu(void);
+
+/**
+ * Get the difficulty selection menu
+ */
+Menu* Menu_GetDifficultyMenu(void);
+
+/**
+ * Get the selected campaign
+ */
+MenuCampaignChoice Menu_GetSelectedCampaign(void);
+
+/**
+ * Get the selected difficulty
+ */
+MenuDifficultyChoice Menu_GetSelectedDifficulty(void);
+
+/**
  * Set callback for starting a new game
+ * Callback receives campaign (1=allied, 2=soviet) and difficulty (0-2)
  */
 typedef void (*NewGameCallback)(void);
+typedef void (*StartCampaignCallback)(int campaign, int difficulty);
 void Menu_SetNewGameCallback(NewGameCallback callback);
+void Menu_SetStartCampaignCallback(StartCampaignCallback callback);
 
 #ifdef __cplusplus
 }

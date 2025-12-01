@@ -522,6 +522,45 @@ void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap) {
     }
 }
 
+void Renderer_DimRect(int x, int y, int width, int height, int amount) {
+    if (!g_renderer.framebuffer || amount <= 0) return;
+
+    // Clip
+    int x1 = (x < g_clipX) ? g_clipX : x;
+    int y1 = (y < g_clipY) ? g_clipY : y;
+    int x2 = x + width;
+    int y2 = y + height;
+    if (x2 > g_clipX + g_clipWidth) x2 = g_clipX + g_clipWidth;
+    if (y2 > g_clipY + g_clipHeight) y2 = g_clipY + g_clipHeight;
+
+    // Dim by reading the current palette RGB, darkening, and finding nearest
+    // For performance, we do a simpler approach: blend toward black by modifying
+    // the RGB values directly in the RGBA conversion
+    // But since we're palette-based, we'll darken by shifting palette indices
+    // toward darker entries in the same color family
+
+    // Simple approach: For each pixel, if amount=1, shift down by ~16 indices
+    // if amount=2, shift more. This works because Westwood palettes typically
+    // have darker shades at lower indices within color ranges.
+
+    int shift = (amount == 1) ? 8 : 16;
+
+    for (int py = y1; py < y2; py++) {
+        uint8_t* row = g_renderer.framebuffer + py * FRAMEBUFFER_WIDTH + x1;
+        for (int px = x1; px < x2; px++) {
+            uint8_t idx = *row;
+            // Skip pure black (0) and very dark colors
+            if (idx > 4) {
+                // Shift toward darker palette entry, but keep minimum of 1
+                int newIdx = idx - shift;
+                if (newIdx < 1) newIdx = 1;
+                *row = (uint8_t)newIdx;
+            }
+            row++;
+        }
+    }
+}
+
 // Simple 8x8 bitmap font for basic text rendering
 // Each character is 8 bytes, one byte per row
 static const uint8_t g_font8x8[128][8] = {

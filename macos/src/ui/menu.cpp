@@ -12,36 +12,45 @@
 #include <cstring>
 #include <cstdlib>
 
-// Westwood-style palette indices (approximate)
-// These match the snow.pal colors
+// Westwood-style palette indices for SNOW.PAL
+// Standard VGA/Westwood palette layout:
+// 0 = black (transparent), 1-15 = grayscale ramp
+// 16-31 = reds, 32-47 = oranges, 48-63 = yellows
+// 112-127 = red ramp, 176-191 = blue ramp
 #define PAL_BLACK       0
-#define PAL_DARKGREY    1
-#define PAL_GREY        13
-#define PAL_LTGREY      14
-#define PAL_WHITE       15
-#define PAL_RED         120   // Bright red
-#define PAL_DARKRED     123   // Dark red
-#define PAL_GOLD        127   // Gold/yellow
-#define PAL_GREEN       159   // Green
-#define PAL_DARKGREEN   161
-#define PAL_BLUE        180   // Blue
-#define PAL_DARKBLUE    183
+#define PAL_DARKGREY    4     // Dark grey
+#define PAL_GREY        8     // Medium grey
+#define PAL_LTGREY      12    // Light grey
+#define PAL_WHITE       15    // Bright white
+#define PAL_RED         122   // Bright red
+#define PAL_DARKRED     118   // Dark red
+#define PAL_GOLD        223   // Gold/yellow (high end of yellow ramp)
+#define PAL_YELLOW      220   // Yellow
+#define PAL_GREEN       172   // Green
+#define PAL_DARKGREEN   168
+#define PAL_BLUE        186   // Blue
+#define PAL_DARKBLUE    180
 
-// Button color scheme
-#define BTN_FACE        13    // Button face color (grey)
-#define BTN_HIGHLIGHT   15    // Top/left edge (white)
-#define BTN_SHADOW      1     // Bottom/right edge (dark)
-#define BTN_TEXT        15    // Normal text
-#define BTN_TEXT_HOVER  127   // Hovered text (gold)
-#define BTN_TEXT_DISABLED 7   // Disabled text
-#define BTN_FACE_HOVER  14    // Lighter grey on hover
-#define BTN_FACE_PRESSED 1    // Dark when pressed
+// Button color scheme - Westwood-style red/grey buttons
+#define BTN_FACE        8     // Button face color (medium grey)
+#define BTN_HIGHLIGHT   12    // Top/left edge (light grey)
+#define BTN_SHADOW      2     // Bottom/right edge (dark)
+#define BTN_TEXT        15    // Normal text (white)
+#define BTN_TEXT_HOVER  223   // Hovered text (gold/yellow)
+#define BTN_TEXT_DISABLED 6   // Disabled text (medium grey)
+#define BTN_FACE_HOVER  10    // Lighter grey on hover
+#define BTN_FACE_PRESSED 3    // Dark when pressed
 
 // Global state
 static MenuScreen g_currentScreen = MENU_SCREEN_NONE;
 static Menu* g_mainMenu = nullptr;
 static Menu* g_optionsMenu = nullptr;
+static Menu* g_campaignMenu = nullptr;
+static Menu* g_difficultyMenu = nullptr;
 static NewGameCallback g_newGameCallback = nullptr;
+static StartCampaignCallback g_startCampaignCallback = nullptr;
+static MenuCampaignChoice g_selectedCampaign = CAMPAIGN_NONE;
+static MenuDifficultyChoice g_selectedDifficulty = DIFFICULTY_NORMAL;
 
 // Sound effects for menus
 static AudioSample* g_clickSound = nullptr;
@@ -53,6 +62,8 @@ static int g_menuFrame = 0;
 // Forward declarations for callbacks
 static void OnMainMenuButton(int itemId, int value);
 static void OnOptionsButton(int itemId, int value);
+static void OnCampaignButton(int itemId, int value);
+static void OnDifficultyButton(int itemId, int value);
 
 // Button IDs
 enum {
@@ -65,7 +76,13 @@ enum {
     BTN_BACK,
     SLD_SOUND_VOL,
     SLD_MUSIC_VOL,
-    TGL_FULLSCREEN
+    TGL_FULLSCREEN,
+    BTN_ALLIED_CAMPAIGN,
+    BTN_SOVIET_CAMPAIGN,
+    BTN_SKIRMISH,
+    BTN_EASY,
+    BTN_NORMAL,
+    BTN_HARD
 };
 
 //===========================================================================
@@ -73,36 +90,45 @@ enum {
 //===========================================================================
 
 static void DrawMenuBackground(void) {
-    // Dark gradient background - simulate with horizontal bands
-    for (int y = 0; y < 400; y++) {
-        // Gradient from very dark at top to slightly less dark at bottom
-        uint8_t color;
-        if (y < 80) {
-            color = 0;  // Black at top
-        } else if (y < 320) {
-            color = 1;  // Dark grey for main area
-        } else {
-            color = 0;  // Black at bottom
-        }
-        Renderer_HLine(0, 639, y, color);
+    // Dark background with subtle gradient
+    Renderer_Clear(PAL_BLACK);
+
+    // Draw subtle dark grey frame around menu area
+    for (int y = 80; y < 340; y++) {
+        // Subtle gradient - darker at edges
+        uint8_t color = (y < 100 || y > 320) ? 1 : 2;
+        Renderer_HLine(80, 560, y, color);
     }
 
-    // Title banner area (top 80 pixels)
-    // Red gradient banner
-    for (int y = 20; y < 70; y++) {
-        uint8_t intensity = (y < 45) ? 120 : 123;  // Red shades
-        Renderer_HLine(100, 540, y, intensity);
+    // Title banner area (top section)
+    // Gradient red banner from dark to bright
+    for (int y = 15; y < 75; y++) {
+        // Red gradient - darker at top, brighter in middle
+        int intensity = 115 + (y - 15) / 4;  // 115-130 range
+        if (y > 50) intensity = 130 - (y - 50) / 4;  // Darken again
+        if (intensity < 115) intensity = 115;
+        if (intensity > 127) intensity = 127;
+        Renderer_HLine(80, 560, y, (uint8_t)intensity);
     }
 
-    // Banner border
-    Renderer_HLine(100, 540, 19, PAL_DARKRED);
-    Renderer_HLine(100, 540, 70, PAL_DARKRED);
-    Renderer_VLine(100, 19, 70, PAL_DARKRED);
-    Renderer_VLine(540, 19, 70, PAL_DARKRED);
+    // Banner border - beveled effect
+    // Top highlight
+    Renderer_HLine(80, 560, 14, 127);   // Bright red top
+    Renderer_HLine(80, 560, 15, 124);   // Slightly darker
+    // Bottom shadow
+    Renderer_HLine(80, 560, 75, 112);   // Dark red bottom
+    Renderer_HLine(80, 560, 76, 1);     // Very dark
+    // Side borders
+    Renderer_VLine(79, 14, 76, 127);    // Left bright
+    Renderer_VLine(80, 14, 76, 124);
+    Renderer_VLine(560, 14, 76, 112);   // Right dark
+    Renderer_VLine(561, 14, 76, 1);
 
-    // Inner highlight
-    Renderer_HLine(101, 539, 20, PAL_RED);
-    Renderer_VLine(101, 20, 69, PAL_RED);
+    // Bottom decorative bar
+    for (int y = 360; y < 385; y++) {
+        uint8_t color = (y == 360 || y == 384) ? 4 : 2;
+        Renderer_HLine(80, 560, y, color);
+    }
 }
 
 //===========================================================================
@@ -199,6 +225,24 @@ void Menu_Init(void) {
     Menu_AddToggle(g_optionsMenu, TGL_FULLSCREEN, "FULLSCREEN", centerX - 80, 260, FALSE, OnOptionsButton);
 
     Menu_AddButton(g_optionsMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 320, btnWidth, btnHeight, OnOptionsButton);
+
+    // Create campaign selection menu
+    g_campaignMenu = Menu_Create("SELECT CAMPAIGN");
+    Menu_SetColors(g_campaignMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
+
+    Menu_AddButton(g_campaignMenu, BTN_ALLIED_CAMPAIGN, "ALLIED CAMPAIGN", centerX - btnWidth/2, 140, btnWidth, btnHeight, OnCampaignButton);
+    Menu_AddButton(g_campaignMenu, BTN_SOVIET_CAMPAIGN, "SOVIET CAMPAIGN", centerX - btnWidth/2, 140 + spacing, btnWidth, btnHeight, OnCampaignButton);
+    Menu_AddButton(g_campaignMenu, BTN_SKIRMISH, "SKIRMISH BATTLE", centerX - btnWidth/2, 140 + spacing*2, btnWidth, btnHeight, OnCampaignButton);
+    Menu_AddButton(g_campaignMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 140 + spacing*4, btnWidth, btnHeight, OnCampaignButton);
+
+    // Create difficulty selection menu
+    g_difficultyMenu = Menu_Create("SELECT DIFFICULTY");
+    Menu_SetColors(g_difficultyMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
+
+    Menu_AddButton(g_difficultyMenu, BTN_EASY, "EASY", centerX - btnWidth/2, 140, btnWidth, btnHeight, OnDifficultyButton);
+    Menu_AddButton(g_difficultyMenu, BTN_NORMAL, "NORMAL", centerX - btnWidth/2, 140 + spacing, btnWidth, btnHeight, OnDifficultyButton);
+    Menu_AddButton(g_difficultyMenu, BTN_HARD, "HARD", centerX - btnWidth/2, 140 + spacing*2, btnWidth, btnHeight, OnDifficultyButton);
+    Menu_AddButton(g_difficultyMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 140 + spacing*4, btnWidth, btnHeight, OnDifficultyButton);
 }
 
 void Menu_Shutdown(void) {
@@ -209,6 +253,14 @@ void Menu_Shutdown(void) {
     if (g_optionsMenu) {
         Menu_Destroy(g_optionsMenu);
         g_optionsMenu = nullptr;
+    }
+    if (g_campaignMenu) {
+        Menu_Destroy(g_campaignMenu);
+        g_campaignMenu = nullptr;
+    }
+    if (g_difficultyMenu) {
+        Menu_Destroy(g_difficultyMenu);
+        g_difficultyMenu = nullptr;
     }
     if (g_clickSound) {
         Audio_FreeTestTone(g_clickSound);
@@ -423,10 +475,17 @@ void Menu_Render(Menu* menu) {
     DrawMenuBackground();
 
     // Draw title text in banner
-    // "COMMAND & CONQUER" in gold
-    Renderer_DrawText("COMMAND & CONQUER", 220, 30, PAL_GOLD, 0);
-    // "RED ALERT" larger below
+    // "COMMAND & CONQUER" in gold/yellow
+    Renderer_DrawText("COMMAND & CONQUER", 220, 28, PAL_GOLD, 0);
+    // "RED ALERT" in white below (would be larger in original)
     Renderer_DrawText("RED ALERT", 268, 48, PAL_WHITE, 0);
+
+    // Draw menu title if not main menu
+    if (menu->title && strcmp(menu->title, "RED ALERT") != 0) {
+        int titleLen = (int)strlen(menu->title) * 8;
+        int titleX = 320 - titleLen / 2;
+        Renderer_DrawText(menu->title, titleX, 92, PAL_YELLOW, 0);
+    }
 
     // Draw menu items
     for (int i = 0; i < menu->itemCount; i++) {
@@ -525,7 +584,7 @@ void Menu_Render(Menu* menu) {
     }
 
     // Version info at bottom
-    Renderer_DrawText("MACOS PORT - M34", 260, 380, BTN_TEXT_DISABLED, 0);
+    Renderer_DrawText("MACOS PORT - M43", 260, 370, PAL_DARKGREY, 0);
 }
 
 void Menu_HandleKey(Menu* menu, int vkCode) {
@@ -687,10 +746,8 @@ static void OnMainMenuButton(int itemId, int value) {
 
     switch (itemId) {
         case BTN_NEW_GAME:
-            Menu_SetCurrentScreen(MENU_SCREEN_NONE);
-            if (g_newGameCallback) {
-                g_newGameCallback();
-            }
+            // Go to campaign selection instead of directly starting
+            Menu_SetCurrentScreen(MENU_SCREEN_CAMPAIGN_SELECT);
             break;
 
         case BTN_LOAD_GAME:
@@ -708,6 +765,75 @@ static void OnMainMenuButton(int itemId, int value) {
         case BTN_EXIT:
             // Signal quit
             GameLoop_Quit();
+            break;
+    }
+}
+
+static void OnCampaignButton(int itemId, int value) {
+    (void)value;
+
+    switch (itemId) {
+        case BTN_ALLIED_CAMPAIGN:
+            g_selectedCampaign = CAMPAIGN_ALLIED;
+            Menu_SetCurrentScreen(MENU_SCREEN_DIFFICULTY_SELECT);
+            break;
+
+        case BTN_SOVIET_CAMPAIGN:
+            g_selectedCampaign = CAMPAIGN_SOVIET;
+            Menu_SetCurrentScreen(MENU_SCREEN_DIFFICULTY_SELECT);
+            break;
+
+        case BTN_SKIRMISH:
+            // Skirmish = demo mode (for now)
+            g_selectedCampaign = CAMPAIGN_NONE;
+            Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+            if (g_newGameCallback) {
+                g_newGameCallback();
+            }
+            break;
+
+        case BTN_BACK:
+            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            break;
+    }
+}
+
+static void OnDifficultyButton(int itemId, int value) {
+    (void)value;
+
+    switch (itemId) {
+        case BTN_EASY:
+            g_selectedDifficulty = DIFFICULTY_EASY;
+            Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+            if (g_startCampaignCallback) {
+                g_startCampaignCallback((int)g_selectedCampaign, (int)g_selectedDifficulty);
+            } else if (g_newGameCallback) {
+                g_newGameCallback();
+            }
+            break;
+
+        case BTN_NORMAL:
+            g_selectedDifficulty = DIFFICULTY_NORMAL;
+            Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+            if (g_startCampaignCallback) {
+                g_startCampaignCallback((int)g_selectedCampaign, (int)g_selectedDifficulty);
+            } else if (g_newGameCallback) {
+                g_newGameCallback();
+            }
+            break;
+
+        case BTN_HARD:
+            g_selectedDifficulty = DIFFICULTY_HARD;
+            Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+            if (g_startCampaignCallback) {
+                g_startCampaignCallback((int)g_selectedCampaign, (int)g_selectedDifficulty);
+            } else if (g_newGameCallback) {
+                g_newGameCallback();
+            }
+            break;
+
+        case BTN_BACK:
+            Menu_SetCurrentScreen(MENU_SCREEN_CAMPAIGN_SELECT);
             break;
     }
 }
@@ -734,4 +860,24 @@ static void OnOptionsButton(int itemId, int value) {
 
 void Menu_SetNewGameCallback(NewGameCallback callback) {
     g_newGameCallback = callback;
+}
+
+void Menu_SetStartCampaignCallback(StartCampaignCallback callback) {
+    g_startCampaignCallback = callback;
+}
+
+Menu* Menu_GetCampaignMenu(void) {
+    return g_campaignMenu;
+}
+
+Menu* Menu_GetDifficultyMenu(void) {
+    return g_difficultyMenu;
+}
+
+MenuCampaignChoice Menu_GetSelectedCampaign(void) {
+    return g_selectedCampaign;
+}
+
+MenuDifficultyChoice Menu_GetSelectedDifficulty(void) {
+    return g_selectedDifficulty;
 }

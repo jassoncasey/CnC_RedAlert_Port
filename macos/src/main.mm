@@ -99,12 +99,43 @@ static void StartMission(const MissionData* mission) {
     NSLog(@"Mission started: %s", mission->name);
 }
 
-// Start a demo mission
+// Start a demo mission (skirmish mode)
 static void StartDemoMission(void) {
     // Load demo mission data
     Mission_GetDemo(&g_currentMission);
 
     // Start it
+    StartMission(&g_currentMission);
+}
+
+// Start a campaign mission
+static void StartCampaignMission(int campaign, int difficulty) {
+    // For now, campaign missions just start the demo
+    // In a full implementation, this would load the actual campaign mission INI files
+
+    // Set mission name based on campaign and difficulty
+    const char* campaignName = (campaign == CAMPAIGN_ALLIED) ? "Allied" : "Soviet";
+    const char* diffName = (difficulty == DIFFICULTY_EASY) ? "Easy" :
+                           (difficulty == DIFFICULTY_HARD) ? "Hard" : "Normal";
+
+    NSLog(@"Starting %s Campaign on %s difficulty", campaignName, diffName);
+
+    // For now, load demo mission but rename it
+    Mission_GetDemo(&g_currentMission);
+
+    // Update mission name to reflect campaign
+    snprintf(g_currentMission.name, sizeof(g_currentMission.name),
+             "%s Campaign - Mission 1", campaignName);
+
+    // Adjust starting credits based on difficulty
+    if (difficulty == DIFFICULTY_EASY) {
+        g_currentMission.startCredits = 7500;  // More starting money
+    } else if (difficulty == DIFFICULTY_HARD) {
+        g_currentMission.startCredits = 3000;  // Less starting money
+    } else {
+        g_currentMission.startCredits = 5000;  // Normal
+    }
+
     StartMission(&g_currentMission);
 }
 
@@ -122,6 +153,12 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         switch (currentScreen) {
             case MENU_SCREEN_MAIN:
                 activeMenu = Menu_GetMainMenu();
+                break;
+            case MENU_SCREEN_CAMPAIGN_SELECT:
+                activeMenu = Menu_GetCampaignMenu();
+                break;
+            case MENU_SCREEN_DIFFICULTY_SELECT:
+                activeMenu = Menu_GetDifficultyMenu();
                 break;
             case MENU_SCREEN_OPTIONS:
                 activeMenu = Menu_GetOptionsMenu();
@@ -145,6 +182,10 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         if (Input_WasKeyPressed(VK_ESCAPE)) {
             if (currentScreen == MENU_SCREEN_OPTIONS) {
                 Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            } else if (currentScreen == MENU_SCREEN_CAMPAIGN_SELECT) {
+                Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            } else if (currentScreen == MENU_SCREEN_DIFFICULTY_SELECT) {
+                Menu_SetCurrentScreen(MENU_SCREEN_CAMPAIGN_SELECT);
             }
         }
         return; // Don't process game logic while in menus
@@ -428,6 +469,12 @@ void GameRender(void) {
         switch (currentScreen) {
             case MENU_SCREEN_MAIN:
                 activeMenu = Menu_GetMainMenu();
+                break;
+            case MENU_SCREEN_CAMPAIGN_SELECT:
+                activeMenu = Menu_GetCampaignMenu();
+                break;
+            case MENU_SCREEN_DIFFICULTY_SELECT:
+                activeMenu = Menu_GetDifficultyMenu();
                 break;
             case MENU_SCREEN_OPTIONS:
                 activeMenu = Menu_GetOptionsMenu();
@@ -934,6 +981,7 @@ void GameRender(void) {
     // Initialize menu system
     Menu_Init();
     Menu_SetNewGameCallback(StartDemoMission);
+    Menu_SetStartCampaignCallback(StartCampaignMission);
     Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
 
     // Set up game loop callbacks

@@ -378,27 +378,35 @@ void Map_Render(void) {
         for (int cx = startCellX; cx < endCellX; cx++) {
             MapCell* cell = &g_cells[cy][cx];
 
-            // Skip unrevealed cells (fog of war)
-            if (!(cell->flags & CELL_FLAG_REVEALED)) {
-                continue;
-            }
-
             // Calculate screen position
             int screenX = cx * CELL_SIZE - g_viewport.x;
             int screenY = cy * CELL_SIZE - g_viewport.y;
 
-            // Fog of war darkening
-            BOOL inFog = !(cell->flags & CELL_FLAG_VISIBLE);
+            // Fog of war states:
+            // 1. Never seen (shroud) - render black
+            // 2. Seen but not visible (fog) - render terrain greyed out
+            // 3. Currently visible - render terrain normally
+
+            BOOL isRevealed = (cell->flags & CELL_FLAG_REVEALED) != 0;
+            BOOL isVisible = (cell->flags & CELL_FLAG_VISIBLE) != 0;
+
+            // Unrevealed cells (shroud) - draw black
+            if (!isRevealed) {
+                Renderer_FillRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 0);  // Black
+                continue;
+            }
+
+            // Revealed but not visible (fog) - show terrain but dimmed
+            BOOL inFog = !isVisible;
 
             // Try to render with terrain tiles first
             if (useTiles) {
                 // Use cell coordinates as variant for visual variety
                 int variant = (cx * 7 + cy * 13) % 20;
                 if (Terrain_RenderTile(cell->terrain, variant, screenX, screenY)) {
-                    // Tile rendered successfully
+                    // Tile rendered successfully - dim if in fog
                     if (inFog) {
-                        // Darken the tile for fog of war
-                        Renderer_FillRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 0x80); // Semi-transparent black
+                        Renderer_DimRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 2);
                     }
                     continue;
                 }
@@ -406,9 +414,6 @@ void Map_Render(void) {
 
             // Fallback: Draw colored rectangles
             uint8_t color = g_terrainColors[cell->terrain];
-            if (inFog) {
-                color = 8; // Dark gray for fog
-            }
 
             // Draw cell as filled rectangle
             Renderer_FillRect(screenX, screenY, CELL_SIZE - 1, CELL_SIZE - 1, color);
@@ -429,20 +434,13 @@ void Map_Render(void) {
                 Renderer_PutPixel(screenX + 12, screenY + 4, 7);
                 Renderer_PutPixel(screenX + 16, screenY + 14, 7);
             }
+
+            // Dim the cell if in fog
+            if (inFog) {
+                Renderer_DimRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 2);
+            }
         }
     }
-
-    // Draw grid lines (optional, for debug)
-    #if 0
-    for (int cx = startCellX; cx <= endCellX; cx++) {
-        int screenX = cx * CELL_SIZE - g_viewport.x;
-        Render_DrawLine(screenX, 0, screenX, g_viewport.height, 8);
-    }
-    for (int cy = startCellY; cy <= endCellY; cy++) {
-        int screenY = cy * CELL_SIZE - g_viewport.y;
-        Render_DrawLine(0, screenY, g_viewport.width, screenY, 8);
-    }
-    #endif
 }
 
 void Map_Update(void) {

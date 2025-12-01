@@ -146,6 +146,13 @@ void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
 void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap);
 
 /**
+ * Dim a rectangular region (fog of war effect)
+ * Darkens existing pixels by shifting to darker palette entries.
+ * @param amount  Dimming amount (0=none, 1=slight, 2=heavy)
+ */
+void Renderer_DimRect(int x, int y, int width, int height, int amount);
+
+/**
  * Draw text (simple bitmap font)
  * Returns width of rendered text in pixels.
  * Note: This is a stub - real font rendering requires font data.

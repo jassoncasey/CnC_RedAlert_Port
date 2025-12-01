@@ -118,8 +118,10 @@ void Units_Clear(void) {
     memset(g_buildings, 0, sizeof(g_buildings));
 }
 
-// Check if a cell is occupied by any unit (excluding given unit)
-static BOOL IsCellOccupied(int cellX, int cellY, int excludeUnitId = -1) {
+// Check if a cell is occupied by another unit
+// moverTeam: team of the unit trying to move (-1 to block on all)
+// canCrush: if true, don't block on enemy infantry (vehicle can crush them)
+static BOOL IsCellOccupiedForTeam(int cellX, int cellY, int excludeUnitId, int moverTeam, BOOL canCrush) {
     for (int i = 0; i < MAX_UNITS; i++) {
         if (i == excludeUnitId) continue;
         if (!g_units[i].active) continue;
@@ -129,10 +131,23 @@ static BOOL IsCellOccupied(int cellX, int cellY, int excludeUnitId = -1) {
         int unitCellY = g_units[i].worldY / CELL_SIZE;
 
         if (unitCellX == cellX && unitCellY == cellY) {
+            // Check if we can ignore this unit
+            if (canCrush && g_units[i].team != moverTeam) {
+                // Can crush enemy infantry - check if it's infantry
+                const UnitTypeDef* def = &g_unitTypes[g_units[i].type];
+                if (def->isInfantry) {
+                    continue;  // Don't block, we can crush them
+                }
+            }
             return TRUE;
         }
     }
     return FALSE;
+}
+
+// Simple version that blocks on all units
+static BOOL IsCellOccupied(int cellX, int cellY, int excludeUnitId = -1) {
+    return IsCellOccupiedForTeam(cellX, cellY, excludeUnitId, -1, FALSE);
 }
 
 // Update cell occupancy for a unit
@@ -787,6 +802,7 @@ static BOOL CanCrushInfantry(Unit* unit) {
 }
 
 // Check for and crush any enemy infantry at the given position
+// Only crushes ENEMY infantry - friendly units are avoided
 static void TryCrushInfantry(Unit* crusher, int unitId, int worldX, int worldY) {
     if (!CanCrushInfantry(crusher)) return;
 
@@ -799,6 +815,9 @@ static void TryCrushInfantry(Unit* crusher, int unitId, int worldX, int worldY) 
         if (!target->active) continue;
         if (target->state == STATE_DYING) continue;
 
+        // ONLY crush ENEMY infantry - not friendlies!
+        if (target->team == crusher->team) continue;
+
         const UnitTypeDef* targetDef = &g_unitTypes[target->type];
         if (!targetDef->isInfantry) continue;  // Can only crush infantry
 
@@ -808,7 +827,7 @@ static void TryCrushInfantry(Unit* crusher, int unitId, int worldX, int worldY) 
         int dist = (int)sqrt((double)(dx * dx + dy * dy));
 
         if (dist < crushRadius + targetDef->size / 2) {
-            // Crush! Infantry dies instantly
+            // Crush! Enemy infantry dies instantly
             target->health = 0;
             target->state = STATE_DYING;
 
@@ -847,8 +866,10 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
     int waypointCellX, waypointCellY;
     Map_WorldToCell(unit->nextWaypointX, unit->nextWaypointY, &waypointCellX, &waypointCellY);
 
-    if (IsCellOccupied(waypointCellX, waypointCellY, unitId)) {
-        // Cell is occupied - wait or recalculate path
+    // Vehicles that can crush don't block on enemy infantry
+    BOOL canCrush = CanCrushInfantry(unit);
+    if (IsCellOccupiedForTeam(waypointCellX, waypointCellY, unitId, unit->team, canCrush)) {
+        // Cell is occupied by something we can't move through - wait or recalculate path
         // For now, just stop and clear path to recalculate next frame
         unit->pathLength = 0;
         return;

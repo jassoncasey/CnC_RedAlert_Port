@@ -202,7 +202,8 @@ static bool CheckPrerequisites(const BuildItemDef* item) {
     return (item->prerequisites & g_playerBuildings) == item->prerequisites;
 }
 
-// Get the name of the first missing prerequisite for an item
+// Get the name of the first missing prerequisite for an item (currently unused but kept for tooltip support)
+static const char* GetMissingPrereq(const BuildItemDef* item) __attribute__((unused));
 static const char* GetMissingPrereq(const BuildItemDef* item) {
     uint32_t missing = item->prerequisites & ~g_playerBuildings;
 
@@ -601,11 +602,22 @@ void GameUI_RenderRadar(void) {
     int offsetX = RADAR_X + 2 + (RADAR_WIDTH - 4 - displayWidth) / 2;
     int offsetY = RADAR_Y + 2 + (RADAR_HEIGHT - 4 - displayHeight) / 2;
 
-    // Draw terrain
+    bool fogEnabled = Map_IsFogEnabled();
+
+    // Draw terrain (respect fog of war)
     for (int cy = 0; cy < mapHeight; cy++) {
         for (int cx = 0; cx < mapWidth; cx++) {
             MapCell* cell = Map_GetCell(cx, cy);
             if (!cell) continue;
+
+            int px = offsetX + (int)(cx * scale);
+            int py = offsetY + (int)(cy * scale);
+
+            // Check fog of war - unrevealed cells are black
+            if (fogEnabled && !(cell->flags & CELL_FLAG_REVEALED)) {
+                Renderer_PutPixel(px, py, PAL_BLACK);
+                continue;
+            }
 
             uint8_t color;
             switch (cell->terrain) {
@@ -631,19 +643,37 @@ void GameUI_RenderRadar(void) {
                     break;
             }
 
-            int px = offsetX + (int)(cx * scale);
-            int py = offsetY + (int)(cy * scale);
+            // Dim revealed but not visible cells (fog)
+            if (fogEnabled && !(cell->flags & CELL_FLAG_VISIBLE)) {
+                // Darken the color for fog
+                if (color == PAL_BLUE) color = PAL_BLACK;
+                else if (color == PAL_GREY) color = PAL_BLACK;
+                else if (color == PAL_GREEN) color = PAL_BLACK;
+                else if (color == PAL_LTGREY) color = PAL_GREY;
+                else if (color == PAL_YELLOW) color = PAL_BROWN;
+                else color = PAL_BLACK;
+            }
+
             Renderer_PutPixel(px, py, color);
         }
     }
 
-    // Draw units
+    // Draw units (only if visible)
     for (int i = 0; i < MAX_UNITS; i++) {
         Unit* unit = Units_Get(i);
         if (!unit || !unit->active) continue;
 
         int cellX = unit->worldX / CELL_SIZE;
         int cellY = unit->worldY / CELL_SIZE;
+
+        // Check fog of war - only show units in visible cells
+        if (fogEnabled) {
+            MapCell* cell = Map_GetCell(cellX, cellY);
+            if (!cell || !(cell->flags & CELL_FLAG_VISIBLE)) {
+                // Exception: always show player units
+                if (unit->team != TEAM_PLAYER) continue;
+            }
+        }
 
         int px = offsetX + (int)(cellX * scale);
         int py = offsetY + (int)(cellY * scale);
@@ -654,10 +684,16 @@ void GameUI_RenderRadar(void) {
         Renderer_FillRect(px, py, 2, 2, color);
     }
 
-    // Draw buildings
+    // Draw buildings (only if revealed)
     for (int i = 0; i < MAX_BUILDINGS; i++) {
         Building* bldg = Buildings_Get(i);
         if (!bldg || !bldg->active) continue;
+
+        // Check fog of war - only show buildings in revealed cells
+        if (fogEnabled && bldg->team != TEAM_PLAYER) {
+            MapCell* cell = Map_GetCell(bldg->cellX, bldg->cellY);
+            if (!cell || !(cell->flags & CELL_FLAG_REVEALED)) continue;
+        }
 
         int px = offsetX + (int)(bldg->cellX * scale);
         int py = offsetY + (int)(bldg->cellY * scale);
@@ -745,16 +781,23 @@ void GameUI_RadarToWorld(int radarX, int radarY, int* worldX, int* worldY) {
 // Sidebar Implementation
 //===========================================================================
 
+// Button height reduced to fit all items
+#define SIDEBAR_BUTTON_HEIGHT 16
+#define SIDEBAR_BUTTON_SPACING 17
+
 void GameUI_RenderSidebar(void) {
     int startY = STRIP_Y;
+    int maxY = SELECTION_Y - 4;  // Don't go past selection panel
 
     // Section: STRUCTURES
-    DrawBeveledBox(SIDEBAR_X + 3, startY, SIDEBAR_WIDTH - 6, 12, PAL_GREY, true);
-    Renderer_DrawText("STRUCTURES", SIDEBAR_X + 8, startY + 2, PAL_BLACK, 0);
-    startY += 14;
+    DrawBeveledBox(SIDEBAR_X + 3, startY, SIDEBAR_WIDTH - 6, 10, PAL_GREY, true);
+    Renderer_DrawText("STRUCTURES", SIDEBAR_X + 8, startY + 1, PAL_BLACK, 0);
+    startY += 12;
 
     // Structure buttons
     for (int i = 0; i < g_structureDefCount; i++) {
+        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;  // Don't overflow
+
         const BuildItemDef* item = &g_structureDefs[i];
         bool hasPrereqs = CheckPrerequisites(item);
         bool canAfford = g_playerCredits >= item->cost;
@@ -766,64 +809,60 @@ void GameUI_RenderSidebar(void) {
         uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
 
         // Button with 3D effect
-        DrawBeveledBox(SIDEBAR_X + 4, startY, SIDEBAR_WIDTH - 8, 20, bgColor, available && !isBuilding);
+        DrawBeveledBox(SIDEBAR_X + 4, startY, SIDEBAR_WIDTH - 8, SIDEBAR_BUTTON_HEIGHT, bgColor, available && !isBuilding);
 
-        // Item name
-        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 2, textColor, 0);
+        // Item name and cost/status on same line
+        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 1, textColor, 0);
 
-        // Cost, progress, or requirement
+        // Cost, progress, or requirement (to the right of name)
         if (isBuilding) {
             if (g_placementMode && g_placementType == i) {
                 // Ready for placement - pulsing text
                 uint8_t readyColor = (g_flashFrame < 10) ? PAL_WHITE : PAL_LTGREEN;
-                Renderer_DrawText("READY", SIDEBAR_X + 8, startY + 11, readyColor, 0);
+                Renderer_DrawText("RDY", SIDEBAR_X + 44, startY + 1, readyColor, 0);
             } else {
                 char progressStr[16];
                 snprintf(progressStr, sizeof(progressStr), "%d%%", progress);
-                Renderer_DrawText(progressStr, SIDEBAR_X + 8, startY + 11, PAL_LTGREEN, 0);
+                Renderer_DrawText(progressStr, SIDEBAR_X + 44, startY + 1, PAL_LTGREEN, 0);
 
-                // Progress bar
+                // Progress bar below
                 int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
-                Renderer_FillRect(SIDEBAR_X + 8, startY + 16, barW, 2, PAL_LTGREEN);
+                Renderer_FillRect(SIDEBAR_X + 8, startY + 10, barW, 2, PAL_LTGREEN);
             }
         } else if (!hasPrereqs) {
-            // Show missing prerequisite
-            const char* missing = GetMissingPrereq(item);
-            if (missing) {
-                Renderer_DrawText("Need:", SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
-            }
+            Renderer_DrawText("---", SIDEBAR_X + 44, startY + 1, PAL_GREY, 0);
         } else if (!canAfford) {
-            // Show cost in red (can't afford)
             char costStr[16];
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
+            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_RED, 0);
         } else {
-            // Available - show cost in yellow
             char costStr[16];
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_YELLOW, 0);
+            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
         }
 
-        startY += 22;
+        startY += SIDEBAR_BUTTON_SPACING;
     }
 
-    // Placement hint
+    // Placement hint (compact)
     if (g_placementMode) {
-        Renderer_DrawText("Click map", SIDEBAR_X + 6, startY, PAL_WHITE, 0);
-        Renderer_DrawText("to place", SIDEBAR_X + 8, startY + 10, PAL_LTGREY, 0);
-        Renderer_DrawText("ESC=cancel", SIDEBAR_X + 4, startY + 20, PAL_GREY, 0);
-        startY += 34;
+        Renderer_DrawText("Click to place", SIDEBAR_X + 6, startY, PAL_WHITE, 0);
+        startY += 12;
     }
 
-    startY += 4;
+    startY += 2;
 
     // Section: UNITS
-    DrawBeveledBox(SIDEBAR_X + 3, startY, SIDEBAR_WIDTH - 6, 12, PAL_GREY, true);
-    Renderer_DrawText("UNITS", SIDEBAR_X + 8, startY + 2, PAL_BLACK, 0);
-    startY += 14;
+    if (startY + 12 < maxY) {
+        DrawBeveledBox(SIDEBAR_X + 3, startY, SIDEBAR_WIDTH - 6, 10, PAL_GREY, true);
+        Renderer_DrawText("UNITS", SIDEBAR_X + 8, startY + 1, PAL_BLACK, 0);
+        startY += 12;
+    }
 
     // Unit buttons
     for (int i = 0; i < g_unitDefCount; i++) {
+        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;  // Don't overflow
+
         const BuildItemDef* item = &g_unitDefs[i];
         bool hasPrereqs = CheckPrerequisites(item);
         bool canAfford = g_playerCredits >= item->cost;
@@ -834,36 +873,30 @@ void GameUI_RenderSidebar(void) {
         uint8_t bgColor = available ? PAL_GREY : PAL_BLACK;
         uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
 
-        DrawBeveledBox(SIDEBAR_X + 4, startY, SIDEBAR_WIDTH - 8, 20, bgColor, available && !isBuilding);
+        DrawBeveledBox(SIDEBAR_X + 4, startY, SIDEBAR_WIDTH - 8, SIDEBAR_BUTTON_HEIGHT, bgColor, available && !isBuilding);
 
-        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 2, textColor, 0);
+        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 1, textColor, 0);
 
         if (isBuilding) {
             char progressStr[16];
             snprintf(progressStr, sizeof(progressStr), "%d%%", progress);
-            Renderer_DrawText(progressStr, SIDEBAR_X + 8, startY + 11, PAL_LTGREEN, 0);
+            Renderer_DrawText(progressStr, SIDEBAR_X + 44, startY + 1, PAL_LTGREEN, 0);
 
             int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
-            Renderer_FillRect(SIDEBAR_X + 8, startY + 16, barW, 2, PAL_LTGREEN);
+            Renderer_FillRect(SIDEBAR_X + 8, startY + 10, barW, 2, PAL_LTGREEN);
         } else if (!hasPrereqs) {
-            // Show missing prerequisite
-            const char* missing = GetMissingPrereq(item);
-            if (missing) {
-                Renderer_DrawText("Need:", SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
-            }
+            Renderer_DrawText("---", SIDEBAR_X + 44, startY + 1, PAL_GREY, 0);
         } else if (!canAfford) {
-            // Show cost in red (can't afford)
             char costStr[16];
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_RED, 0);
+            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_RED, 0);
         } else {
-            // Available - show cost in yellow
             char costStr[16];
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 11, PAL_YELLOW, 0);
+            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
         }
 
-        startY += 22;
+        startY += SIDEBAR_BUTTON_SPACING;
     }
 }
 
@@ -871,11 +904,14 @@ BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
     (void)leftClick;
     (void)mouseX;
 
-    int startY = STRIP_Y + 14;  // After "STRUCTURES" header
+    int startY = STRIP_Y + 12;  // After "STRUCTURES" header
+    int maxY = SELECTION_Y - 4;
 
     // Check structure buttons
     for (int i = 0; i < g_structureDefCount; i++) {
-        if (mouseY >= startY && mouseY < startY + 20) {
+        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;
+
+        if (mouseY >= startY && mouseY < startY + SIDEBAR_BUTTON_HEIGHT) {
             BuildItemDef* item = &g_structureDefs[i];
 
             // Check if already building or in placement mode
@@ -899,19 +935,21 @@ BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
             g_structureProgress = 0;
             return TRUE;
         }
-        startY += 22;
+        startY += SIDEBAR_BUTTON_SPACING;
     }
 
     // Skip placement hint area if visible
     if (g_placementMode) {
-        startY += 34;
+        startY += 12;
     }
 
-    startY += 4 + 14;  // Skip gap and "UNITS" header
+    startY += 2 + 12;  // Skip gap and "UNITS" header
 
     // Check unit buttons
     for (int i = 0; i < g_unitDefCount; i++) {
-        if (mouseY >= startY && mouseY < startY + 20) {
+        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;
+
+        if (mouseY >= startY && mouseY < startY + SIDEBAR_BUTTON_HEIGHT) {
             BuildItemDef* item = &g_unitDefs[i];
 
             // Check if already building something
@@ -935,7 +973,7 @@ BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
             g_unitProgress = 0;
             return TRUE;
         }
-        startY += 22;
+        startY += SIDEBAR_BUTTON_SPACING;
     }
 
     return FALSE;

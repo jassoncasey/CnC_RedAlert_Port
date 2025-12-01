@@ -271,10 +271,22 @@ After M33-M37, we have:
 
 **Files:** `main.mm`
 
-### M43: Campaign Flow
-- Campaign selection (Allied/Soviet)
-- Mission progression
-- Save/load campaign state
+### ✓ M43: Campaign Flow - COMPLETE
+
+**Goal:** Campaign selection and mission flow.
+
+**Completed:**
+- [x] Campaign selection menu (Allied/Soviet)
+- [x] Difficulty selection (Easy/Normal/Hard)
+- [x] Skirmish mode option
+- [x] Difficulty affects starting credits
+- [x] Campaign infrastructure ready (CampaignClass)
+- [x] Mission progression tracking (MissionState)
+- [x] Save/load campaign progress functions
+
+**Files:** `ui/menu.cpp`, `ui/menu.h`, `game/campaign.cpp`, `main.mm`
+
+**Note:** Full campaign INI loading not yet integrated - currently uses demo mission as placeholder for all campaign starts. Campaign data tables (AlliedMissions, SovietMissions) are defined and ready.
 
 ### M44: Briefings
 - Pre-mission briefing screen
@@ -319,7 +331,8 @@ After M33-M37, we have:
 | **Unit behaviors** | ✓ Done (M40) | - |
 | **Scenario loading** | ✓ Done (M41) | - |
 | **Mission objectives** | ✓ Done (M42) | - |
-| Campaign missions | In Progress | Medium |
+| **Campaign flow** | ✓ Done (M43) | - |
+| Briefings | Not Started | Medium |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M43 - Campaign Flow (mission progression).
+**Next step:** M44 - Briefings (pre-mission briefing screen).
