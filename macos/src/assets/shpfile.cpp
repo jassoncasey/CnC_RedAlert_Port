@@ -62,149 +62,156 @@ struct ShpFile {
     uint16_t maxHeight;
 };
 
-// LCW/Format80 decompression
-// This is a variant of LZSS used by Westwood
+// LCW/Format80 decompression (Lempel-Castle-Welch)
+// Based on OpenRA's LCWCompression.cs implementation
 static int DecompressLCW(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize) {
-    const uint8_t* srcEnd = src + srcSize;
-    uint8_t* dstStart = dst;
-    uint8_t* dstEnd = dst + dstSize;
+    int srcIdx = 0;
+    int destIdx = 0;
 
-    while (src < srcEnd && dst < dstEnd) {
-        uint8_t cmd = *src++;
+    while (srcIdx < srcSize) {
+        uint8_t cmd = src[srcIdx++];
 
-        if (cmd == 0) {
-            // End of data
-            break;
-        } else if ((cmd & 0x80) == 0) {
-            // Short copy from source (relative)
-            // cmd = 0CCCCCPP PPPPPPPP
-            // Copy CCC+3 bytes from position dst-PPP
-            if (src >= srcEnd) break;
-            int count = ((cmd >> 4) & 0x07) + 3;
-            int offset = ((cmd & 0x0F) << 8) | *src++;
-            const uint8_t* copySrc = dst - offset;
-            if (copySrc < dstStart || dst + count > dstEnd) break;
-            while (count-- > 0) {
-                *dst++ = *copySrc++;
+        if ((cmd & 0x80) == 0) {
+            // Case 2: Short copy from previous output (relative)
+            // 0CCCPPPP PPPPPPPP - Copy (CCC+3) bytes from (dest - PPP)
+            if (srcIdx >= srcSize) break;
+            uint8_t secondByte = src[srcIdx++];
+            int count = ((cmd & 0x70) >> 4) + 3;
+            int rpos = ((cmd & 0x0F) << 8) + secondByte;
+
+            if (destIdx + count > dstSize) break;
+
+            int srcPos = destIdx - rpos;
+            for (int i = 0; i < count; i++) {
+                // Handle overlapping copies (RLE-like pattern)
+                if (destIdx - srcPos == 1)
+                    dst[destIdx + i] = dst[destIdx - 1];
+                else
+                    dst[destIdx + i] = dst[srcPos + i];
             }
-        } else if ((cmd & 0xC0) == 0x80) {
-            // Short literal run
-            // cmd = 10CCCCCC
-            // Copy CCC bytes literally from source
+            destIdx += count;
+        } else if ((cmd & 0x40) == 0) {
+            // Case 1: Literal copy from source
+            // 10CCCCCC - Copy C bytes literally from source
             int count = cmd & 0x3F;
             if (count == 0) break; // End marker
-            if (src + count > srcEnd || dst + count > dstEnd) break;
-            memcpy(dst, src, count);
-            src += count;
-            dst += count;
-        } else if ((cmd & 0xC0) == 0xC0) {
-            // Various commands based on next bits
-            if ((cmd & 0xFE) == 0xFE) {
-                // Long run of single byte
-                // FE CC CC VV or FF CC CC VV
-                if (src + 3 > srcEnd) break;
-                int count = src[0] | (src[1] << 8);
-                uint8_t value = src[2];
-                src += 3;
-                if (dst + count > dstEnd) count = (int)(dstEnd - dst);
-                memset(dst, value, count);
-                dst += count;
-            } else if ((cmd & 0x3F) == 0x3E) {
-                // Medium literal run
-                // cmd = 11111110 CC CC
-                if (src + 2 > srcEnd) break;
-                int count = src[0] | (src[1] << 8);
-                src += 2;
-                if (src + count > srcEnd || dst + count > dstEnd) break;
-                memcpy(dst, src, count);
-                src += count;
-                dst += count;
-            } else if ((cmd & 0x3F) == 0x3F) {
-                // Long copy from source (absolute)
-                if (src + 4 > srcEnd) break;
-                int count = src[0] | (src[1] << 8);
-                int offset = src[2] | (src[3] << 8);
-                src += 4;
-                const uint8_t* copySrc = dstStart + offset;
-                if (copySrc < dstStart || copySrc >= dst || dst + count > dstEnd) break;
-                while (count-- > 0) {
-                    *dst++ = *copySrc++;
-                }
+
+            if (srcIdx + count > srcSize || destIdx + count > dstSize) break;
+            memcpy(&dst[destIdx], &src[srcIdx], count);
+            srcIdx += count;
+            destIdx += count;
+        } else {
+            // 11XXXXXX commands
+            int count3 = cmd & 0x3F;
+            if (count3 == 0x3E) {
+                // Case 4: RLE fill
+                // 11111110 CCCC CCCC VV - Fill CCCC bytes with value VV
+                if (srcIdx + 3 > srcSize) break;
+                int count = src[srcIdx] | (src[srcIdx + 1] << 8);
+                uint8_t value = src[srcIdx + 2];
+                srcIdx += 3;
+
+                if (destIdx + count > dstSize) count = dstSize - destIdx;
+                memset(&dst[destIdx], value, count);
+                destIdx += count;
+            } else if (count3 == 0x3F) {
+                // Case 5: Long copy from previous output (absolute)
+                // 11111111 CCCC CCCC PPPP PPPP - Copy CCCC bytes from absolute position PPPP
+                if (srcIdx + 4 > srcSize) break;
+                int count = src[srcIdx] | (src[srcIdx + 1] << 8);
+                int srcPos = src[srcIdx + 2] | (src[srcIdx + 3] << 8);
+                srcIdx += 4;
+
+                if (srcPos >= destIdx) break;
+                if (destIdx + count > dstSize) break;
+
+                for (int i = 0; i < count; i++)
+                    dst[destIdx++] = dst[srcPos++];
             } else {
-                // Short run of single byte
-                // cmd = 11CCCCCC VV
-                int count = (cmd & 0x3F) + 3;
-                if (src >= srcEnd) break;
-                uint8_t value = *src++;
-                if (dst + count > dstEnd) count = (int)(dstEnd - dst);
-                memset(dst, value, count);
-                dst += count;
+                // Case 3: Short copy from previous output (absolute) with short count
+                // 11CCCCCC PPPP PPPP - Copy (C+3) bytes from absolute position PPPP
+                if (srcIdx + 2 > srcSize) break;
+                int count = count3 + 3;
+                int srcPos = src[srcIdx] | (src[srcIdx + 1] << 8);
+                srcIdx += 2;
+
+                if (srcPos >= destIdx) break;
+                if (destIdx + count > dstSize) break;
+
+                for (int i = 0; i < count; i++)
+                    dst[destIdx++] = dst[srcPos++];
             }
         }
     }
 
-    return (int)(dst - dstStart);
+    return destIdx;
 }
 
-// Format40 decompression (XOR delta)
-static int DecompressFormat40(const uint8_t* src, uint8_t* dst, const uint8_t* ref, int srcSize, int dstSize) {
-    const uint8_t* srcEnd = src + srcSize;
-    uint8_t* dstStart = dst;
-    uint8_t* dstEnd = dst + dstSize;
+// XOR Delta decompression (Format40)
+// Based on OpenRA's XORDeltaCompression.cs implementation
+// This applies XOR delta to an existing destination buffer (which should contain reference frame)
+static int DecompressXORDelta(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize) {
+    int srcIdx = 0;
+    int destIdx = 0;
 
-    // Copy reference frame first
-    if (ref && ref != dst) {
-        memcpy(dst, ref, dstSize);
-    }
+    while (srcIdx < srcSize) {
+        uint8_t cmd = src[srcIdx++];
 
-    while (src < srcEnd && dst < dstEnd) {
-        uint8_t cmd = *src++;
-
-        if (cmd == 0) {
-            // End of data
-            break;
-        } else if ((cmd & 0x80) == 0) {
-            // Skip cmd bytes
-            dst += cmd;
-        } else if (cmd == 0x80) {
-            // Extended command
-            if (src + 2 > srcEnd) break;
-            uint16_t count = src[0] | (src[1] << 8);
-            src += 2;
+        if ((cmd & 0x80) == 0) {
+            // Low bit clear
+            int count = cmd & 0x7F;
             if (count == 0) {
-                // End of data
-                break;
-            } else if ((count & 0x8000) == 0) {
-                // Skip count bytes
-                dst += count;
-            } else if ((count & 0x4000) == 0) {
-                // XOR count & 0x3FFF bytes with source
-                count &= 0x3FFF;
-                if (src + count > srcEnd || dst + count > dstEnd) break;
-                while (count-- > 0) {
-                    *dst++ ^= *src++;
-                }
+                // Case 6: XOR fill
+                // 00000000 CC VV - XOR CC bytes with value VV
+                if (srcIdx + 2 > srcSize) break;
+                count = src[srcIdx++];
+                uint8_t value = src[srcIdx++];
+                for (int end = destIdx + count; destIdx < end && destIdx < dstSize; destIdx++)
+                    dst[destIdx] ^= value;
             } else {
-                // Fill count & 0x3FFF bytes with XOR value
-                count &= 0x3FFF;
-                if (src >= srcEnd) break;
-                uint8_t value = *src++;
-                if (dst + count > dstEnd) count = (uint16_t)(dstEnd - dst);
-                while (count-- > 0) {
-                    *dst++ ^= value;
-                }
+                // Case 5: XOR literal
+                // 0CCCCCCC [data] - XOR C bytes with source data
+                if (srcIdx + count > srcSize) break;
+                for (int end = destIdx + count; destIdx < end && destIdx < dstSize; destIdx++)
+                    dst[destIdx] ^= src[srcIdx++];
             }
         } else {
-            // XOR (cmd & 0x7F) bytes with source
+            // High bit set
             int count = cmd & 0x7F;
-            if (src + count > srcEnd || dst + count > dstEnd) break;
-            while (count-- > 0) {
-                *dst++ ^= *src++;
+            if (count == 0) {
+                // Extended command
+                if (srcIdx + 2 > srcSize) break;
+                uint16_t word = src[srcIdx] | (src[srcIdx + 1] << 8);
+                srcIdx += 2;
+
+                if (word == 0) {
+                    // End of data
+                    break;
+                } else if ((word & 0x8000) == 0) {
+                    // Case 2: Skip bytes
+                    destIdx += word & 0x7FFF;
+                } else if ((word & 0x4000) == 0) {
+                    // Case 3: XOR literal (long)
+                    count = word & 0x3FFF;
+                    if (srcIdx + count > srcSize) break;
+                    for (int end = destIdx + count; destIdx < end && destIdx < dstSize; destIdx++)
+                        dst[destIdx] ^= src[srcIdx++];
+                } else {
+                    // Case 4: XOR fill (long)
+                    count = word & 0x3FFF;
+                    if (srcIdx >= srcSize) break;
+                    uint8_t value = src[srcIdx++];
+                    for (int end = destIdx + count; destIdx < end && destIdx < dstSize; destIdx++)
+                        dst[destIdx] ^= value;
+                }
+            } else {
+                // Case 1: Skip bytes (short)
+                destIdx += count;
             }
         }
     }
 
-    return (int)(dst - dstStart);
+    return destIdx;
 }
 
 ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
@@ -244,9 +251,7 @@ ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
     shp->frames = new ShpFrame[header->frameCount];
     memset(shp->frames, 0, sizeof(ShpFrame) * header->frameCount);
 
-    // Temporary buffers for decompression
     int maxPixels = header->width * header->height;
-    uint8_t* tempBuffer = new uint8_t[maxPixels];
 
     // Store decoded frames for XOR reference (need all frames, not just previous)
     uint8_t** decodedFrames = new uint8_t*[header->frameCount];
@@ -299,7 +304,7 @@ ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
         shp->frames[i].pixels = new uint8_t[framePixels];
 
         // Decompress based on format type
-        memset(tempBuffer, 0, maxPixels);
+        memset(shp->frames[i].pixels, 0, framePixels);
 
         if (format == 0x00) {
             // Uncompressed raw pixels
@@ -308,38 +313,39 @@ ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
                 memcpy(shp->frames[i].pixels, frameData, copySize);
             }
         } else if (format == SHP_FORMAT_LCW) {
-            // 0x80: LCW compressed
-            DecompressLCW(frameData, tempBuffer, frameDataSize, framePixels);
-            memcpy(shp->frames[i].pixels, tempBuffer, framePixels);
+            // 0x80: LCW compressed (pure LCW, no XOR)
+            DecompressLCW(frameData, shp->frames[i].pixels, frameDataSize, framePixels);
         } else if (format == SHP_FORMAT_XORPREV) {
-            // 0x20: XOR with previous frame
-            // First decompress with LCW, then XOR with reference
-            DecompressLCW(frameData, tempBuffer, frameDataSize, framePixels);
-
-            // XOR with previous frame (i-1) if it exists
+            // 0x20: XOR delta with previous frame
+            // Copy previous frame, then apply XOR delta
             if (i > 0) {
-                for (int p = 0; p < framePixels; p++) {
-                    shp->frames[i].pixels[p] = decodedFrames[i-1][p] ^ tempBuffer[p];
-                }
+                memcpy(shp->frames[i].pixels, decodedFrames[i-1], framePixels);
             } else {
-                memcpy(shp->frames[i].pixels, tempBuffer, framePixels);
+                memset(shp->frames[i].pixels, 0, framePixels);
             }
+            DecompressXORDelta(frameData, shp->frames[i].pixels, frameDataSize, framePixels);
         } else if (format == SHP_FORMAT_XORLCW) {
-            // 0x40: XOR with LCW-referenced frame
-            // The refOffset tells us which frame to reference
-            uint16_t refIdx = frameOffsets[i].refOffset;
+            // 0x40: XOR delta with referenced frame (by file offset)
+            // Need to find reference frame by matching offset
+            uint32_t refFileOffset = frameOffsets[i].refOffset;
+            int refIdx = -1;
 
-            // First decompress this frame's data
-            DecompressLCW(frameData, tempBuffer, frameDataSize, framePixels);
-
-            // XOR with reference frame
-            if (refIdx < i && refIdx < header->frameCount) {
-                for (int p = 0; p < framePixels; p++) {
-                    shp->frames[i].pixels[p] = decodedFrames[refIdx][p] ^ tempBuffer[p];
+            // Find frame index that matches refOffset
+            for (int j = 0; j < i; j++) {
+                uint32_t frameOff = frameOffsets[j].offsetAndFormat & 0x00FFFFFF;
+                if (frameOff == refFileOffset) {
+                    refIdx = j;
+                    break;
                 }
-            } else {
-                memcpy(shp->frames[i].pixels, tempBuffer, framePixels);
             }
+
+            // Copy reference frame, then apply XOR delta
+            if (refIdx >= 0 && refIdx < i) {
+                memcpy(shp->frames[i].pixels, decodedFrames[refIdx], framePixels);
+            } else {
+                memset(shp->frames[i].pixels, 0, framePixels);
+            }
+            DecompressXORDelta(frameData, shp->frames[i].pixels, frameDataSize, framePixels);
         } else {
             // Unknown format, try as raw
             size_t copySize = (frameDataSize < (size_t)framePixels) ? frameDataSize : framePixels;
@@ -355,7 +361,6 @@ ShpFileHandle Shp_Load(const void* data, uint32_t dataSize) {
     }
 
     // Clean up temporary buffers
-    delete[] tempBuffer;
     for (int i = 0; i < header->frameCount; i++) {
         delete[] decodedFrames[i];
     }
