@@ -38,12 +38,15 @@ typedef enum {
 #define CELL_FLAG_REVEALED      0x02    // Fog of war revealed
 #define CELL_FLAG_VISIBLE       0x04    // Currently visible
 
+// Ore constants
+#define ORE_MAX_AMOUNT      255     // Maximum ore per cell
+
 // Map cell structure
 typedef struct {
     uint8_t terrain;        // TerrainType
     uint8_t flags;          // Cell flags
     uint8_t height;         // Elevation (0-3)
-    uint8_t overlay;        // Overlay type (walls, ore, etc.)
+    uint8_t oreAmount;      // Ore amount (0-255)
     int16_t unitId;         // Unit occupying cell (-1 if none)
     int16_t buildingId;     // Building on cell (-1 if none)
 } MapCell;

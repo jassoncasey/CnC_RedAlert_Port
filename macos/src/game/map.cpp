@@ -57,7 +57,7 @@ void Map_Create(int width, int height) {
             g_cells[y][x].terrain = TERRAIN_CLEAR;
             g_cells[y][x].flags = 0;
             g_cells[y][x].height = 0;
-            g_cells[y][x].overlay = 0;
+            g_cells[y][x].oreAmount = 0;
             g_cells[y][x].unitId = -1;
             g_cells[y][x].buildingId = -1;
         }
@@ -129,6 +129,10 @@ static void AddOreField(int cx, int cy, int radius) {
             if (dist2 <= radius * radius && g_cells[y][x].terrain == TERRAIN_CLEAR) {
                 if (rand() % 3 != 0) {  // 67% density
                     Map_SetTerrain(x, y, TERRAIN_ORE);
+                    // Set ore amount - more in center, less at edges
+                    int amount = ORE_MAX_AMOUNT - (dist2 * 100 / (radius * radius + 1));
+                    if (amount < 50) amount = 50 + rand() % 50;
+                    g_cells[y][x].oreAmount = (uint8_t)amount;
                 }
             }
         }

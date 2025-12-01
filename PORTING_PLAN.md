@@ -126,28 +126,32 @@ Construction Yard
 
 ---
 
-### M36: Resource Economy ← **START HERE**
+### ✓ M36: Resource Economy - COMPLETE
 
 **Goal:** Harvesters collect ore, refineries convert to credits.
 
-**Tasks:**
-1. [ ] Ore fields on map (yellow terrain)
-2. [ ] Harvester unit auto-harvests when idle
-3. [ ] Harvester fills up, returns to Refinery
-4. [ ] Refinery converts ore to credits over time
-5. [ ] Credits display updates in real-time
-6. [ ] Can't build if insufficient credits
+**Completed:**
+- [x] Ore fields on map with ore amounts (0-255 per cell)
+- [x] Harvester unit auto-harvests when idle (finds nearest ore)
+- [x] Harvester fills up (cargo system: 0-1000 capacity)
+- [x] Harvester returns to refinery when 75%+ full
+- [x] Refinery converts ore to credits (7 credits per ore unit)
+- [x] Credits display updates in real-time
+- [x] Can't build if insufficient credits (cost shown in red)
+- [x] Harvester buildable from sidebar (requires Refinery)
 
-**Verification:**
-- [ ] Harvester drives to ore field
-- [ ] Harvester fills (shows on unit?)
-- [ ] Returns to Refinery
-- [ ] Credits tick up
-- [ ] Try to build expensive item with no credits → rejected
+**Verified:**
+- [x] Harvester drives to nearest ore field
+- [x] Harvester harvests ore (depletes cells)
+- [x] Returns to Refinery when full
+- [x] Credits increase on delivery
+- [x] Depleted ore cells become clear terrain
+
+**Files:** `game/units.cpp`, `game/units.h`, `game/map.cpp`, `game/map.h`, `ui/game_ui.cpp`
 
 ---
 
-### M37: Basic AI Opponent
+### M37: Basic AI Opponent ← **START HERE**
 
 **Goal:** Enemy builds base and attacks player.
 
@@ -174,7 +178,7 @@ After M33-M37, we have:
 - [x] **Production that works** (M33 complete)
 - [x] **Building placement** (M34 complete)
 - [x] **Tech tree progression** (M35 complete)
-- [ ] **Resource economy**
+- [x] **Resource economy** (M36 complete)
 - [ ] **AI opponent**
 
 This is a playable game loop: build base → train army → destroy enemy.
@@ -257,11 +261,11 @@ This is a playable game loop: build base → train army → destroy enemy.
 | **Production system** | ✓ Done (M33) | - |
 | **Building placement** | ✓ Done (M34) | - |
 | **Tech tree** | ✓ Done (M35) | - |
-| **Economy** | Missing | **HIGH** |
+| **Economy** | ✓ Done (M36) | - |
 | **AI opponent** | Missing | **HIGH** |
 | Fog of war | Missing | Medium |
 | Attack commands | Missing | Medium |
 | Campaign missions | Missing | Low (need skirmish first) |
 | Cutscenes/music | Missing | Low |
 
-**Next step:** M36 - Resource economy (harvesters + ore).
+**Next step:** M37 - Basic AI opponent.

@@ -74,6 +74,11 @@ typedef enum {
 // Maximum path waypoints per unit
 #define MAX_PATH_WAYPOINTS 32
 
+// Harvester constants
+#define HARVESTER_MAX_CARGO     1000    // Max ore a harvester can carry
+#define HARVESTER_LOAD_RATE     50      // Ore harvested per tick while harvesting
+#define ORE_VALUE               7       // Credits per unit of ore
+
 // Unit structure
 typedef struct {
     uint8_t type;           // UnitType
@@ -100,6 +105,10 @@ typedef struct {
     int8_t pathIndex;       // Current waypoint index
     int32_t nextWaypointX;  // Current waypoint world X
     int32_t nextWaypointY;  // Current waypoint world Y
+    // Harvester-specific fields
+    int16_t cargo;          // Ore currently carried (0-1000)
+    int16_t homeRefinery;   // Building ID of assigned refinery (-1 if none)
+    int16_t harvestTimer;   // Ticks remaining in current harvest action
 } Unit;
 
 // Building structure
@@ -225,6 +234,12 @@ void Units_Update(void);
  * Render all units and buildings
  */
 void Units_Render(void);
+
+/**
+ * Set pointer to player credits for harvester income
+ * (Called from game_ui.cpp)
+ */
+void Units_SetCreditsPtr(int* creditsPtr);
 
 #ifdef __cplusplus
 }

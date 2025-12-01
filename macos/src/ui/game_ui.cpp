@@ -114,15 +114,17 @@ static const int g_structureDefCount = 5;
 
 // Available units with proper tech tree
 // Infantry requires Barracks, Vehicles require War Factory
+// Harvester requires Refinery (auto-spawned when refinery built, but also buildable)
 static BuildItemDef g_unitDefs[] = {
     {"E1",   "Rifle Infantry",  100, 150, true, UNIT_RIFLE,       1, 1, PREREQ_BARRACKS},
     {"E2",   "Grenadier",       160, 180, true, UNIT_GRENADIER,   1, 1, PREREQ_BARRACKS},
     {"E3",   "Rocket Soldier",  300, 200, true, UNIT_ROCKET,      1, 1, PREREQ_BARRACKS},
     {"ENG",  "Engineer",        500, 200, true, UNIT_ENGINEER,    1, 1, PREREQ_BARRACKS},
+    {"HARV", "Harvester",      1400, 400, true, UNIT_HARVESTER,   1, 1, PREREQ_REFINERY},
     {"1TNK", "Light Tank",      700, 300, true, UNIT_TANK_LIGHT,  1, 1, PREREQ_FACTORY},
     {"2TNK", "Medium Tank",     800, 350, true, UNIT_TANK_MEDIUM, 1, 1, PREREQ_FACTORY},
 };
-static const int g_unitDefCount = 6;
+static const int g_unitDefCount = 7;
 
 // Player-owned buildings bitmask (dynamically tracked)
 static uint32_t g_playerBuildings = 0;
@@ -182,6 +184,9 @@ void GameUI_Init(void) {
 
     // Initial scan of buildings
     UpdatePlayerBuildings();
+
+    // Connect credits to harvester system
+    Units_SetCreditsPtr(&g_playerCredits);
 }
 
 void GameUI_Shutdown(void) {

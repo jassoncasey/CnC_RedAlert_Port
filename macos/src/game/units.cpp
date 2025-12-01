@@ -222,6 +222,10 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     unit->attackDamage = def->attackDamage;
     unit->attackRate = def->attackRate;
     unit->attackCooldown = 0;
+    // Harvester-specific
+    unit->cargo = 0;
+    unit->homeRefinery = -1;
+    unit->harvestTimer = 0;
 
     // Mark the spawn cell as occupied
     int cellX, cellY;
@@ -809,6 +813,204 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
     }
 }
 
+//===========================================================================
+// Harvester AI
+//===========================================================================
+
+// Player credits (shared with game_ui.cpp via extern)
+static int* g_pPlayerCredits = nullptr;
+
+void Units_SetCreditsPtr(int* creditsPtr) {
+    g_pPlayerCredits = creditsPtr;
+}
+
+// Find nearest ore cell to the given position
+static bool FindNearestOre(int fromX, int fromY, int* outCellX, int* outCellY) {
+    int mapW = Map_GetWidth();
+    int mapH = Map_GetHeight();
+    int bestDist = 999999;
+    bool found = false;
+
+    int startCellX, startCellY;
+    Map_WorldToCell(fromX, fromY, &startCellX, &startCellY);
+
+    // Search in expanding rings
+    for (int radius = 1; radius < 30; radius++) {
+        for (int cy = startCellY - radius; cy <= startCellY + radius; cy++) {
+            for (int cx = startCellX - radius; cx <= startCellX + radius; cx++) {
+                if (cx < 0 || cy < 0 || cx >= mapW || cy >= mapH) continue;
+
+                MapCell* cell = Map_GetCell(cx, cy);
+                if (!cell) continue;
+
+                if (cell->terrain == TERRAIN_ORE && cell->oreAmount > 0) {
+                    int dx = cx - startCellX;
+                    int dy = cy - startCellY;
+                    int dist = dx * dx + dy * dy;
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        *outCellX = cx;
+                        *outCellY = cy;
+                        found = true;
+                    }
+                }
+            }
+        }
+        if (found) break;  // Found ore in this ring
+    }
+    return found;
+}
+
+// Find nearest refinery for the given team
+static int FindNearestRefinery(int fromX, int fromY, Team team) {
+    int bestDist = 999999;
+    int bestId = -1;
+
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (!bld || !bld->active) continue;
+        if (bld->type != BUILDING_REFINERY) continue;
+        if (bld->team != team) continue;
+
+        int bldWorldX, bldWorldY;
+        Map_CellToWorld(bld->cellX + bld->width / 2, bld->cellY + bld->height / 2, &bldWorldX, &bldWorldY);
+
+        int dx = bldWorldX - fromX;
+        int dy = bldWorldY - fromY;
+        int dist = dx * dx + dy * dy;
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestId = i;
+        }
+    }
+    return bestId;
+}
+
+// Update harvester behavior
+static void UpdateHarvester(Unit* unit, int unitId) {
+    if (unit->type != UNIT_HARVESTER) return;
+
+    int cellX, cellY;
+    Map_WorldToCell(unit->worldX, unit->worldY, &cellX, &cellY);
+    MapCell* currentCell = Map_GetCell(cellX, cellY);
+
+    switch (unit->state) {
+        case STATE_IDLE: {
+            // Find ore and start harvesting
+            if (unit->cargo >= HARVESTER_MAX_CARGO) {
+                // Full - return to refinery
+                unit->state = STATE_RETURNING;
+            } else {
+                // Look for ore
+                int oreCellX, oreCellY;
+                if (FindNearestOre(unit->worldX, unit->worldY, &oreCellX, &oreCellY)) {
+                    int oreWorldX, oreWorldY;
+                    Map_CellToWorld(oreCellX, oreCellY, &oreWorldX, &oreWorldY);
+                    Units_CommandMove(unitId, oreWorldX, oreWorldY);
+                    // After moving to ore, state will be checked again
+                }
+            }
+            break;
+        }
+
+        case STATE_MOVING: {
+            // Check if we've arrived at ore
+            if (currentCell && currentCell->terrain == TERRAIN_ORE && currentCell->oreAmount > 0) {
+                // Start harvesting
+                unit->state = STATE_HARVESTING;
+                unit->harvestTimer = 30;  // Harvest every 30 ticks
+            }
+            // Otherwise movement continues via UpdateUnitMovement
+            break;
+        }
+
+        case STATE_HARVESTING: {
+            // Harvest ore from current cell
+            if (!currentCell || currentCell->terrain != TERRAIN_ORE || currentCell->oreAmount == 0) {
+                // No more ore here - find more or return
+                if (unit->cargo >= HARVESTER_MAX_CARGO * 3 / 4) {
+                    // Mostly full - return
+                    unit->state = STATE_RETURNING;
+                } else {
+                    // Look for more ore
+                    unit->state = STATE_IDLE;
+                }
+                break;
+            }
+
+            // Harvest tick
+            unit->harvestTimer--;
+            if (unit->harvestTimer <= 0) {
+                // Extract ore
+                int toHarvest = HARVESTER_LOAD_RATE;
+                if (toHarvest > currentCell->oreAmount) {
+                    toHarvest = currentCell->oreAmount;
+                }
+                if (unit->cargo + toHarvest > HARVESTER_MAX_CARGO) {
+                    toHarvest = HARVESTER_MAX_CARGO - unit->cargo;
+                }
+
+                unit->cargo += toHarvest;
+                currentCell->oreAmount -= toHarvest;
+
+                // If cell depleted, change terrain back to clear
+                if (currentCell->oreAmount == 0) {
+                    currentCell->terrain = TERRAIN_CLEAR;
+                }
+
+                // Check if full
+                if (unit->cargo >= HARVESTER_MAX_CARGO) {
+                    unit->state = STATE_RETURNING;
+                } else {
+                    unit->harvestTimer = 30;  // Continue harvesting
+                }
+            }
+            break;
+        }
+
+        case STATE_RETURNING: {
+            // Find refinery and return
+            if (unit->homeRefinery < 0 || !Buildings_Get(unit->homeRefinery)) {
+                unit->homeRefinery = FindNearestRefinery(unit->worldX, unit->worldY, (Team)unit->team);
+            }
+
+            Building* refinery = Buildings_Get(unit->homeRefinery);
+            if (!refinery) {
+                // No refinery - just idle
+                unit->state = STATE_IDLE;
+                break;
+            }
+
+            // Move toward refinery
+            int refX, refY;
+            Map_CellToWorld(refinery->cellX + 1, refinery->cellY + refinery->height, &refX, &refY);
+
+            int dx = refX - unit->worldX;
+            int dy = refY - unit->worldY;
+            int dist = (int)sqrt((double)(dx * dx + dy * dy));
+
+            if (dist < CELL_SIZE * 2) {
+                // At refinery - unload
+                if (unit->cargo > 0 && g_pPlayerCredits && unit->team == TEAM_PLAYER) {
+                    int credits = (unit->cargo * ORE_VALUE) / 10;  // Scale down
+                    *g_pPlayerCredits += credits;
+                    unit->cargo = 0;
+                }
+                // Go back to harvesting
+                unit->state = STATE_IDLE;
+            } else if (unit->pathLength == 0) {
+                // Need to path to refinery
+                Units_CommandMove(unitId, refX, refY);
+                unit->state = STATE_RETURNING;  // Keep returning state
+            }
+            break;
+        }
+
+        default:
+            break;
+    }
+}
+
 void Units_Update(void) {
     for (int i = 0; i < MAX_UNITS; i++) {
         Unit* unit = &g_units[i];
@@ -823,6 +1025,7 @@ void Units_Update(void) {
 
         UpdateUnitMovement(unit, i);
         UpdateUnitCombat(unit, i);
+        UpdateHarvester(unit, i);
     }
 
     // Update building combat (turrets)
