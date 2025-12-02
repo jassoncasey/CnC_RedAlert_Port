@@ -3,6 +3,7 @@
  */
 
 #include "sprites.h"
+#include "units.h"
 #include "assets/assetloader.h"
 #include "assets/shpfile.h"
 #include "graphics/metal/renderer.h"
@@ -362,6 +363,12 @@ BOOL Sprites_RenderUnit(UnitType type, int facing, int frame,
     if (type <= UNIT_NONE || type >= UNIT_TYPE_COUNT) return FALSE;
 
     ShpFileHandle shp = g_unitSprites[type];
+
+    // Fallback: if civilian sprite missing, use C1 (UNIT_CIVILIAN_1)
+    if (!shp && type >= UNIT_CIVILIAN_1 && type <= UNIT_CHAN) {
+        shp = g_unitSprites[UNIT_CIVILIAN_1];
+    }
+
     if (!shp) return FALSE;
 
     int frameCount = Shp_GetFrameCount(shp);

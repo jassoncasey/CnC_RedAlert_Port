@@ -53,6 +53,12 @@ void Input_Shutdown(void);
 void Input_Update(void);
 
 /**
+ * Clear per-frame key pressed/released state
+ * Call after game logic has processed input.
+ */
+void Input_ClearFrameState(void);
+
+/**
  * Check if a key is currently pressed
  *
  * @param vkCode Virtual key code (VK_*)

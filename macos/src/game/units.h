@@ -224,7 +224,8 @@ typedef struct {
     // Transport fields
     int16_t passengers[MAX_PASSENGERS]; // Unit IDs of loaded passengers (-1 = empty)
     int8_t passengerCount;  // Number of loaded passengers
-    int16_t transportId;    // Unit ID of transport carrying this unit (-1 = not in transport)
+    int16_t transportId;    // Unit ID of transport carrying this unit (-1 = not in)
+    int16_t loadTarget;     // Transport ID we're trying to load into (-1 = none)
     // Trigger attachment
     char triggerName[24];   // Attached trigger name (for ATTACKED/DESTROYED events)
 } Unit;

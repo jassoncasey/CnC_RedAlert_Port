@@ -331,15 +331,17 @@ void Map_LoadFromMission(const uint8_t* terrainType, const uint8_t* terrainIcon,
                 uint8_t templateID = terrainType[cellIdx];
 
                 // Map template IDs to terrain types for passability
-                // Based on OpenRA snow.yaml / temperat.yaml analysis:
-                // 0, 255 (0xFF) = Clear
+                // Based on OpenRA temperat.yaml analysis:
+                // 0, 255 (0xFF) = Clear ground
                 // 1-2 = Water
-                // 3-58 = Shore (partially passable)
+                // 3-49 = Shore (mixed water/land)
+                // 50-56 = Beach
+                // 57-58 = Debris
                 // 59-134 = Water cliffs (impassable)
-                // 135-172 = Roads/slopes
-                // 173-212 = Debris/rocks
+                // 135-172 = Land cliffs (impassable)
+                // 173-212 = Roads
                 // 213-252 = River (water)
-                // 253-260 = Bridges
+                // 253+ = Bridges
 
                 TerrainType terrain = TERRAIN_CLEAR;
 
@@ -348,19 +350,17 @@ void Map_LoadFromMission(const uint8_t* terrainType, const uint8_t* terrainIcon,
                 } else if (templateID >= 1 && templateID <= 2) {
                     terrain = TERRAIN_WATER;
                 } else if (templateID >= 3 && templateID <= 58) {
-                    // Shore tiles - check tile index for water vs land
-                    // For now, treat as passable (land portion)
+                    // Shore/beach/debris - treat as passable land
                     terrain = TERRAIN_CLEAR;
                 } else if (templateID >= 59 && templateID <= 134) {
                     // Water cliffs - impassable
                     terrain = TERRAIN_ROCK;
                 } else if (templateID >= 135 && templateID <= 172) {
-                    // Roads/slopes - passable, faster movement
-                    terrain = TERRAIN_ROAD;
+                    // Land cliffs - impassable
+                    terrain = TERRAIN_ROCK;
                 } else if (templateID >= 173 && templateID <= 212) {
-                    // Debris/rocks - some passable, some not
-                    // Treat as rough terrain (passable)
-                    terrain = TERRAIN_CLEAR;
+                    // Roads - passable, faster movement
+                    terrain = TERRAIN_ROAD;
                 } else if (templateID >= 213 && templateID <= 252) {
                     // River - water
                     terrain = TERRAIN_WATER;

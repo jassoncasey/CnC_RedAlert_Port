@@ -241,6 +241,8 @@ private:
     ArmorType ParseArmor(const char* name) const;
     WeaponType ParseWeapon(const char* name) const;
     SpeedType ParseSpeed(const char* name) const;
+    uint32_t ParseOwners(const char* str) const;
+    uint32_t ParsePrereqs(const char* str) const;
 
     // Set defaults
     void SetDefaults();
@@ -259,5 +261,11 @@ extern RulesClass Rules;
  * Initialize rules system with RULES.INI from resources
  */
 bool InitRules();
+
+/**
+ * Get ore/gem values from RULES.INI (for use without including full rules.h)
+ */
+int Rules_GetGoldValue();
+int Rules_GetGemValue();
 
 #endif // GAME_RULES_H

@@ -12,7 +12,7 @@
 // Warhead Type Table
 // Damage modifiers: 256 = 100%, 128 = 50%, 384 = 150%
 //===========================================================================
-const WarheadTypeData WarheadTypes[] = {
+const WarheadTypeData WarheadTypeDefaults[] = {
     // SA - Small Arms (good vs infantry)
     {
         WarheadTypeEnum::SA, "SA",
@@ -78,12 +78,13 @@ const WarheadTypeData WarheadTypes[] = {
     },
 };
 
-const int WarheadTypeCount = sizeof(WarheadTypes) / sizeof(WarheadTypes[0]);
+const int WarheadTypeCount =
+    sizeof(WarheadTypeDefaults) / sizeof(WarheadTypeDefaults[0]);
 
 //===========================================================================
 // Bullet Type Table
 //===========================================================================
-const BulletTypeData BulletTypes[] = {
+const BulletTypeData BulletTypeDefaults[] = {
     // Invisible - instant hit
     {
         BulletType::INVISIBLE, "Invisible",
@@ -191,12 +192,13 @@ const BulletTypeData BulletTypes[] = {
     },
 };
 
-const int BulletTypeCount = sizeof(BulletTypes) / sizeof(BulletTypes[0]);
+const int BulletTypeCount =
+    sizeof(BulletTypeDefaults) / sizeof(BulletTypeDefaults[0]);
 
 //===========================================================================
 // Weapon Type Table
 //===========================================================================
-const WeaponTypeData WeaponTypes[] = {
+const WeaponTypeData WeaponTypeDefaults[] = {
     // Colt45 - Tanya's pistol
     {
         WeaponTypeEnum::COLT45, "Colt45",
@@ -503,44 +505,109 @@ const WeaponTypeData WeaponTypes[] = {
     },
 };
 
-const int WeaponTypeCount = sizeof(WeaponTypes) / sizeof(WeaponTypes[0]);
+const int WeaponTypeCount =
+    sizeof(WeaponTypeDefaults) / sizeof(WeaponTypeDefaults[0]);
 
 //===========================================================================
-// Helper Functions
+// Mutable Type Data (runtime copies for INI overrides)
+//===========================================================================
+static WarheadTypeData g_warheadTypes[16];
+static bool g_warheadTypesInitialized = false;
+
+static BulletTypeData g_bulletTypes[32];
+static bool g_bulletTypesInitialized = false;
+
+static WeaponTypeData g_weaponTypes[64];
+static bool g_weaponTypesInitialized = false;
+
+//===========================================================================
+// Initialization Functions
 //===========================================================================
 
-const WarheadTypeData* GetWarheadType(WarheadTypeEnum type) {
-    for (int i = 0; i < WarheadTypeCount; i++) {
-        if (WarheadTypes[i].type == type) {
-            return &WarheadTypes[i];
+void InitWarheadTypes() {
+    if (g_warheadTypesInitialized) return;
+    for (int i = 0; i < WarheadTypeCount && i < 16; i++) {
+        g_warheadTypes[i] = WarheadTypeDefaults[i];
+    }
+    g_warheadTypesInitialized = true;
+}
+
+void InitBulletTypes() {
+    if (g_bulletTypesInitialized) return;
+    for (int i = 0; i < BulletTypeCount && i < 32; i++) {
+        g_bulletTypes[i] = BulletTypeDefaults[i];
+    }
+    g_bulletTypesInitialized = true;
+}
+
+void InitWeaponTypes() {
+    if (g_weaponTypesInitialized) return;
+    for (int i = 0; i < WeaponTypeCount && i < 64; i++) {
+        g_weaponTypes[i] = WeaponTypeDefaults[i];
+    }
+    g_weaponTypesInitialized = true;
+}
+
+//===========================================================================
+// Getter Functions (mutable data)
+//===========================================================================
+
+WarheadTypeData* GetWarheadType(WarheadTypeEnum type) {
+    if (!g_warheadTypesInitialized) InitWarheadTypes();
+    for (int i = 0; i < WarheadTypeCount && i < 16; i++) {
+        if (g_warheadTypes[i].type == type) {
+            return &g_warheadTypes[i];
         }
     }
     return nullptr;
 }
 
-const BulletTypeData* GetBulletType(BulletType type) {
-    for (int i = 0; i < BulletTypeCount; i++) {
-        if (BulletTypes[i].type == type) {
-            return &BulletTypes[i];
+BulletTypeData* GetBulletType(BulletType type) {
+    if (!g_bulletTypesInitialized) InitBulletTypes();
+    for (int i = 0; i < BulletTypeCount && i < 32; i++) {
+        if (g_bulletTypes[i].type == type) {
+            return &g_bulletTypes[i];
         }
     }
     return nullptr;
 }
 
-const WeaponTypeData* GetWeaponType(WeaponTypeEnum type) {
-    for (int i = 0; i < WeaponTypeCount; i++) {
-        if (WeaponTypes[i].type == type) {
-            return &WeaponTypes[i];
+WeaponTypeData* GetWeaponType(WeaponTypeEnum type) {
+    if (!g_weaponTypesInitialized) InitWeaponTypes();
+    for (int i = 0; i < WeaponTypeCount && i < 64; i++) {
+        if (g_weaponTypes[i].type == type) {
+            return &g_weaponTypes[i];
         }
     }
     return nullptr;
 }
+
+//===========================================================================
+// Const Getter Functions (read-only access)
+//===========================================================================
+
+const WarheadTypeData* GetWarheadTypeConst(WarheadTypeEnum type) {
+    return GetWarheadType(type);
+}
+
+const BulletTypeData* GetBulletTypeConst(BulletType type) {
+    return GetBulletType(type);
+}
+
+const WeaponTypeData* GetWeaponTypeConst(WeaponTypeEnum type) {
+    return GetWeaponType(type);
+}
+
+//===========================================================================
+// Name Lookup Functions
+//===========================================================================
 
 WeaponTypeEnum WeaponTypeFromName(const char* name) {
     if (name == nullptr) return WeaponTypeEnum::NONE;
-    for (int i = 0; i < WeaponTypeCount; i++) {
-        if (strcasecmp(WeaponTypes[i].iniName, name) == 0) {
-            return WeaponTypes[i].type;
+    if (!g_weaponTypesInitialized) InitWeaponTypes();
+    for (int i = 0; i < WeaponTypeCount && i < 64; i++) {
+        if (strcasecmp(g_weaponTypes[i].iniName, name) == 0) {
+            return g_weaponTypes[i].type;
         }
     }
     return WeaponTypeEnum::NONE;
@@ -548,9 +615,10 @@ WeaponTypeEnum WeaponTypeFromName(const char* name) {
 
 WarheadTypeEnum WarheadTypeFromName(const char* name) {
     if (name == nullptr) return WarheadTypeEnum::NONE;
-    for (int i = 0; i < WarheadTypeCount; i++) {
-        if (strcasecmp(WarheadTypes[i].iniName, name) == 0) {
-            return WarheadTypes[i].type;
+    if (!g_warheadTypesInitialized) InitWarheadTypes();
+    for (int i = 0; i < WarheadTypeCount && i < 16; i++) {
+        if (strcasecmp(g_warheadTypes[i].iniName, name) == 0) {
+            return g_warheadTypes[i].type;
         }
     }
     return WarheadTypeEnum::NONE;
@@ -558,16 +626,21 @@ WarheadTypeEnum WarheadTypeFromName(const char* name) {
 
 BulletType BulletTypeFromName(const char* name) {
     if (name == nullptr) return BulletType::NONE;
-    for (int i = 0; i < BulletTypeCount; i++) {
-        if (strcasecmp(BulletTypes[i].iniName, name) == 0) {
-            return BulletTypes[i].type;
+    if (!g_bulletTypesInitialized) InitBulletTypes();
+    for (int i = 0; i < BulletTypeCount && i < 32; i++) {
+        if (strcasecmp(g_bulletTypes[i].iniName, name) == 0) {
+            return g_bulletTypes[i].type;
         }
     }
     return BulletType::NONE;
 }
 
+//===========================================================================
+// Damage Calculation
+//===========================================================================
+
 int CalculateDamage(int baseDamage, WarheadTypeEnum warhead, ArmorType armor) {
-    const WarheadTypeData* wh = GetWarheadType(warhead);
+    const WarheadTypeData* wh = GetWarheadTypeConst(warhead);
     if (wh == nullptr) return baseDamage;
 
     int modifier = 256;  // 100% default

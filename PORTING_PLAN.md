@@ -9,11 +9,7 @@ actions/events implemented. Audio and video fully functional.
 
 ## Active Bugs (Fix First)
 
-| ID | Item | Priority | Description |
-|----|------|----------|-------------|
-| **BUG-15** | Helicopter blocked by friendlies | HIGH | Aircraft ignore terrain but still blocked by cell occupancy. Should fly over all ground units. `units.cpp:1085` |
-| **BUG-16** | Group transport loading | MED | Selecting multiple infantry and right-clicking transport only loads one. Others walk to same spot and queue. |
-| **BUG-17** | Jeep climbs cliffs | HIGH | Wheeled vehicles passing through impassable terrain. Passability check not working for WHEEL speed type. |
+*All bugs fixed - see CHANGELOG.md for history*
 
 ---
 
@@ -56,20 +52,17 @@ accuracy to original game.
 
 ### Current State
 
-**Working:**
-- rules.cpp loads [General], [IQ], [Difficulty], [Country] sections
-- INI parsing infrastructure complete
+**Complete (CFG-1 through CFG-5):**
+- Mutable runtime type data arrays (no longer const)
+- Infantry stats loaded from [E1], [E2], etc. sections
+- Unit/vehicle stats loaded from [1TNK], [2TNK], etc. sections
+- Building stats loaded from [FACT], [POWR], etc. sections
+- Weapon stats loaded from [Colt45], [Dragon], etc. sections
+- Warhead damage matrices loaded from [SA], [HE], etc. sections
+- Game constants (GoldValue, GemValue) loaded from [General]
 
-**Stubs (empty):**
-- `ProcessInfantry()` - unit stats not loaded from INI
-- `ProcessUnits()` - vehicle stats not loaded from INI
-- `ProcessBuildings()` - building stats not loaded from INI
-- `ProcessWeapons()` - weapon stats not loaded from INI
-- `ProcessWarheads()` - damage matrices not loaded from INI
+**Remaining:**
 - `ProcessProjectiles()` - projectile data not loaded from INI
-
-**Blocked by:**
-- UnitTypeDef array in units.cpp is `const` - needs mutable runtime copy
 
 ### Hardcoded Values Inventory
 
@@ -120,23 +113,18 @@ Hardcoded defaults in UDATA.CPP, IDATA.CPP, BDATA.CPP as fallbacks.
 
 ### Migration Phases
 
-| ID | Item | Effort | Description |
-|----|------|--------|-------------|
-| CFG-1 | Mutable Type Data | 4 hrs | Non-const runtime arrays, init from static |
-| CFG-2 | Unit/Infantry Loading | 6 hrs | ProcessInfantry/Units from INI sections |
-| CFG-3 | Building Loading | 4 hrs | ProcessBuildings from INI sections |
-| CFG-4 | Weapon/Warhead Loading | 6 hrs | ProcessWeapons/Warheads, damage matrix |
-| CFG-5 | Game Constants | 2 hrs | MAX_PASSENGERS, ORE_VALUE to INI |
-| CFG-6 | Aircraft Direct Flight | 4 hrs | Bypass A* for aircraft, direct movement |
+| ID | Item | Effort | Status |
+|----|------|--------|--------|
+| CFG-1 | Mutable Type Data | 4 hrs | **DONE** |
+| CFG-2 | Unit/Infantry Loading | 6 hrs | **DONE** |
+| CFG-3 | Building Loading | 4 hrs | **DONE** |
+| CFG-4 | Weapon/Warhead Loading | 6 hrs | **DONE** |
+| CFG-5 | Game Constants | 2 hrs | **DONE** |
+| CFG-6 | Aircraft Direct Flight | 4 hrs | Pending |
 
-### Priority Order
+### Remaining Work
 
-1. CFG-1 (mutable data) - blocks everything else
-2. CFG-2 (unit stats) - high gameplay impact
-3. CFG-4 (weapons) - combat balance
-4. CFG-3 (buildings) - production
-5. CFG-5 (constants) - refinement
-6. CFG-6 (aircraft) - matches original
+1. CFG-6 (aircraft) - bypass A* for aircraft, use direct flight
 
 ---
 

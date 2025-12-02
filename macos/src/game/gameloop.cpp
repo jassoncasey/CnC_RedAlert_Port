@@ -99,15 +99,18 @@ BOOL GameLoop_RunFrame(void) {
     }
 
     // Fixed timestep update (game logic)
-    if (!g_loop.paused && g_loop.state == GAME_STATE_PLAYING) {
+    // Always call update for input handling, even when paused
+    if (g_loop.state == GAME_STATE_PLAYING) {
         g_loop.accumulator += deltaTime;
 
         // Process game updates at fixed rate
         while (g_loop.accumulator >= g_loop.tickInterval) {
             g_loop.accumulator -= g_loop.tickInterval;
-            g_loop.stats.gameFrame++;
+            if (!g_loop.paused) {
+                g_loop.stats.gameFrame++;
+            }
 
-            // Call update callback
+            // Call update callback (handles input even when paused)
             if (g_loop.updateCallback) {
                 float dt = (float)g_loop.tickInterval / 1000.0f;
                 g_loop.updateCallback(g_loop.stats.gameFrame, dt);

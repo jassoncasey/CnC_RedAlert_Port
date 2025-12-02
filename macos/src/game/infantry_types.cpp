@@ -332,17 +332,18 @@ const DoInfoStruct EinsteinDoControls[static_cast<int>(DoType::COUNT)] = {
 // Note: Combat stats (strength, cost, etc.) would normally be loaded
 // from RULES.INI. These are placeholder values matching original game.
 
-const InfantryTypeData InfantryTypes[] = {
+const InfantryTypeData InfantryTypeDefaults[] = {
     // E1 - Rifle Infantry
     {
         InfantryType::E1, 0, "E1",
         0x0035, 0x0010,                     // offsets
         false, true, false, false, false, false,  // flags
         PipType::FULL, 2, 2,                // pip, fire frames
-        50, 100, 4, 2,                      // strength, cost, speed, sight
+        50, 100, 4, 4,                      // strength, cost, speed, sight
         ArmorType::NONE,                    // armor
         WeaponType::M1CARBINE, WeaponType::NONE,  // weapons
-        false, false, false, false          // special flags
+        1, OwnerFlag::ALL, 5, -1, 0,        // tech, owner, pts, ammo, guard
+        false, false, false, false, false, false  // flags
     },
     // E2 - Grenadier
     {
@@ -350,10 +351,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, true, false, false, false, false,
         PipType::FULL, 14, 6,
-        50, 160, 4, 2,
+        50, 160, 5, 4,
         ArmorType::NONE,
         WeaponType::GRENADE, WeaponType::NONE,
-        false, false, false, false
+        1, OwnerFlag::SOVIET, 10, -1, 0,
+        false, false, false, false, true, false
     },
     // E3 - Rocket Soldier
     {
@@ -361,10 +363,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, true, false, false, false, false,
         PipType::FULL, 3, 3,
-        45, 300, 4, 2,
+        45, 300, 3, 4,
         ArmorType::NONE,
         WeaponType::DRAGON, WeaponType::NONE,
-        false, false, false, false
+        2, OwnerFlag::ALLIES, 10, -1, 0,
+        false, false, false, false, false, true
     },
     // E4 - Flamethrower
     {
@@ -372,10 +375,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, true, false, false, false, false,
         PipType::FULL, 2, 0,
-        40, 300, 4, 2,
+        40, 300, 3, 4,
         ArmorType::NONE,
         WeaponType::FIRE, WeaponType::NONE,
-        false, false, false, false
+        6, OwnerFlag::SOVIET, 15, -1, 0,
+        false, false, false, false, true, false
     },
     // E6 - Engineer
     {
@@ -383,21 +387,23 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, false, false, false, false, false,
         PipType::ENGINEER, 3, 3,
-        25, 500, 4, 2,
+        25, 500, 4, 4,
         ArmorType::NONE,
         WeaponType::NONE, WeaponType::NONE,
-        false, true, false, false
+        5, OwnerFlag::ALL, 20, -1, 0,
+        false, true, false, false, false, false
     },
     // E7 - Tanya
     {
         InfantryType::TANYA, 0, "E7",
         0x0035, 0x0010,
-        false, true, false, false, false, false,
+        true, true, false, false, false, false,
         PipType::COMMANDO, 2, 2,
-        100, 1200, 6, 5,
+        100, 1200, 5, 6,
         ArmorType::NONE,
-        WeaponType::COLT45, WeaponType::NONE,
-        false, false, true, false
+        WeaponType::COLT45, WeaponType::COLT45,
+        11, OwnerFlag::ALLIES, 25, -1, 0,
+        false, true, true, false, false, true
     },
     // SPY
     {
@@ -405,10 +411,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, false, false, false, false, false,
         PipType::ENGINEER, 3, 3,
-        25, 500, 6, 4,
+        25, 500, 4, 5,
         ArmorType::NONE,
-        WeaponType::PISTOL, WeaponType::NONE,
-        false, true, false, false
+        WeaponType::NONE, WeaponType::NONE,
+        6, OwnerFlag::ALLIES, 15, -1, 0,
+        false, true, false, false, false, false
     },
     // THF - Thief
     {
@@ -416,10 +423,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, false, false, false, false, false,
         PipType::ENGINEER, 3, 3,
-        25, 500, 8, 2,
+        25, 500, 4, 5,
         ArmorType::NONE,
         WeaponType::NONE, WeaponType::NONE,
-        false, true, false, false
+        11, OwnerFlag::ALLIES, 10, -1, 0,
+        false, true, false, false, false, false
     },
     // MEDI - Medic
     {
@@ -427,10 +435,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, true, false, false, false, false,
         PipType::ENGINEER, 25, 25,
-        80, 800, 4, 2,
+        80, 800, 4, 3,
         ArmorType::NONE,
         WeaponType::HEAL_MISSILE, WeaponType::NONE,
-        false, false, false, false
+        2, OwnerFlag::ALLIES, 15, -1, 0,
+        false, false, false, false, false, false
     },
     // GNRL - General
     {
@@ -438,10 +447,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, true, false, false, false, false,
         PipType::ENGINEER, 2, 2,
-        100, 1000, 4, 2,
+        80, 0, 5, 3,
         ArmorType::NONE,
         WeaponType::PISTOL, WeaponType::NONE,
-        false, false, false, false
+        -1, OwnerFlag::ALL, 15, 10, 0,
+        false, true, false, false, false, false
     },
     // DOG - Attack Dog
     {
@@ -449,10 +459,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0015, 0x0010,
         false, false, false, false, false, false,
         PipType::FULL, 1, 1,
-        25, 200, 8, 3,
+        12, 200, 4, 5,
         ArmorType::NONE,
         WeaponType::DOG_JAW, WeaponType::NONE,
-        false, false, false, true
+        3, OwnerFlag::SOVIET, 5, -1, 7,
+        false, false, false, true, false, false
     },
     // C1 - Civilian
     {
@@ -460,10 +471,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, false, true, false, true, false,
         PipType::CIVILIAN, 2, 0,
-        25, 0, 4, 2,
+        25, 10, 5, 2,
         ArmorType::NONE,
         WeaponType::PISTOL, WeaponType::NONE,
-        true, false, false, false
+        -1, OwnerFlag::ALL, 1, 10, 0,
+        true, false, false, false, false, false
     },
     // C2 - Civilian
     {
@@ -471,10 +483,11 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         false, false, true, true, true, false,
         PipType::CIVILIAN, 2, 0,
-        25, 0, 4, 2,
+        25, 10, 5, 2,
         ArmorType::NONE,
-        WeaponType::PISTOL, WeaponType::NONE,
-        true, false, false, false
+        WeaponType::NONE, WeaponType::NONE,
+        -1, OwnerFlag::ALL, 1, -1, 0,
+        true, false, false, false, false, false
     },
     // C3 - Civilian (female)
     {
@@ -482,39 +495,67 @@ const InfantryTypeData InfantryTypes[] = {
         0x0035, 0x0010,
         true, false, true, false, true, false,
         PipType::CIVILIAN, 2, 0,
-        25, 0, 4, 2,
+        25, 10, 5, 2,
         ArmorType::NONE,
-        WeaponType::PISTOL, WeaponType::NONE,
-        true, false, false, false
+        WeaponType::NONE, WeaponType::NONE,
+        -1, OwnerFlag::ALL, 1, -1, 0,
+        true, false, false, false, false, false
     },
     // C4-C10, Einstein, Delphi, Chan would follow same pattern...
 };
 
-const int InfantryTypeCount = sizeof(InfantryTypes) / sizeof(InfantryTypes[0]);
+const int InfantryTypeCount =
+    sizeof(InfantryTypeDefaults) / sizeof(InfantryTypeDefaults[0]);
+
+//===========================================================================
+// Mutable Infantry Type Data (runtime copy)
+//===========================================================================
+static InfantryTypeData g_infantryTypes[64];  // Max infantry types
+static bool g_infantryTypesInitialized = false;
 
 //===========================================================================
 // Helper Functions
 //===========================================================================
 
-const InfantryTypeData* GetInfantryType(InfantryType type) {
-    int index = static_cast<int>(type);
-    if (index >= 0 && index < InfantryTypeCount) {
-        // Find by type enum (not by index, since array may be sparse)
-        for (int i = 0; i < InfantryTypeCount; i++) {
-            if (InfantryTypes[i].type == type) {
-                return &InfantryTypes[i];
-            }
+void InitInfantryTypes() {
+    if (g_infantryTypesInitialized) return;
+
+    // Copy const defaults to mutable storage
+    for (int i = 0; i < InfantryTypeCount && i < 64; i++) {
+        g_infantryTypes[i] = InfantryTypeDefaults[i];
+    }
+    g_infantryTypesInitialized = true;
+}
+
+InfantryTypeData* GetInfantryType(InfantryType type) {
+    // Auto-init if not done
+    if (!g_infantryTypesInitialized) {
+        InitInfantryTypes();
+    }
+
+    for (int i = 0; i < InfantryTypeCount; i++) {
+        if (g_infantryTypes[i].type == type) {
+            return &g_infantryTypes[i];
         }
     }
     return nullptr;
 }
 
+const InfantryTypeData* GetInfantryTypeConst(InfantryType type) {
+    return GetInfantryType(type);
+}
+
 InfantryType InfantryTypeFromName(const char* name) {
     if (name == nullptr) return InfantryType::NONE;
 
+    // Auto-init if not done
+    if (!g_infantryTypesInitialized) {
+        InitInfantryTypes();
+    }
+
     for (int i = 0; i < InfantryTypeCount; i++) {
-        if (strcasecmp(InfantryTypes[i].iniName, name) == 0) {
-            return InfantryTypes[i].type;
+        if (strcasecmp(g_infantryTypes[i].iniName, name) == 0) {
+            return g_infantryTypes[i].type;
         }
     }
     return InfantryType::NONE;

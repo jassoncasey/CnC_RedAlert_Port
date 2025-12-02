@@ -164,6 +164,12 @@ void Input_Update(void) {
     g_input.lastMouseY = g_input.mouseY;
 }
 
+void Input_ClearFrameState(void) {
+    // Clear per-frame key state (call after game logic processes input)
+    memset(g_input.keyPressed, 0, sizeof(g_input.keyPressed));
+    memset(g_input.keyReleased, 0, sizeof(g_input.keyReleased));
+}
+
 BOOL Input_IsKeyDown(uint16_t vkCode) {
     if (vkCode >= 256) return FALSE;
     return g_input.keyState[vkCode] ? TRUE : FALSE;

@@ -80,12 +80,21 @@ struct BuildingTypeData {
     // Prerequisites
     uint32_t prereqs;           // Prerequisite building flags
     uint32_t owners;            // House ownership flags
+
+    // Tech and points (loaded from RULES.INI)
+    int8_t techLevel;           // Tech level required (-1 = can't build)
+    int16_t points;             // Score points when destroyed
+
+    // Additional flags (loaded from RULES.INI)
+    bool isCapturable;          // Can be captured by engineers
+    bool isCrewed;              // Has crew that can escape when destroyed
+    bool hasBib;                // Has concrete bib foundation
 };
 
 //===========================================================================
-// Building Type Table
+// Building Type Table (const defaults - do not modify directly)
 //===========================================================================
-extern const BuildingTypeData BuildingTypes[];
+extern const BuildingTypeData BuildingTypeDefaults[];
 extern const int BuildingTypeCount;
 
 //===========================================================================
@@ -93,9 +102,20 @@ extern const int BuildingTypeCount;
 //===========================================================================
 
 /**
- * Get building type data by type enum
+ * Initialize mutable building type data from defaults
+ * Call once at startup before loading RULES.INI
  */
-const BuildingTypeData* GetBuildingType(BuildingType type);
+void InitBuildingTypes();
+
+/**
+ * Get mutable building type data by type enum
+ */
+BuildingTypeData* GetBuildingType(BuildingType type);
+
+/**
+ * Get const building type data by type enum (for read-only access)
+ */
+const BuildingTypeData* GetBuildingTypeConst(BuildingType type);
 
 /**
  * Get building type by INI name

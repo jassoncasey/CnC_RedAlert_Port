@@ -352,6 +352,11 @@ static void UpdateRightClickCommands(int mx, int my) {
                 Units_CommandAttackMove(i, worldX, worldY);
             } else if (target && target->team == TEAM_ENEMY) {
                 Units_CommandAttack(i, targetId);
+            } else if (target && target->team == unit->team &&
+                       Units_IsTransport((UnitType)target->type) &&
+                       Units_IsLoadable((UnitType)unit->type)) {
+                // Friendly transport - command load (tracks target, retries)
+                Units_CommandLoad(i, targetId);
             } else {
                 Units_CommandMove(i, worldX, worldY);
             }
@@ -382,6 +387,17 @@ static void UpdateHotkeyCommands(void) {
         for (int i = 0; i < MAX_UNITS; i++) {
             Unit* unit = Units_Get(i);
             if (unit && unit->selected) Units_CommandGuard(i);
+        }
+    }
+
+    // Deploy/Unload (D) - unload passengers from selected transports
+    if (Input_WasKeyPressed('D')) {
+        for (int i = 0; i < MAX_UNITS; i++) {
+            Unit* unit = Units_Get(i);
+            if (!unit || !unit->selected) continue;
+            if (Units_IsTransport((UnitType)unit->type)) {
+                Units_UnloadTransport(i);
+            }
         }
     }
 }
@@ -445,8 +461,13 @@ void GameUpdate(uint32_t frame, float deltaTime) {
 
     // Gameplay mode
     if (g_inGameplay) {
-        if (Input_WasKeyPressed('P')) GameLoop_Pause(!GameLoop_IsPaused());
-        if (Input_WasKeyPressed('F')) ToggleFullscreen();
+        if (Input_WasKeyPressed('P') || Input_WasKeyPressed('p')) {
+            bool newPaused = !GameLoop_IsPaused();
+            GameLoop_Pause(newPaused);
+            if (newPaused) Music_Pause();
+            else Music_Resume();
+        }
+        if (Input_WasKeyPressed('F') || Input_WasKeyPressed('f')) ToggleFullscreen();
 
         // ESC handling
         if (Input_WasKeyPressed(VK_ESCAPE)) {
@@ -461,14 +482,15 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         UpdateRightClickCommands(mx, my);
         UpdateHotkeyCommands();
 
-        // Update game systems
-        Map_Update();
-        Units_Update();
-        GameUI_Update();
-        AI_Update();
-        g_gameFrameCount++;
-
-        UpdateMissionState();
+        // Update game systems (skip if paused)
+        if (!GameLoop_IsPaused()) {
+            Map_Update();
+            Units_Update();
+            GameUI_Update();
+            AI_Update();
+            g_gameFrameCount++;
+            UpdateMissionState();
+        }
         if (UpdateResultScreen()) { ExitToMenu(); return; }
         return;
     }
@@ -478,8 +500,13 @@ void GameUpdate(uint32_t frame, float deltaTime) {
     if (Input_WasKeyPressed(VK_ESCAPE)) {
         if (!GameUI_HandleEscape()) Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
     }
-    if (Input_WasKeyPressed('P')) GameLoop_Pause(!GameLoop_IsPaused());
-    if (Input_WasKeyPressed('F')) ToggleFullscreen();
+    if (Input_WasKeyPressed('P') || Input_WasKeyPressed('p')) {
+        bool newPaused = !GameLoop_IsPaused();
+        GameLoop_Pause(newPaused);
+        if (newPaused) Music_Pause();
+        else Music_Resume();
+    }
+    if (Input_WasKeyPressed('F') || Input_WasKeyPressed('f')) ToggleFullscreen();
 
     if (frame % 60 == 0) {
         const FrameStats* stats = GameLoop_GetStats();
@@ -590,11 +617,85 @@ static void RenderSelectionBox(void) {
     }
 }
 
-// Render mouse cursor crosshair
+// Cursor types
+enum CursorType {
+    CURSOR_NORMAL,
+    CURSOR_ATTACK,
+    CURSOR_MOVE,
+    CURSOR_ENTER  // For transports
+};
+
+// Determine what cursor to show based on what's under it and selection
+static CursorType GetCursorType(int mx, int my) {
+    // Check if we have units selected
+    if (Units_GetSelectedCount() == 0) return CURSOR_NORMAL;
+
+    // Check what's under the cursor
+    int targetId = Units_GetAtScreen(mx, my);
+    Unit* target = Units_Get(targetId);
+
+    if (target) {
+        // Get first selected unit for comparison
+        int selId = Units_GetFirstSelected();
+        Unit* sel = Units_Get(selId);
+        if (sel) {
+            // Enemy unit: attack cursor
+            if (target->team == TEAM_ENEMY) {
+                // Check if selected unit can attack
+                if (sel->attackDamage > 0) {
+                    return CURSOR_ATTACK;
+                }
+            }
+            // Friendly transport: enter cursor
+            else if (target->team == sel->team &&
+                     Units_IsTransport((UnitType)target->type) &&
+                     Units_IsLoadable((UnitType)sel->type)) {
+                return CURSOR_ENTER;
+            }
+        }
+    }
+
+    return CURSOR_MOVE;  // Default move cursor when units selected
+}
+
+// Render mouse cursor based on context
 static void RenderCursor(void) {
     int mx = Input_GetMouseX(), my = Input_GetMouseY();
-    Renderer_DrawLine(mx - 8, my, mx + 8, my, 15);
-    Renderer_DrawLine(mx, my - 8, mx, my + 8, 15);
+
+    CursorType ctype = GetCursorType(mx, my);
+    uint8_t color = 15;  // White default
+
+    switch (ctype) {
+        case CURSOR_ATTACK:
+            // Red attack crosshair with X shape
+            color = 4;  // Red
+            Renderer_DrawLine(mx - 6, my - 6, mx + 6, my + 6, color);
+            Renderer_DrawLine(mx - 6, my + 6, mx + 6, my - 6, color);
+            Renderer_DrawLine(mx - 8, my, mx + 8, my, color);
+            Renderer_DrawLine(mx, my - 8, mx, my + 8, color);
+            return;
+
+        case CURSOR_ENTER:
+            // Green cursor for entering transport
+            color = 10;  // Green
+            Renderer_DrawRect(mx - 6, my - 6, 12, 12, color);
+            Renderer_DrawLine(mx - 3, my, mx + 3, my, color);
+            Renderer_DrawLine(mx, my - 3, mx, my + 3, color);
+            return;
+
+        case CURSOR_MOVE:
+            // Yellow move cursor
+            color = 14;  // Yellow
+            break;
+
+        default:
+            color = 15;  // White
+            break;
+    }
+
+    // Standard crosshair
+    Renderer_DrawLine(mx - 8, my, mx + 8, my, color);
+    Renderer_DrawLine(mx, my - 8, mx, my + 8, color);
 }
 
 // Render top HUD bar

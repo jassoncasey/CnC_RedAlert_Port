@@ -188,24 +188,53 @@ struct WeaponTypeData {
 };
 
 //===========================================================================
-// Data Tables
+// Data Tables (const defaults - do not modify directly)
 //===========================================================================
-extern const WarheadTypeData WarheadTypes[];
+extern const WarheadTypeData WarheadTypeDefaults[];
 extern const int WarheadTypeCount;
 
-extern const BulletTypeData BulletTypes[];
+extern const BulletTypeData BulletTypeDefaults[];
 extern const int BulletTypeCount;
 
-extern const WeaponTypeData WeaponTypes[];
+extern const WeaponTypeData WeaponTypeDefaults[];
 extern const int WeaponTypeCount;
 
 //===========================================================================
-// Helper Functions
+// Initialization Functions
 //===========================================================================
 
-const WarheadTypeData* GetWarheadType(WarheadTypeEnum type);
-const BulletTypeData* GetBulletType(BulletType type);
-const WeaponTypeData* GetWeaponType(WeaponTypeEnum type);
+/**
+ * Initialize mutable weapon type data from defaults.
+ * Call once at startup before loading RULES.INI.
+ */
+void InitWeaponTypes();
+
+/**
+ * Initialize mutable warhead type data from defaults.
+ * Call once at startup before loading RULES.INI.
+ */
+void InitWarheadTypes();
+
+/**
+ * Initialize mutable bullet type data from defaults.
+ * Call once at startup before loading RULES.INI.
+ */
+void InitBulletTypes();
+
+//===========================================================================
+// Getter Functions (mutable data for INI overrides)
+//===========================================================================
+
+WarheadTypeData* GetWarheadType(WarheadTypeEnum type);
+BulletTypeData* GetBulletType(BulletType type);
+WeaponTypeData* GetWeaponType(WeaponTypeEnum type);
+
+/**
+ * Get const data for read-only access
+ */
+const WarheadTypeData* GetWarheadTypeConst(WarheadTypeEnum type);
+const BulletTypeData* GetBulletTypeConst(BulletType type);
+const WeaponTypeData* GetWeaponTypeConst(WeaponTypeEnum type);
 
 WeaponTypeEnum WeaponTypeFromName(const char* name);
 WarheadTypeEnum WarheadTypeFromName(const char* name);

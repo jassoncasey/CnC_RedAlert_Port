@@ -96,6 +96,24 @@ struct UnitTypeData {
     WeaponType primaryWeapon;   // Primary weapon
     WeaponType secondaryWeapon; // Secondary weapon
     int8_t passengers;          // Max passengers (if transport)
+
+    // Tech and ownership (loaded from RULES.INI)
+    int8_t techLevel;           // Tech level required (-1 = can't build)
+    uint32_t owners;            // House ownership flags (OwnerFlag)
+    int16_t points;             // Score points when destroyed
+    int8_t ammo;                // Ammo count (-1 = unlimited)
+    int8_t rot;                 // Rate of Turn
+    int8_t guardRange;          // Guard area scan range
+    uint32_t prereqs;           // Prerequisite building flags
+
+    // Additional flags (loaded from RULES.INI)
+    bool isTracked;             // Is tracked vehicle (vs wheeled)
+    bool isCrewed;              // Has crew that can escape
+    bool noMovingFire;          // Must stop to fire
+    bool selfHealing;           // Heals over time
+    bool isCloakable;           // Has cloaking device
+    bool hasSensors;            // Can detect cloaked units
+    bool explodes;              // Explodes when destroyed
 };
 
 //===========================================================================
@@ -106,9 +124,9 @@ extern const int HarvesterLoadList[];
 extern const int HarvesterLoadCount;
 
 //===========================================================================
-// Unit Type Table
+// Unit Type Table (const defaults - do not modify directly)
 //===========================================================================
-extern const UnitTypeData UnitTypes[];
+extern const UnitTypeData UnitTypeDefaults[];
 extern const int UnitTypeCount;
 
 //===========================================================================
@@ -116,9 +134,20 @@ extern const int UnitTypeCount;
 //===========================================================================
 
 /**
- * Get unit type data by type enum
+ * Initialize mutable unit type data from defaults
+ * Call once at startup before loading RULES.INI
  */
-const UnitTypeData* GetUnitType(UnitType type);
+void InitUnitTypes();
+
+/**
+ * Get mutable unit type data by type enum
+ */
+UnitTypeData* GetUnitType(UnitType type);
+
+/**
+ * Get const unit type data by type enum (for read-only access)
+ */
+const UnitTypeData* GetUnitTypeConst(UnitType type);
 
 /**
  * Get unit type by INI name

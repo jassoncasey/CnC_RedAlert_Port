@@ -47,3 +47,6 @@
 | BUG-11 | Teal dots sprites | Sprite loading fixed |
 | BUG-12/13 | Building render order | Y-sorted rendering + placement check |
 | BUG-14 | Chinook transport | Full transport load/unload system |
+| BUG-15 | Helicopter blocked | Aircraft skip cell occupancy checks |
+| BUG-16 | Group transport load | loadTarget tracking, angle-spread pathing, retry rotation |
+| BUG-17 | Jeep climbs cliffs | Fixed template ID mapping (135-172 = cliffs) |

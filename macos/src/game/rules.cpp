@@ -381,56 +381,338 @@ void RulesClass::ProcessCountries() {
 // Process infantry type sections
 //===========================================================================
 void RulesClass::ProcessInfantry() {
-    // Infantry type data is in static tables, but RULES.INI can override
-    // For now, just log that we would process infantry sections
-    // In a full implementation, this would modify InfantryTypes[]
+    // Initialize mutable type data
+    InitInfantryTypes();
 
-    // Example of what would be processed:
-    // [E1] - Rifle Infantry
-    // [E2] - Grenadier
-    // etc.
+    // Process each infantry type section
+    for (int i = 0; i < InfantryTypeCount; i++) {
+        InfantryTypeData* data = GetInfantryType(InfantryTypeDefaults[i].type);
+        if (!data || !data->iniName) continue;
 
-    // Since our InfantryTypes[] is const, we would need mutable runtime
-    // data. This is left as a future enhancement when game objects are
-    // fully implemented.
+        const char* s = data->iniName;
+        if (!ini_.SectionPresent(s)) continue;
+
+        // Load combat stats
+        data->strength = GET_INT(s, "Strength", data->strength);
+        data->cost = GET_INT(s, "Cost", data->cost);
+        data->speed = GET_INT(s, "Speed", data->speed);
+        data->sightRange = GET_INT(s, "Sight", data->sightRange);
+
+        // Load armor type
+        std::string armor = ini_.GetString(s, "Armor", "");
+        if (!armor.empty()) {
+            data->armor = ParseArmor(armor.c_str());
+        }
+
+        // Load weapons
+        std::string primary = ini_.GetString(s, "Primary", "");
+        if (!primary.empty()) {
+            data->primaryWeapon = ParseWeapon(primary.c_str());
+        }
+        std::string secondary = ini_.GetString(s, "Secondary", "");
+        if (!secondary.empty()) {
+            data->secondaryWeapon = ParseWeapon(secondary.c_str());
+        }
+
+        // Load tech level and ownership
+        data->techLevel = GET_INT(s, "TechLevel", data->techLevel);
+        data->points = GET_INT(s, "Points", data->points);
+        data->ammo = GET_INT(s, "Ammo", data->ammo);
+        data->guardRange = GET_INT(s, "GuardRange", data->guardRange);
+
+        // Load owners - parse comma-separated house list
+        std::string owners = ini_.GetString(s, "Owner", "");
+        if (!owners.empty()) {
+            data->owners = ParseOwners(owners.c_str());
+        }
+
+        // Load special flags
+        data->canCapture = GET_BOOL(s, "Infiltrate", data->canCapture);
+        data->isBomber = GET_BOOL(s, "C4", data->isBomber);
+        data->isFraidyCat = GET_BOOL(s, "Fraidycat", data->isFraidyCat);
+        data->isDog = GET_BOOL(s, "IsCanine", data->isDog);
+        data->explodes = GET_BOOL(s, "Explodes", data->explodes);
+        data->doubleOwned = GET_BOOL(s, "DoubleOwned", data->doubleOwned);
+    }
 }
 
 //===========================================================================
 // Process unit type sections
 //===========================================================================
 void RulesClass::ProcessUnits() {
-    // Similar to infantry - unit type data is in static tables
-    // RULES.INI overrides would be applied to mutable runtime data
+    // Initialize mutable type data
+    InitUnitTypes();
+
+    // Process each unit type section
+    for (int i = 0; i < UnitTypeCount; i++) {
+        UnitTypeData* data = GetUnitType(UnitTypeDefaults[i].type);
+        if (!data || !data->iniName) continue;
+
+        const char* s = data->iniName;
+        if (!ini_.SectionPresent(s)) continue;
+
+        // Load combat stats
+        data->strength = GET_INT(s, "Strength", data->strength);
+        data->cost = GET_INT(s, "Cost", data->cost);
+        data->speed = GET_INT(s, "Speed", data->speed);
+        data->sightRange = GET_INT(s, "Sight", data->sightRange);
+
+        // Load armor type
+        std::string armor = ini_.GetString(s, "Armor", "");
+        if (!armor.empty()) {
+            data->armor = ParseArmor(armor.c_str());
+        }
+
+        // Load speed type
+        std::string speedType = ini_.GetString(s, "SpeedType", "");
+        if (!speedType.empty()) {
+            data->speedType = ParseSpeed(speedType.c_str());
+        }
+
+        // Load weapons
+        std::string primary = ini_.GetString(s, "Primary", "");
+        if (!primary.empty()) {
+            data->primaryWeapon = ParseWeapon(primary.c_str());
+        }
+        std::string secondary = ini_.GetString(s, "Secondary", "");
+        if (!secondary.empty()) {
+            data->secondaryWeapon = ParseWeapon(secondary.c_str());
+        }
+
+        // Load transport capacity
+        data->passengers = GET_INT(s, "Passengers", data->passengers);
+
+        // Load tech level and ownership
+        data->techLevel = GET_INT(s, "TechLevel", data->techLevel);
+        data->points = GET_INT(s, "Points", data->points);
+        data->ammo = GET_INT(s, "Ammo", data->ammo);
+        data->rot = GET_INT(s, "ROT", data->rot);
+        data->guardRange = GET_INT(s, "GuardRange", data->guardRange);
+
+        // Load owners - parse comma-separated house list
+        std::string owners = ini_.GetString(s, "Owner", "");
+        if (!owners.empty()) {
+            data->owners = ParseOwners(owners.c_str());
+        }
+
+        // Load prerequisite buildings
+        std::string prereq = ini_.GetString(s, "Prerequisite", "");
+        if (!prereq.empty()) {
+            data->prereqs = ParsePrereqs(prereq.c_str());
+        }
+
+        // Load flags
+        data->isCrusher = GET_BOOL(s, "Crushable", data->isCrusher);
+        data->isHarvester = GET_BOOL(s, "Harvester", data->isHarvester);
+        data->isTracked = GET_BOOL(s, "Tracked", data->isTracked);
+        data->isCrewed = GET_BOOL(s, "Crewed", data->isCrewed);
+        data->noMovingFire = GET_BOOL(s, "NoMovingFire", data->noMovingFire);
+        data->selfHealing = GET_BOOL(s, "SelfHealing", data->selfHealing);
+        data->isCloakable = GET_BOOL(s, "Cloakable", data->isCloakable);
+        data->hasSensors = GET_BOOL(s, "Sensors", data->hasSensors);
+        data->explodes = GET_BOOL(s, "Explodes", data->explodes);
+    }
 }
 
 //===========================================================================
 // Process building type sections
 //===========================================================================
 void RulesClass::ProcessBuildings() {
-    // Similar pattern - building types from static tables with INI overrides
+    // Initialize mutable type data
+    InitBuildingTypes();
+
+    // Process each building type section
+    for (int i = 0; i < BuildingTypeCount; i++) {
+        BuildingTypeData* data =
+            GetBuildingType(BuildingTypeDefaults[i].type);
+        if (!data || !data->iniName) continue;
+
+        const char* s = data->iniName;
+        if (!ini_.SectionPresent(s)) continue;
+
+        // Load combat stats
+        data->strength = GET_INT(s, "Strength", data->strength);
+        data->cost = GET_INT(s, "Cost", data->cost);
+        data->sightRange = GET_INT(s, "Sight", data->sightRange);
+        data->power = GET_INT(s, "Power", data->power);
+
+        // Load armor type
+        std::string armor = ini_.GetString(s, "Armor", "");
+        if (!armor.empty()) {
+            data->armor = ParseArmor(armor.c_str());
+        }
+
+        // Load weapons
+        std::string primary = ini_.GetString(s, "Primary", "");
+        if (!primary.empty()) {
+            data->primaryWeapon = ParseWeapon(primary.c_str());
+        }
+        std::string secondary = ini_.GetString(s, "Secondary", "");
+        if (!secondary.empty()) {
+            data->secondaryWeapon = ParseWeapon(secondary.c_str());
+        }
+
+        // Load tech level and points
+        data->techLevel = GET_INT(s, "TechLevel", data->techLevel);
+        data->points = GET_INT(s, "Points", data->points);
+
+        // Load owners - parse comma-separated house list
+        std::string owners = ini_.GetString(s, "Owner", "");
+        if (!owners.empty()) {
+            data->owners = ParseOwners(owners.c_str());
+        }
+
+        // Load prerequisite buildings
+        std::string prereq = ini_.GetString(s, "Prerequisite", "");
+        if (!prereq.empty()) {
+            data->prereqs = ParsePrereqs(prereq.c_str());
+        }
+
+        // Load additional flags
+        data->isCapturable = GET_BOOL(s, "Capturable", data->isCapturable);
+        data->isCrewed = GET_BOOL(s, "Crewed", data->isCrewed);
+        data->hasBib = GET_BOOL(s, "Bib", data->hasBib);
+    }
 }
 
 //===========================================================================
 // Process weapon sections
 //===========================================================================
 void RulesClass::ProcessWeapons() {
-    // Weapon sections like [Colt45], [75mm], [M1Carbine] etc.
-    // These override static weapon data
+    // Initialize mutable type data
+    InitWeaponTypes();
+
+    // Process each weapon type section
+    for (int i = 0; i < WeaponTypeCount; i++) {
+        WeaponTypeData* data =
+            GetWeaponType(WeaponTypeDefaults[i].type);
+        if (!data || !data->iniName) continue;
+
+        const char* s = data->iniName;
+        if (!ini_.SectionPresent(s)) continue;
+
+        // Load weapon stats
+        data->damage = GET_INT(s, "Damage", data->damage);
+        data->range = GET_INT(s, "Range", data->range);
+        data->rateOfFire = GET_INT(s, "ROF", data->rateOfFire);
+        data->burst = GET_INT(s, "Burst", data->burst);
+        data->speed = GET_INT(s, "Speed", data->speed);
+
+        // Load flags
+        data->isTurboBoosted = GET_BOOL(s, "TurboBoost", data->isTurboBoosted);
+        data->isSuppressed = GET_BOOL(s, "Supp", data->isSuppressed);
+        data->isCamera = GET_BOOL(s, "Camera", data->isCamera);
+        data->isElectric = GET_BOOL(s, "Charges", data->isElectric);
+
+        // Load projectile reference
+        std::string proj = ini_.GetString(s, "Projectile", "");
+        if (!proj.empty()) {
+            BulletType bt = BulletTypeFromName(proj.c_str());
+            if (bt != BulletType::NONE) {
+                data->bullet = bt;
+            }
+        }
+
+        // Load warhead reference
+        std::string wh = ini_.GetString(s, "Warhead", "");
+        if (!wh.empty()) {
+            WarheadTypeEnum wht = WarheadTypeFromName(wh.c_str());
+            if (wht != WarheadTypeEnum::NONE) {
+                data->warhead = wht;
+            }
+        }
+    }
 }
 
 //===========================================================================
 // Process warhead sections
 //===========================================================================
 void RulesClass::ProcessWarheads() {
-    // Warhead sections like [SA], [HE], [AP] etc.
-    // These define damage modifiers vs armor types
+    // Initialize mutable type data
+    InitWarheadTypes();
+
+    // Process each warhead type section
+    for (int i = 0; i < WarheadTypeCount; i++) {
+        WarheadTypeData* data =
+            GetWarheadType(WarheadTypeDefaults[i].type);
+        if (!data || !data->iniName) continue;
+
+        const char* s = data->iniName;
+        if (!ini_.SectionPresent(s)) continue;
+
+        // Load warhead properties
+        data->spread = GET_INT(s, "Spread", data->spread);
+
+        // Load destruction flags
+        data->isWallDestroyer = GET_BOOL(s, "Wall", data->isWallDestroyer);
+        data->isWoodDestroyer = GET_BOOL(s, "Wood", data->isWoodDestroyer);
+        data->isTiberiumDestroyer = GET_BOOL(s, "Ore", data->isTiberiumDestroyer);
+
+        // Load armor modifiers (Verses= comma-separated percentages)
+        // Format: Verses=100%,90%,80%,70%,60% (None,Wood,Light,Heavy,Concrete)
+        std::string verses = ini_.GetString(s, "Verses", "");
+        if (!verses.empty()) {
+            int vals[5] = {256, 256, 256, 256, 256};
+            int count = 0;
+            char* str = const_cast<char*>(verses.c_str());
+            char* token = strtok(str, ",");
+            while (token && count < 5) {
+                int pct = 100;
+                if (strchr(token, '%')) {
+                    sscanf(token, "%d%%", &pct);
+                } else {
+                    pct = atoi(token);
+                }
+                // Convert percentage to 256-scale (100% = 256)
+                vals[count] = (pct * 256) / 100;
+                count++;
+                token = strtok(nullptr, ",");
+            }
+            if (count >= 5) {
+                data->vsNone = vals[0];
+                data->vsWood = vals[1];
+                data->vsLight = vals[2];
+                data->vsHeavy = vals[3];
+                data->vsConcrete = vals[4];
+            }
+        }
+    }
 }
 
 //===========================================================================
 // Process projectile sections
 //===========================================================================
 void RulesClass::ProcessProjectiles() {
-    // Projectile sections like [Invisible], [Ack], [Cannon] etc.
+    // Initialize mutable type data
+    InitBulletTypes();
+
+    // Process each projectile type section
+    for (int i = 0; i < BulletTypeCount; i++) {
+        BulletTypeData* data =
+            GetBulletType(BulletTypeDefaults[i].type);
+        if (!data || !data->iniName) continue;
+
+        const char* s = data->iniName;
+        if (!ini_.SectionPresent(s)) continue;
+
+        // Load projectile flags
+        data->isHigh = GET_BOOL(s, "High", data->isHigh);
+        data->isShadow = GET_BOOL(s, "Shadow", data->isShadow);
+        data->isArcing = GET_BOOL(s, "Arcing", data->isArcing);
+        data->isDropping = GET_BOOL(s, "Dropping", data->isDropping);
+        data->isInvisible = GET_BOOL(s, "Inviso", data->isInvisible);
+        data->isProximityFused = GET_BOOL(s, "Proximity", data->isProximityFused);
+        data->isFlameEquipped = GET_BOOL(s, "Animates", data->isFlameEquipped);
+        data->isFueled = GET_BOOL(s, "Ranged", data->isFueled);
+        data->isInaccurate = GET_BOOL(s, "Inaccurate", data->isInaccurate);
+        data->isAntiAircraft = GET_BOOL(s, "AA", data->isAntiAircraft);
+        data->isAntiGround = GET_BOOL(s, "AG", data->isAntiGround);
+        data->isAntiSubWarfare = GET_BOOL(s, "ASW", data->isAntiSubWarfare);
+        data->isTranslucent = GET_BOOL(s, "Translucent", data->isTranslucent);
+
+        // Load rotation stages
+        data->rotationStages = GET_INT(s, "ROT", data->rotationStages);
+    }
 }
 
 //===========================================================================
@@ -525,6 +807,74 @@ WeaponType RulesClass::ParseWeapon(const char* name) const {
     return WeaponType::NONE;
 }
 
+uint32_t RulesClass::ParseOwners(const char* str) const {
+    if (str == nullptr) return 0;
+
+    uint32_t result = 0;
+    char buffer[256];
+    strncpy(buffer, str, sizeof(buffer) - 1);
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    // Parse comma-separated house names
+    char* token = strtok(buffer, ",");
+    while (token) {
+        // Trim whitespace
+        while (*token == ' ') token++;
+        char* end = token + strlen(token) - 1;
+        while (end > token && *end == ' ') *end-- = '\0';
+
+        // Map to owner flag
+        if (strcasecmp(token, "Spain") == 0) result |= OwnerFlag::SPAIN;
+        else if (strcasecmp(token, "Greece") == 0) result |= OwnerFlag::GREECE;
+        else if (strcasecmp(token, "USSR") == 0) result |= OwnerFlag::USSR;
+        else if (strcasecmp(token, "England") == 0) result |= OwnerFlag::ENGLAND;
+        else if (strcasecmp(token, "Ukraine") == 0) result |= OwnerFlag::UKRAINE;
+        else if (strcasecmp(token, "Germany") == 0) result |= OwnerFlag::GERMANY;
+        else if (strcasecmp(token, "France") == 0) result |= OwnerFlag::FRANCE;
+        else if (strcasecmp(token, "Turkey") == 0) result |= OwnerFlag::TURKEY;
+        else if (strcasecmp(token, "Soviet") == 0) result |= OwnerFlag::SOVIET;
+        else if (strcasecmp(token, "Allies") == 0) result |= OwnerFlag::ALLIES;
+        else if (strcasecmp(token, "All") == 0) result |= OwnerFlag::ALL;
+
+        token = strtok(nullptr, ",");
+    }
+    return result;
+}
+
+uint32_t RulesClass::ParsePrereqs(const char* str) const {
+    if (str == nullptr) return 0;
+
+    uint32_t result = 0;
+    char buffer[256];
+    strncpy(buffer, str, sizeof(buffer) - 1);
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    // Parse comma-separated prereq names
+    char* token = strtok(buffer, ",");
+    while (token) {
+        // Trim whitespace
+        while (*token == ' ') token++;
+        char* end = token + strlen(token) - 1;
+        while (end > token && *end == ' ') *end-- = '\0';
+
+        // Map to prereq flag
+        if (strcasecmp(token, "POWR") == 0) result |= PrereqFlag::POWER;
+        if (strcasecmp(token, "APWR") == 0) result |= PrereqFlag::ADVANCED;
+        if (strcasecmp(token, "BARR") == 0) result |= PrereqFlag::BARRACKS;
+        if (strcasecmp(token, "TENT") == 0) result |= PrereqFlag::BARRACKS;
+        if (strcasecmp(token, "DOME") == 0) result |= PrereqFlag::RADAR;
+        if (strcasecmp(token, "WEAP") == 0) result |= PrereqFlag::FACTORY;
+        if (strcasecmp(token, "ATEK") == 0) result |= PrereqFlag::TECH;
+        if (strcasecmp(token, "STEK") == 0) result |= PrereqFlag::TECH;
+        if (strcasecmp(token, "HPAD") == 0) result |= PrereqFlag::HELIPAD;
+        if (strcasecmp(token, "AFLD") == 0) result |= PrereqFlag::AIRFIELD;
+        if (strcasecmp(token, "PROC") == 0) result |= PrereqFlag::PROC;
+
+        token = strtok(nullptr, ",");
+    }
+    return result;
+}
+
 //===========================================================================
 // Initialize rules from RULES.INI
 //===========================================================================
@@ -549,4 +899,17 @@ bool InitRules() {
 
     printf("Warning: RULES.INI not found, using defaults\n");
     return false;
+}
+
+//===========================================================================
+// Helper functions for accessing rules without full header inclusion
+//===========================================================================
+int Rules_GetGoldValue() {
+    int val = Rules.General().goldValue;
+    return (val <= 0) ? 25 : val;
+}
+
+int Rules_GetGemValue() {
+    int val = Rules.General().gemValue;
+    return (val <= 0) ? 50 : val;
 }

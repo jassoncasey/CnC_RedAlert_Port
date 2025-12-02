@@ -26,7 +26,7 @@ const int HarvesterLoadCount = 8;
 // Unit Type Table - Static data for all vehicle types
 //===========================================================================
 
-const UnitTypeData UnitTypes[] = {
+const UnitTypeData UnitTypeDefaults[] = {
     // V2 Rocket Launcher
     {
         UnitType::V2_LAUNCHER, 0, "V2RL",
@@ -38,11 +38,15 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
         // Combat stats
-        150, 700, 8, 5, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::V2_ROCKET, WeaponType::NONE, 0
+        150, 700, 7, 5, ArmorType::LIGHT, SpeedType::TRACK,
+        WeaponType::V2_ROCKET, WeaponType::NONE, 0,
+        // Tech/owner
+        4, OwnerFlag::SOVIET, 40, 1, 5, 0, PrereqFlag::FACTORY,
+        // Flags
+        true, true, true, false, false, false, false
     },
 
-    // Light Tank
+    // Light Tank (1TNK)
     {
         UnitType::LTANK, 0, "1TNK",
         AnimType::FRAG1, RemapType::NORMAL,
@@ -50,8 +54,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, true, false, false, false,
         true, false, false, false, false, false, false, false,
         32, 0, MissionType::HUNT,
-        400, 700, 9, 5, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::TURRET_CANNON, WeaponType::NONE, 0
+        300, 700, 9, 4, ArmorType::HEAVY, SpeedType::TRACK,
+        WeaponType::TURRET_CANNON, WeaponType::NONE, 0,
+        4, OwnerFlag::ALLIES, 30, -1, 5, 0, PrereqFlag::FACTORY,
+        true, true, false, false, false, false, false
     },
 
     // Heavy Tank (3TNK)
@@ -62,8 +68,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, true, false, false, false,
         true, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
-        400, 950, 8, 5, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::TURRET_CANNON, WeaponType::TURRET_CANNON, 0
+        400, 950, 7, 5, ArmorType::HEAVY, SpeedType::TRACK,
+        WeaponType::TURRET_CANNON, WeaponType::TURRET_CANNON, 0,
+        4, OwnerFlag::SOVIET, 50, -1, 5, 0, PrereqFlag::FACTORY,
+        true, true, false, false, false, false, false
     },
 
     // Medium Tank (2TNK)
@@ -74,8 +82,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, true, false, false, false,
         true, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
-        300, 800, 9, 5, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::TURRET_CANNON, WeaponType::NONE, 0
+        400, 800, 8, 5, ArmorType::HEAVY, SpeedType::TRACK,
+        WeaponType::TURRET_CANNON, WeaponType::NONE, 0,
+        6, OwnerFlag::ALLIES, 40, -1, 5, 0, PrereqFlag::FACTORY,
+        true, true, false, false, false, false, false
     },
 
     // Mammoth Tank (4TNK)
@@ -86,8 +96,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, true, false, false, false,
         true, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
-        600, 1700, 6, 6, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::MAMMOTH_TUSK, WeaponType::MAMMOTH_TUSK, 0
+        600, 1700, 4, 6, ArmorType::HEAVY, SpeedType::TRACK,
+        WeaponType::MAMMOTH_TUSK, WeaponType::MAMMOTH_TUSK, 0,
+        10, OwnerFlag::SOVIET, 60, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::TECH,
+        true, true, false, true, false, false, false
     },
 
     // Mobile Radar Jammer
@@ -98,8 +110,10 @@ const UnitTypeData UnitTypes[] = {
         false, false, true, false, true, false,
         false, true, false, false, false, false, true, false,
         32, 0, MissionType::HUNT,
-        110, 600, 9, 4, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        110, 600, 9, 7, ArmorType::LIGHT, SpeedType::TRACK,
+        WeaponType::NONE, WeaponType::NONE, 0,
+        12, OwnerFlag::ALLIES, 30, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::RADAR,
+        true, true, false, false, false, false, false
     },
 
     // Mobile Gap Generator
@@ -110,8 +124,10 @@ const UnitTypeData UnitTypes[] = {
         false, false, true, false, false, false,
         false, true, false, false, true, false, false, true,
         32, 0, MissionType::HUNT,
-        110, 600, 8, 4, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        110, 600, 9, 4, ArmorType::LIGHT, SpeedType::TRACK,
+        WeaponType::NONE, WeaponType::NONE, 0,
+        11, OwnerFlag::ALLIES, 40, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::ADVANCED,
+        false, true, false, false, false, false, false
     },
 
     // Artillery
@@ -122,8 +138,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, false, false, false, false,
         false, false, false, false, false, false, false, false,
         32, 0, MissionType::HUNT,
-        75, 600, 6, 6, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::SCUD, WeaponType::NONE, 0
+        75, 600, 6, 5, ArmorType::LIGHT, SpeedType::TRACK,
+        WeaponType::SCUD, WeaponType::NONE, 0,
+        8, OwnerFlag::ALLIES, 35, -1, 2, 0, PrereqFlag::FACTORY,
+        true, true, true, false, false, false, false
     },
 
     // Harvester
@@ -134,8 +152,10 @@ const UnitTypeData UnitTypes[] = {
         true, true, true, true, false, false,
         false, false, false, false, true, false, false, false,
         32, 0, MissionType::HARVEST,
-        600, 1400, 6, 3, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        600, 1400, 6, 4, ArmorType::HEAVY, SpeedType::TRACK,
+        WeaponType::NONE, WeaponType::NONE, 0,
+        1, OwnerFlag::ALL, 55, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::PROC,
+        true, true, false, true, false, false, false
     },
 
     // MCV
@@ -146,8 +166,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, true, false, false, false,
         false, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
-        600, 2500, 6, 3, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        600, 2500, 6, 4, ArmorType::LIGHT, SpeedType::TRACK,
+        WeaponType::NONE, WeaponType::NONE, 0,
+        11, OwnerFlag::ALL, 60, -1, 5, 0, PrereqFlag::FACTORY,
+        false, true, false, false, false, false, false
     },
 
     // Ranger (Jeep)
@@ -158,8 +180,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, false, false, false, false,
         true, false, false, false, false, false, false, false,
         32, 0, MissionType::HUNT,
-        150, 600, 12, 5, ArmorType::LIGHT, SpeedType::WHEEL,
-        WeaponType::M60MG, WeaponType::NONE, 0
+        150, 600, 10, 6, ArmorType::LIGHT, SpeedType::WHEEL,
+        WeaponType::M60MG, WeaponType::NONE, 0,
+        3, OwnerFlag::ALLIES, 20, -1, 10, 0, PrereqFlag::FACTORY,
+        false, true, false, false, false, false, false
     },
 
     // APC
@@ -170,8 +194,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, true, false, false, false,
         false, false, false, false, false, false, false, false,
         32, 0, MissionType::HUNT,
-        200, 700, 9, 4, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::M60MG, WeaponType::NONE, 5
+        200, 800, 10, 5, ArmorType::HEAVY, SpeedType::TRACK,
+        WeaponType::M60MG, WeaponType::NONE, 5,
+        5, OwnerFlag::ALLIES, 25, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::BARRACKS,
+        true, false, false, false, false, false, false
     },
 
     // Mine Layer
@@ -182,8 +208,10 @@ const UnitTypeData UnitTypes[] = {
         true, false, true, false, false, false,
         false, false, false, false, false, false, false, false,
         32, 0, MissionType::HUNT,
-        100, 800, 8, 3, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        100, 800, 9, 5, ArmorType::HEAVY, SpeedType::TRACK,
+        WeaponType::NONE, WeaponType::NONE, 0,
+        3, OwnerFlag::ALL, 50, 5, 5, 0, PrereqFlag::FACTORY,
+        true, true, false, false, false, false, false
     },
 
     // Convoy Truck
@@ -194,8 +222,10 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, false, false,
         false, false, false, false, false, false, false, false,
         32, 0, MissionType::GUARD,
-        110, 0, 12, 2, ArmorType::LIGHT, SpeedType::WHEEL,
-        WeaponType::NONE, WeaponType::NONE, 0
+        110, 500, 10, 3, ArmorType::LIGHT, SpeedType::WHEEL,
+        WeaponType::NONE, WeaponType::NONE, 1,
+        -1, OwnerFlag::ALL, 5, -1, 5, 0, PrereqFlag::NONE,
+        false, false, false, false, false, false, false
     },
 
     // Ant units (special)
@@ -207,7 +237,9 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, true, false, false, false,
         8, 0, MissionType::HUNT,
         150, 700, 5, 2, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        WeaponType::NONE, WeaponType::NONE, 0,
+        -1, 0, 0, -1, 0, 0, PrereqFlag::NONE,
+        false, false, false, false, false, false, false
     },
     {
         UnitType::ANT2, 0, "ANT2",
@@ -217,7 +249,9 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, true, false, false, false,
         8, 0, MissionType::HUNT,
         150, 700, 5, 2, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        WeaponType::NONE, WeaponType::NONE, 0,
+        -1, 0, 0, -1, 0, 0, PrereqFlag::NONE,
+        false, false, false, false, false, false, false
     },
     {
         UnitType::ANT3, 0, "ANT3",
@@ -227,7 +261,9 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, true, false, false, false,
         8, 0, MissionType::HUNT,
         150, 700, 5, 2, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        WeaponType::NONE, WeaponType::NONE, 0,
+        -1, 0, 0, -1, 0, 0, PrereqFlag::NONE,
+        false, false, false, false, false, false, false
     },
 
     // Aftermath units
@@ -240,7 +276,9 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
         200, 2400, 8, 5, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::TURRET_CANNON, WeaponType::NONE, 0
+        WeaponType::TURRET_CANNON, WeaponType::NONE, 0,
+        -1, OwnerFlag::ALLIES, 0, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::ADVANCED,
+        true, true, false, false, false, false, false
     },
 
     // Tesla Tank
@@ -252,7 +290,9 @@ const UnitTypeData UnitTypes[] = {
         false, true, false, false, true, false, true, false,
         32, 0, MissionType::HUNT,
         200, 1500, 7, 5, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::TESLA_COIL, WeaponType::NONE, 0
+        WeaponType::TESLA_COIL, WeaponType::NONE, 0,
+        -1, OwnerFlag::SOVIET, 0, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::TECH,
+        true, true, false, false, false, false, false
     },
 
     // M.A.D. Tank
@@ -264,7 +304,9 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
         200, 2200, 6, 4, ArmorType::HEAVY, SpeedType::TRACK,
-        WeaponType::NONE, WeaponType::NONE, 0
+        WeaponType::NONE, WeaponType::NONE, 0,
+        -1, OwnerFlag::SOVIET, 0, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::TECH,
+        true, true, false, false, false, false, false
     },
 
     // Demolition Truck
@@ -276,7 +318,9 @@ const UnitTypeData UnitTypes[] = {
         false, false, false, false, false, false, false, false,
         32, 0, MissionType::GUARD,
         110, 1500, 12, 2, ArmorType::LIGHT, SpeedType::WHEEL,
-        WeaponType::NONE, WeaponType::NONE, 0
+        WeaponType::NONE, WeaponType::NONE, 0,
+        -1, OwnerFlag::SOVIET, 0, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::TECH,
+        false, true, false, false, false, false, true
     },
 
     // Phase Transport
@@ -288,31 +332,63 @@ const UnitTypeData UnitTypes[] = {
         true, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
         200, 2500, 10, 6, ArmorType::LIGHT, SpeedType::TRACK,
-        WeaponType::DRAGON, WeaponType::NONE, 5
+        WeaponType::DRAGON, WeaponType::NONE, 5,
+        -1, OwnerFlag::ALLIES, 0, -1, 5, 0, PrereqFlag::FACTORY | PrereqFlag::ADVANCED,
+        true, false, false, false, true, false, false
     },
 };
 
-const int UnitTypeCount = sizeof(UnitTypes) / sizeof(UnitTypes[0]);
+const int UnitTypeCount = sizeof(UnitTypeDefaults) / sizeof(UnitTypeDefaults[0]);
+
+//===========================================================================
+// Mutable Unit Type Data (runtime copy)
+//===========================================================================
+static UnitTypeData g_unitTypes[64];  // Max unit types
+static bool g_unitTypesInitialized = false;
 
 //===========================================================================
 // Helper Functions
 //===========================================================================
 
-const UnitTypeData* GetUnitType(UnitType type) {
+void InitUnitTypes() {
+    if (g_unitTypesInitialized) return;
+
+    // Copy const defaults to mutable storage
+    for (int i = 0; i < UnitTypeCount && i < 64; i++) {
+        g_unitTypes[i] = UnitTypeDefaults[i];
+    }
+    g_unitTypesInitialized = true;
+}
+
+UnitTypeData* GetUnitType(UnitType type) {
+    // Auto-init if not done
+    if (!g_unitTypesInitialized) {
+        InitUnitTypes();
+    }
+
     for (int i = 0; i < UnitTypeCount; i++) {
-        if (UnitTypes[i].type == type) {
-            return &UnitTypes[i];
+        if (g_unitTypes[i].type == type) {
+            return &g_unitTypes[i];
         }
     }
     return nullptr;
 }
 
+const UnitTypeData* GetUnitTypeConst(UnitType type) {
+    return GetUnitType(type);
+}
+
 UnitType UnitTypeFromName(const char* name) {
     if (name == nullptr) return UnitType::NONE;
 
+    // Auto-init if not done
+    if (!g_unitTypesInitialized) {
+        InitUnitTypes();
+    }
+
     for (int i = 0; i < UnitTypeCount; i++) {
-        if (strcasecmp(UnitTypes[i].iniName, name) == 0) {
-            return UnitTypes[i].type;
+        if (strcasecmp(g_unitTypes[i].iniName, name) == 0) {
+            return g_unitTypes[i].type;
         }
     }
     return UnitType::NONE;

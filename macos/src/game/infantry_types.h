@@ -87,17 +87,26 @@ struct InfantryTypeData {
     WeaponType primaryWeapon;   // Primary weapon
     WeaponType secondaryWeapon; // Secondary weapon
 
+    // Tech and ownership (loaded from RULES.INI)
+    int8_t techLevel;           // Tech level required (-1 = can't build)
+    uint32_t owners;            // House ownership flags (OwnerFlag)
+    int16_t points;             // Score points when destroyed
+    int8_t ammo;                // Ammo count (-1 = unlimited)
+    int8_t guardRange;          // Guard area scan range
+
     // Flags
     bool isFraidyCat;           // Runs when hurt
-    bool canCapture;            // Can capture buildings
+    bool canCapture;            // Can capture buildings (Infiltrate)
     bool isBomber;              // Has C4 charges
-    bool isDog;                 // Is attack dog
+    bool isDog;                 // Is attack dog (IsCanine)
+    bool explodes;              // Explodes when destroyed
+    bool doubleOwned;           // Can be built by all in multiplayer
 };
 
 //===========================================================================
-// Infantry Type Table - All infantry types
+// Infantry Type Table (const defaults - do not modify directly)
 //===========================================================================
-extern const InfantryTypeData InfantryTypes[];
+extern const InfantryTypeData InfantryTypeDefaults[];
 extern const int InfantryTypeCount;
 
 //===========================================================================
@@ -122,9 +131,20 @@ extern const DoInfoStruct EinsteinDoControls[];
 //===========================================================================
 
 /**
- * Get infantry type data by type enum
+ * Initialize mutable infantry type data from defaults
+ * Call once at startup before loading RULES.INI
  */
-const InfantryTypeData* GetInfantryType(InfantryType type);
+void InitInfantryTypes();
+
+/**
+ * Get mutable infantry type data by type enum
+ */
+InfantryTypeData* GetInfantryType(InfantryType type);
+
+/**
+ * Get const infantry type data by type enum (for read-only access)
+ */
+const InfantryTypeData* GetInfantryTypeConst(InfantryType type);
 
 /**
  * Get infantry type by INI name

@@ -8,6 +8,10 @@
 #include "sprites.h"
 #include "sounds.h"
 #include "graphics/metal/renderer.h"
+
+// Rules accessor functions (avoid header conflicts with types.h)
+extern int Rules_GetGoldValue();
+extern int Rules_GetGemValue();
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
@@ -344,6 +348,7 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     }
     unit->passengerCount = 0;
     unit->transportId = -1;
+    unit->loadTarget = -1;
 
     // Mark the spawn cell as occupied
     int cellX, cellY;
@@ -490,6 +495,7 @@ void Units_CommandStop(int unitId) {
     unit->targetX = unit->worldX;
     unit->targetY = unit->worldY;
     unit->targetUnit = -1;
+    unit->loadTarget = -1;
     unit->state = STATE_IDLE;
     unit->pathLength = 0;
 }
@@ -1075,18 +1081,22 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
     }
 
     // Check if next waypoint is occupied (by another unit)
-    int waypointCellX, waypointCellY;
-    Map_WorldToCell(unit->nextWaypointX, unit->nextWaypointY,
-                    &waypointCellX, &waypointCellY);
+    // Aircraft fly over ground units - skip occupancy check
+    const UnitTypeDef* def = &g_unitTypes[unit->type];
+    if (!def->isAircraft) {
+        int waypointCellX, waypointCellY;
+        Map_WorldToCell(unit->nextWaypointX, unit->nextWaypointY,
+                        &waypointCellX, &waypointCellY);
 
-    // Vehicles that can crush don't block on enemy infantry
-    BOOL canCrush = CanCrushInfantry(unit);
-    int wcx = waypointCellX, wcy = waypointCellY;
-    if (IsCellOccupiedForTeam(wcx, wcy, unitId, unit->team, canCrush)) {
-        // Cell occupied - wait or recalculate path
-        // For now, just stop and clear path to recalculate next frame
-        unit->pathLength = 0;
-        return;
+        // Vehicles that can crush don't block on enemy infantry
+        BOOL canCrush = CanCrushInfantry(unit);
+        int wcx = waypointCellX, wcy = waypointCellY;
+        if (IsCellOccupiedForTeam(wcx, wcy, unitId, unit->team, canCrush)) {
+            // Cell occupied - clear path and go idle to trigger retry
+            unit->pathLength = 0;
+            unit->state = STATE_IDLE;
+            return;
+        }
     }
 
     // Move toward current waypoint
@@ -1116,9 +1126,24 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
             // Final destination reached
             unit->state = STATE_IDLE;
 
-            // Check if loadable infantry reached a friendly transport
-            if (Units_IsLoadable((UnitType)unit->type)) {
-                // Look for friendly transport at or near destination
+            // If we have a specific load target, try to load into it
+            if (unit->loadTarget >= 0) {
+                Unit* trans = Units_Get(unit->loadTarget);
+                if (trans && trans->active && trans->health > 0) {
+                    int dx = trans->worldX - unit->worldX;
+                    int dy = trans->worldY - unit->worldY;
+                    int dist = (int)sqrt((double)(dx * dx + dy * dy));
+                    if (dist < CELL_SIZE * 2) {
+                        if (Units_LoadIntoTransport(unitId, unit->loadTarget)) {
+                            unit->loadTarget = -1;
+                            return;  // Loaded successfully
+                        }
+                    }
+                    // Not close enough yet - will retry on idle check
+                }
+            }
+            // Also check for any nearby friendly transport (generic auto-load)
+            else if (Units_IsLoadable((UnitType)unit->type)) {
                 for (int t = 0; t < MAX_UNITS; t++) {
                     Unit* trans = &g_units[t];
                     if (!trans->active) continue;
@@ -1129,10 +1154,9 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
                     int dy = trans->worldY - unit->worldY;
                     int dist = (int)sqrt((double)(dx * dx + dy * dy));
 
-                    // Close enough to load (within ~2 cells)
                     if (dist < CELL_SIZE * 2) {
                         if (Units_LoadIntoTransport(unitId, t)) {
-                            return;  // Unit loaded, done processing
+                            return;
                         }
                     }
                 }
@@ -1213,6 +1237,36 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
         if (enemyId >= 0) {
             unit->targetUnit = (int16_t)enemyId;
             unit->state = STATE_ATTACKING;
+        }
+    }
+
+    // Transport loading: if idle with load target, try to load or re-path
+    if (unit->state == STATE_IDLE && unit->loadTarget >= 0) {
+        Unit* transport = Units_Get(unit->loadTarget);
+        if (transport && transport->active && transport->health > 0) {
+            // Check if close enough to load
+            int dx = transport->worldX - unit->worldX;
+            int dy = transport->worldY - unit->worldY;
+            int dist = (int)sqrt((double)(dx * dx + dy * dy));
+            if (dist < CELL_SIZE * 2) {
+                // Close enough - try to load
+                if (Units_LoadIntoTransport(unitId, unit->loadTarget)) {
+                    unit->loadTarget = -1;  // Loaded successfully
+                }
+            } else {
+                // Not close enough - path to adjacent cell (avoid blocked transport cell)
+                // Try different angles on retry: use a static counter + unit ID
+                static int retryCounter = 0;
+                retryCounter++;
+                int angle = ((unitId + retryCounter) * 45) % 360;
+                double rad = angle * 3.14159 / 180.0;
+                int targetX = transport->worldX + (int)(cos(rad) * CELL_SIZE);
+                int targetY = transport->worldY + (int)(sin(rad) * CELL_SIZE);
+                Units_CommandMove(unitId, targetX, targetY);
+            }
+        } else {
+            // Transport gone - cancel load target
+            unit->loadTarget = -1;
         }
     }
 
@@ -1607,7 +1661,8 @@ static void UpdateHarvester(Unit* unit, int unitId) {
                 // At refinery - unload
                 bool isPlayer = unit->team == TEAM_PLAYER;
                 if (unit->cargo > 0 && g_pPlayerCredits && isPlayer) {
-                    int credits = (unit->cargo * ORE_VALUE) / 10;  // Scale down
+                    int oreValue = Rules_GetGoldValue();
+                    int credits = (unit->cargo * oreValue) / 10;  // Scale down
                     *g_pPlayerCredits += credits;
                     unit->cargo = 0;
                 }
@@ -2089,9 +2144,27 @@ void Units_CommandLoad(int unitId, int transportId) {
     if (!unit || !unit->active) return;
     if (!transport || !transport->active) return;
 
-    // Move unit toward transport first
-    Units_CommandMove(unitId, transport->worldX, transport->worldY);
+    // Check if already close enough to load immediately
+    int dx = transport->worldX - unit->worldX;
+    int dy = transport->worldY - unit->worldY;
+    int dist = (int)sqrt((double)(dx * dx + dy * dy));
 
-    fprintf(stderr, "Units_CommandLoad: Unit %d moving to transport %d\n",
-            unitId, transportId);
+    if (dist < CELL_SIZE * 2) {
+        // Close enough - try immediate load
+        if (Units_LoadIntoTransport(unitId, transportId)) {
+            return;  // Loaded successfully
+        }
+    }
+
+    // Set load target so we keep trying until loaded
+    unit->loadTarget = transportId;
+
+    // Path to adjacent cell (transport's cell is occupied/blocked)
+    // Use unit ID to pick different approach angles for group loading
+    int angle = (unitId * 45) % 360;
+    double rad = angle * 3.14159 / 180.0;
+    int targetX = transport->worldX + (int)(cos(rad) * CELL_SIZE);
+    int targetY = transport->worldY + (int)(sin(rad) * CELL_SIZE);
+
+    Units_CommandMove(unitId, targetX, targetY);
 }

@@ -5,6 +5,7 @@
  */
 
 #include "cell.h"
+#include "rules.h"
 #include <cstring>
 
 //===========================================================================
@@ -232,12 +233,16 @@ int CellClass::OreValue() const {
         // Value based on overlay stage (1-4)
         int base = static_cast<int>(OverlayType::GOLD1);
         int stage = ov - base + 1;
-        return stage * 25;  // 25 credits per stage
+        int goldValue = Rules.General().goldValue;
+        if (goldValue <= 0) goldValue = 25;  // Default fallback
+        return stage * goldValue;
     }
     if (HasGems()) {
         int base = static_cast<int>(OverlayType::GEMS1);
         int stage = ov - base + 1;
-        return stage * 50;  // 50 credits per stage
+        int gemValue = Rules.General().gemValue;
+        if (gemValue <= 0) gemValue = 50;  // Default fallback
+        return stage * gemValue;
     }
     return 0;
 }
@@ -252,18 +257,22 @@ int CellClass::ReduceOre(int amount) {
     int ov = static_cast<int>(overlay_);
     int stage;
     if (HasOre()) {
+        int goldValue = Rules.General().goldValue;
+        if (goldValue <= 0) goldValue = 25;
         int base = static_cast<int>(OverlayType::GOLD1);
         stage = ov - base;
-        stage -= (reduced / 25);
+        stage -= (reduced / goldValue);
         if (stage < 0) {
             ClearOverlay();
         } else {
             overlay_ = static_cast<OverlayType>(base + stage);
         }
     } else {
+        int gemValue = Rules.General().gemValue;
+        if (gemValue <= 0) gemValue = 50;
         int base = static_cast<int>(OverlayType::GEMS1);
         stage = ov - base;
-        stage -= (reduced / 50);
+        stage -= (reduced / gemValue);
         if (stage < 0) {
             ClearOverlay();
         } else {

@@ -1055,16 +1055,16 @@ static int RenderWrappedText(const char* text, int x, int y,
 }
 
 void Menu_RenderBriefing(void) {
+    // Force reset any state from video playback
+    Renderer_ResetClip();
+
     // Use stub palette for menu UI - terrain palettes don't have UI colors
     // Create a local palette each frame so we don't affect gameplay
     Palette menuPal;
     StubAssets_CreatePalette(&menuPal);
     Renderer_SetPalette(&menuPal);
 
-    // Reset clipping to full screen in case video left it restricted
-    Renderer_ResetClip();
-
-    // Dark background
+    // Dark background - clear entire framebuffer
     Renderer_Clear(PAL_BLACK);
 
     // Title banner (dark red gradient like other menus)

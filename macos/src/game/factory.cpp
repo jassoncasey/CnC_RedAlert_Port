@@ -78,26 +78,32 @@ bool FactoryClass::Set(RTTIType type, int id, HouseClass* house) {
     switch (type) {
         case RTTIType::INFANTRY:
             if (id >= 0 && id < static_cast<int>(InfantryType::COUNT)) {
-                const InfantryTypeData& inf = InfantryTypes[id];
-                cost = inf.cost;
-                // Default build time - would come from RULES.INI
-                buildTime = 100;
+                auto inf = GetInfantryType(static_cast<InfantryType>(id));
+                if (inf) {
+                    cost = inf->cost;
+                    // Default build time - would come from RULES.INI
+                    buildTime = 100;
+                }
             }
             break;
 
         case RTTIType::UNIT:
             if (id >= 0 && id < static_cast<int>(UnitType::COUNT)) {
-                const UnitTypeData& unit = UnitTypes[id];
-                cost = unit.cost;
-                buildTime = 100;
+                auto unit = GetUnitType(static_cast<UnitType>(id));
+                if (unit) {
+                    cost = unit->cost;
+                    buildTime = 100;
+                }
             }
             break;
 
         case RTTIType::BUILDING:
             if (id >= 0 && id < static_cast<int>(BuildingType::COUNT)) {
-                const BuildingTypeData& bld = BuildingTypes[id];
-                cost = bld.cost;
-                buildTime = 100;
+                auto bld = GetBuildingType(static_cast<BuildingType>(id));
+                if (bld) {
+                    cost = bld->cost;
+                    buildTime = 100;
+                }
             }
             break;
 
