@@ -120,11 +120,11 @@ Hardcoded defaults in UDATA.CPP, IDATA.CPP, BDATA.CPP as fallbacks.
 | CFG-3 | Building Loading | 4 hrs | **DONE** |
 | CFG-4 | Weapon/Warhead Loading | 6 hrs | **DONE** |
 | CFG-5 | Game Constants | 2 hrs | **DONE** |
-| CFG-6 | Aircraft Direct Flight | 4 hrs | Pending |
+| CFG-6 | Aircraft Direct Flight | 4 hrs | **DONE** |
 
-### Remaining Work
+### Configuration Phase Complete
 
-1. CFG-6 (aircraft) - bypass A* for aircraft, use direct flight
+All CFG milestones completed. Game data is now loaded from RULES.INI.
 
 ---
 

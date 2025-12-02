@@ -856,11 +856,6 @@ static BOOL FindPath(Unit* unit, int startCellX, int startCellY,
     unit->pathLength = 0;
     unit->pathIndex = 0;
 
-    // Check if target is reachable
-    if (!IsCellPassable(targetCellX, targetCellY, isNaval, isAircraft)) {
-        return FALSE;
-    }
-
     // Already at target?
     if (startCellX == targetCellX && startCellY == targetCellY) {
         return TRUE;
@@ -868,6 +863,28 @@ static BOOL FindPath(Unit* unit, int startCellX, int startCellY,
 
     int mapW = Map_GetWidth();
     int mapH = Map_GetHeight();
+
+    // Aircraft use direct flight - no A* pathfinding needed
+    // They fly in a straight line to the target, only checking map bounds
+    if (isAircraft) {
+        // Clamp target to map bounds
+        int clampedX = targetCellX;
+        int clampedY = targetCellY;
+        if (clampedX < 0) clampedX = 0;
+        if (clampedX >= mapW) clampedX = mapW - 1;
+        if (clampedY < 0) clampedY = 0;
+        if (clampedY >= mapH) clampedY = mapH - 1;
+
+        // Single waypoint - direct flight to target
+        unit->pathCells[0] = clampedY * mapW + clampedX;
+        unit->pathLength = 1;
+        return TRUE;
+    }
+
+    // Check if target is reachable (ground/naval units only)
+    if (!IsCellPassable(targetCellX, targetCellY, isNaval, isAircraft)) {
+        return FALSE;
+    }
 
     // Open set (priority queue)
     std::priority_queue<PathNode, std::vector<PathNode>,
