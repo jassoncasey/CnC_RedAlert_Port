@@ -1371,17 +1371,8 @@ int Mission_LoadFromBuffer(MissionData* mission, const char* buffer, int size) {
         return 0;
     }
 
-    // Use same parsing logic as file version (simplified - reparse from buffer)
-    Mission_Init(mission);
-
-    // [Basic] section
-    int nsz = sizeof(mission->name);
-    ini.GetString("Basic", "Name", "Mission", mission->name, nsz);
-    mission->startCredits = ini.GetInt("Basic", "Credits", 5000);
-
-    // ... (same parsing as above, but simpler for buffer)
-
-    return 1;
+    // Use same parsing logic as file version
+    return Mission_LoadFromINIClass(mission, &ini);
 }
 
 // Helper: Set theater from mission data
