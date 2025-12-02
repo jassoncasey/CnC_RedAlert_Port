@@ -109,12 +109,56 @@ static void StartDemoMission(void) {
 static int g_pendingCampaign = 0;
 static int g_pendingDifficulty = 0;
 
+// Forward declarations for video chaining
+static void ShowBriefingScreen(void);
+static void OnMissionOutroComplete(void);
+
 // Actually start the mission after briefing
 static void OnBriefingConfirmed(void) {
     NSLog(@"Briefing confirmed, starting mission");
     // Restore game palette (briefing may have changed it)
     Renderer_LoadPalette("SNOW.PAL");
     StartMission(&g_currentMission);
+}
+
+// Show briefing screen (called after intro video or directly)
+static void ShowBriefingScreen(void) {
+    // Use mission description as briefing text, or generate default
+    bool isAllied = (g_pendingCampaign == CAMPAIGN_ALLIED);
+    const char* briefingText = g_currentMission.description;
+    if (!briefingText || strlen(briefingText) < 10) {
+        if (isAllied) {
+            briefingText = "Commander, Soviet forces invaded Eastern Europe. "
+                           "Establish a base and rescue Allied scientists. "
+                           "Eliminate all Soviet forces. Good luck.";
+        } else {
+            briefingText = "Comrade, the capitalist West threatens our Union. "
+                           "Crush Allied forces and secure our borders. "
+                           "Show them the might of the Red Army!";
+        }
+    }
+
+    Menu_SetBriefing(g_currentMission.name, briefingText);
+    Menu_SetBriefingConfirmCallback(OnBriefingConfirmed);
+    Menu_SetCurrentScreen(MENU_SCREEN_BRIEFING);
+}
+
+// Called after intro video completes (chains to briefing screen)
+static void OnIntroVideoComplete(void) {
+    NSLog(@"Intro video complete, showing briefing");
+    ShowBriefingScreen();
+}
+
+// Called after win/lose video completes (returns to menu)
+static void OnMissionOutroComplete(void) {
+    NSLog(@"Outro video complete, returning to menu");
+    g_inGameplay = false;
+    g_missionResult = MISSION_ONGOING;
+    AI_Shutdown();
+    GameUI_Shutdown();
+    Map_Shutdown();
+    Units_Shutdown();
+    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
 }
 
 // Try to load mission from MIX archives or loose files
@@ -203,24 +247,17 @@ static void StartCampaignMission(int campaign, int difficulty) {
         g_currentMission.startCredits = (credits * 60) / 100;
     }
 
-    // Use mission description as briefing text, or generate default
-    const char* briefingText = g_currentMission.description;
-    if (!briefingText || strlen(briefingText) < 10) {
-        if (isAllied) {
-            briefingText = "Commander, Soviet forces invaded Eastern Europe. "
-                           "Establish a base and rescue Allied scientists. "
-                           "Eliminate all Soviet forces. Good luck.";
-        } else {
-            briefingText = "Comrade, the capitalist West threatens our Union. "
-                           "Crush Allied forces and secure our borders. "
-                           "Show them the might of the Red Army!";
-        }
+    // Check for intro/briefing video and play if available
+    if (g_currentMission.briefVideo[0] != '\0') {
+        // Build VQA filename (e.g., "ALLY1" -> "ALLY1.VQA")
+        char vqaFile[64];
+        snprintf(vqaFile, sizeof(vqaFile), "%s.VQA", g_currentMission.briefVideo);
+        NSLog(@"Playing intro video: %s", vqaFile);
+        Menu_PlayVideo(vqaFile, OnIntroVideoComplete, TRUE);
+    } else {
+        // No intro video, go straight to briefing
+        ShowBriefingScreen();
     }
-
-    // Set briefing data and show briefing screen
-    Menu_SetBriefing(g_currentMission.name, briefingText);
-    Menu_SetBriefingConfirmCallback(OnBriefingConfirmed);
-    Menu_SetCurrentScreen(MENU_SCREEN_BRIEFING);
 }
 
 // ============================================================================
@@ -455,6 +492,27 @@ static void UpdateMissionState(void) {
     }
 }
 
+// Play outro video and return to menu
+static void PlayOutroVideoAndExit(void) {
+    // Select win or lose video based on result
+    const char* video = nullptr;
+    if (g_missionResult == MISSION_VICTORY && g_currentMission.winVideo[0]) {
+        video = g_currentMission.winVideo;
+    } else if (g_missionResult == MISSION_DEFEAT && g_currentMission.loseVideo[0]) {
+        video = g_currentMission.loseVideo;
+    }
+
+    if (video) {
+        char vqaFile[64];
+        snprintf(vqaFile, sizeof(vqaFile), "%s.VQA", video);
+        NSLog(@"Playing outro video: %s", vqaFile);
+        Menu_PlayVideo(vqaFile, OnMissionOutroComplete, TRUE);
+    } else {
+        // No outro video, go straight to menu
+        OnMissionOutroComplete();
+    }
+}
+
 // Handle result screen display. Returns true if should exit to menu.
 static bool UpdateResultScreen(void) {
     if (g_missionResult == MISSION_ONGOING || g_resultDisplayTimer <= 0)
@@ -465,7 +523,9 @@ static bool UpdateResultScreen(void) {
         if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
             Input_WasKeyPressed(VK_SPACE) ||
             (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
-            return true;
+            // Play outro video then exit (instead of direct exit)
+            PlayOutroVideoAndExit();
+            return false;  // Don't exit yet, video callback will handle it
         }
     }
     return false;
@@ -512,7 +572,7 @@ void GameUpdate(uint32_t frame, float deltaTime) {
             g_gameFrameCount++;
             UpdateMissionState();
         }
-        if (UpdateResultScreen()) { ExitToMenu(); return; }
+        UpdateResultScreen();  // Handles video playback on completion
         return;
     }
 

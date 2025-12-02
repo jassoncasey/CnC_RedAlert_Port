@@ -3,8 +3,8 @@
 **Goal:** Faithful recreation of original Red Alert with full 14-mission
 campaigns (Allied + Soviet) playable from original game assets.
 
-**Current State:** Core systems complete. INI-based mission loading,
-trigger actions, and unit/building carryover complete. Ready for CAM-4.
+**Current State:** Phase 1 complete! INI-based mission loading, trigger
+actions, unit/building carryover, and briefing video integration all done.
 
 ---
 
@@ -20,7 +20,7 @@ The 44-mission count includes Aftermath + Counter-Strike expansions.
 | CAM-1 | INI-based mission loading | 8 hrs | **DONE** |
 | CAM-2 | Complete trigger actions | 6 hrs | **DONE** |
 | CAM-3 | Unit/building carryover | 4 hrs | **DONE** |
-| CAM-4 | Briefing video integration | 2 hrs | Pending |
+| CAM-4 | Briefing video integration | 2 hrs | **DONE** |
 
 **CAM-1: INI-Based Mission Loading**
 - Replace hardcoded `AlliedMissions[]`/`SovietMissions[]` with file loading
@@ -43,10 +43,11 @@ All critical trigger actions implemented in mission.cpp:
 - `Load_Carryover()` called at mission start for `ToInherit=yes` missions
 - Counts surviving units/buildings by type (placeholder for future spawning)
 
-**CAM-4: Briefing Video Integration**
-- Play intro VQA before mission briefing
-- Play outro VQA after mission complete
-- Wire up `VQType` enum to actual video files
+**CAM-4: Briefing Video Integration** (DONE)
+- INI `Brief` field maps to intro video (e.g., "ALLY1" -> "ALLY1.VQA")
+- INI `Win`/`Lose` fields map to outro videos
+- `VQTypeName()` in scenario.cpp maps VQType enum to filenames
+- Video plays before briefing screen; outro plays on mission complete
 
 ### Phase 2: Full 14+14 Campaign (~15 hrs)
 

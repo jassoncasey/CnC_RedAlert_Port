@@ -52,6 +52,57 @@ TheaterType TheaterFromName(const char* name) {
 }
 
 //===========================================================================
+// VQType Name Table
+//===========================================================================
+
+static const char* VQTypeNames[] = {
+    // Allied campaign movies (match VQType enum order)
+    "ALLY1",        // ALLY01
+    "ALLY2",        // ALLY02
+    "ALLY4",        // ALLY04
+    "ALLY5",        // ALLY05
+    "ALLY6",        // ALLY06
+    "ALLY8",        // ALLY08
+    "ALLY9",        // ALLY09
+    "ALLY10",       // ALLY10
+    "ALLY11",       // ALLY11
+    "ALLY12",       // ALLY12
+    "ALLY14",       // ALLY14
+
+    // Soviet campaign movies
+    "SOVIET1",      // SOVIET01
+    "SOVIET2",      // SOVIET02
+    "SOVIET3",      // SOVIET03
+    "SOVIET4",      // SOVIET04
+    "SOVIET5",      // SOVIET05
+    "SOVIET6",      // SOVIET06
+    "SOVIET7",      // SOVIET07
+    "SOVIET8",      // SOVIET08
+    "SOVIET9",      // SOVIET09
+    "SOVIET10",     // SOVIET10
+    "SOVIET11",     // SOVIET11
+    "SOVIET12",     // SOVIET12
+    "SOVIET13",     // SOVIET13
+
+    // Misc movies
+    "PROLOG",       // INTRO
+    "TOOFAR",       // TOOFAR
+    "PROGRES",      // PROGRES
+    "MASASSLT"      // MASTEFIN
+};
+
+const char* VQTypeName(VQType type) {
+    if (type == VQType::NONE || type >= VQType::COUNT) {
+        return nullptr;
+    }
+    int index = static_cast<int>(type);
+    if (index >= 0 && index < static_cast<int>(VQType::COUNT)) {
+        return VQTypeNames[index];
+    }
+    return nullptr;
+}
+
+//===========================================================================
 // ScenarioClass Implementation
 //===========================================================================
 

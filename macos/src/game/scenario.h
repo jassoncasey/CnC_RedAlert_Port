@@ -98,6 +98,9 @@ enum class VQType : int8_t {
     COUNT
 };
 
+// Get VQA filename for a VQType (without .VQA extension)
+const char* VQTypeName(VQType type);
+
 //===========================================================================
 // Music Theme Types
 //===========================================================================
