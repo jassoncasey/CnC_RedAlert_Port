@@ -99,11 +99,89 @@ int main(int argc, char** argv) {
         cellTrigCount++;
     }
 
+    // Parse object triggers from STRUCTURES
+    printf("\n=== Parsing Object Triggers ===\n");
+    CellTrigger objTrigs[MAX_CELL_TRIGGERS];
+    int objTrigCount = 0;
+
+    // Helper to add object trigger
+    auto addObjTrig = [&](int cell, const char* trigName) {
+        if (!trigName || trigName[0] == '\0') return;
+        if (strcasecmp(trigName, "None") == 0) return;
+        if (objTrigCount >= MAX_CELL_TRIGGERS) return;
+        objTrigs[objTrigCount].cell = cell;
+        strncpy(objTrigs[objTrigCount].trigName, trigName, 23);
+        objTrigs[objTrigCount].trigName[23] = '\0';
+        objTrigCount++;
+    };
+
+    // STRUCTURES: house,type,health,cell,facing,trigger,sellable,rebuild
+    int sCount = ini.EntryCount("STRUCTURES");
+    for (int i = 0; i < sCount; i++) {
+        const char* entry = ini.GetEntry("STRUCTURES", i);
+        if (!entry) continue;
+        char value[128];
+        ini.GetString("STRUCTURES", entry, "", value, sizeof(value));
+        char house[32], type[32], trigger[32];
+        int health, cell, facing;
+        trigger[0] = '\0';
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,]",
+                   house, type, &health, &cell, &facing, trigger) >= 6) {
+            addObjTrig(cell, trigger);
+        }
+    }
+
+    // UNITS: house,type,health,cell,facing,mission,trigger
+    int uCount = ini.EntryCount("UNITS");
+    for (int i = 0; i < uCount; i++) {
+        const char* entry = ini.GetEntry("UNITS", i);
+        if (!entry) continue;
+        char value[128];
+        ini.GetString("UNITS", entry, "", value, sizeof(value));
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, facing;
+        trigger[0] = '\0';
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
+                   house, type, &health, &cell, &facing,
+                   missionStr, trigger) >= 7) {
+            addObjTrig(cell, trigger);
+        }
+    }
+
+    // INFANTRY: house,type,health,cell,subcell,mission,facing,trigger
+    int iCount = ini.EntryCount("INFANTRY");
+    for (int i = 0; i < iCount; i++) {
+        const char* entry = ini.GetEntry("INFANTRY", i);
+        if (!entry) continue;
+        char value[128];
+        ini.GetString("INFANTRY", entry, "", value, sizeof(value));
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, subCell, facing;
+        trigger[0] = '\0';
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%31s",
+                   house, type, &health, &cell, &subCell,
+                   missionStr, &facing, trigger) >= 8) {
+            addObjTrig(cell, trigger);
+        }
+    }
+    printf("Object trigger entries: %d\n", objTrigCount);
+
     // Helper to check if a trigger has cell-based entries
     auto hasCellTriggers = [&](const char* name) -> int {
         int count = 0;
         for (int i = 0; i < cellTrigCount; i++) {
             if (strcasecmp(cellTrigs[i].trigName, name) == 0) {
+                count++;
+            }
+        }
+        return count;
+    };
+
+    // Helper to check if a trigger has object-attached entries
+    auto hasObjectTriggers = [&](const char* name) -> int {
+        int count = 0;
+        for (int i = 0; i < objTrigCount; i++) {
+            if (strcasecmp(objTrigs[i].trigName, name) == 0) {
                 count++;
             }
         }
@@ -118,8 +196,9 @@ int main(int argc, char** argv) {
     int enteredCount = 0;
     int waypointBased = 0;
     int cellBased = 0;
-    int objectBased = 0;  // param=-1, no cells - requires object attachment
-    int invalidRefs = 0;
+    int objectBased = 0;
+    int orphaned = 0;     // param=-1, no cells or objects (unused triggers)
+    int invalidRefs = 0;  // Invalid waypoint references (actual bugs)
 
     for (int i = 0; i < trigCount; i++) {
         const char* trigName = ini.GetEntry("Trigs", i);
@@ -157,16 +236,24 @@ int main(int argc, char** argv) {
             } else if (wp < 0) {
                 // Cell-based or object-attached trigger
                 int cells = hasCellTriggers(trigName);
-                if (cells > 0) {
+                int objs = hasObjectTriggers(trigName);
+                if (cells > 0 && objs > 0) {
+                    printf("  '%s': event1=ENTERED, cell+object (%d cells, %d objs)\n",
+                           trigName, cells, objs);
+                    cellBased++;  // Count as cell-based (has both)
+                } else if (cells > 0) {
                     printf("  '%s': event1=ENTERED, cell-based (%d cells)\n",
                            trigName, cells);
                     cellBased++;
-                } else {
-                    // Object-attached: fires when player enters object's cell
-                    // (needs object trigger tracking to work)
-                    printf("  '%s': event1=ENTERED, object-attached (no cells)\n",
-                           trigName);
+                } else if (objs > 0) {
+                    printf("  '%s': event1=ENTERED, object-attached (%d objs)\n",
+                           trigName, objs);
                     objectBased++;
+                } else {
+                    // Orphaned trigger - no cells or objects (unused in mission)
+                    printf("  '%s': event1=ENTERED, orphaned (unused)\n",
+                           trigName);
+                    orphaned++;
                 }
             } else {
                 printf("  '%s': event1=ENTERED, invalid waypoint %d\n",
@@ -186,14 +273,23 @@ int main(int argc, char** argv) {
                 waypointBased++;
             } else if (wp < 0) {
                 int cells = hasCellTriggers(trigName);
-                if (cells > 0) {
+                int objs = hasObjectTriggers(trigName);
+                if (cells > 0 && objs > 0) {
+                    printf("  '%s': event2=ENTERED, cell+object (%d cells, %d objs)\n",
+                           trigName, cells, objs);
+                    cellBased++;
+                } else if (cells > 0) {
                     printf("  '%s': event2=ENTERED, cell-based (%d cells)\n",
                            trigName, cells);
                     cellBased++;
-                } else {
-                    printf("  '%s': event2=ENTERED, object-attached (no cells)\n",
-                           trigName);
+                } else if (objs > 0) {
+                    printf("  '%s': event2=ENTERED, object-attached (%d objs)\n",
+                           trigName, objs);
                     objectBased++;
+                } else {
+                    printf("  '%s': event2=ENTERED, orphaned (unused)\n",
+                           trigName);
+                    orphaned++;
                 }
             } else {
                 printf("  '%s': event2=ENTERED, invalid waypoint %d\n",
@@ -208,19 +304,25 @@ int main(int argc, char** argv) {
     printf("\n=== Summary ===\n");
     printf("Waypoints parsed: %d\n", wpCount);
     printf("Cell triggers parsed: %d\n", cellTrigCount);
+    printf("Object triggers parsed: %d\n", objTrigCount);
     printf("ENTERED triggers found: %d\n", enteredCount);
     printf("  Waypoint-based: %d\n", waypointBased);
     printf("  Cell-based: %d\n", cellBased);
     printf("  Object-attached: %d\n", objectBased);
-    printf("  Invalid references: %d\n", invalidRefs);
+    printf("  Orphaned (unused): %d\n", orphaned);
+    printf("  Invalid refs: %d\n", invalidRefs);
 
-    // Pass if parsing works - object-attached triggers are valid but
-    // require object trigger tracking (not yet implemented)
+    // Pass if no invalid waypoint references (orphaned triggers are OK)
+    // Orphaned triggers are defined but never attached - harmless
     if (invalidRefs == 0) {
         printf("\n=== PASS ===\n");
+        if (orphaned > 0) {
+            printf("Note: %d orphaned triggers (unused in mission)\n",
+                   orphaned);
+        }
         return 0;
     } else {
-        printf("\n=== FAIL: Invalid references found ===\n");
+        printf("\n=== FAIL: Invalid waypoint references found ===\n");
         return 1;
     }
 }

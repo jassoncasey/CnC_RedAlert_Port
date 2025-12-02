@@ -185,6 +185,12 @@ typedef struct {
     char cellTriggerNames[256][24]; // Trigger names for each cell
     int cellTriggerCount;
 
+    // Object triggers (from STRUCTURES/UNITS/INFANTRY trigger fields)
+    // Tracks cells where objects with triggers are placed
+    int objectTriggerCells[256];      // Cell numbers with trigger-attached objects
+    char objectTriggerNames[256][24]; // Trigger names for each object
+    int objectTriggerCount;
+
     // Base section (AI build order info)
     int baseHouse;          // House that owns the base (-1 if not set)
     int baseCount;          // Number of base structures (for AI rebuild)

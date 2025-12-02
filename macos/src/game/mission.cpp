@@ -612,6 +612,113 @@ static void ParseCellTriggersSection(MissionData* mission, INIClass* ini) {
     }
 }
 
+// Helper: Add an object trigger (cell + trigger name)
+static void AddObjectTrigger(MissionData* mission, int cell,
+                              const char* trigName) {
+    // Skip "None" or empty triggers
+    if (!trigName || trigName[0] == '\0') return;
+    if (strcasecmp(trigName, "None") == 0) return;
+
+    // Don't exceed array bounds
+    if (mission->objectTriggerCount >= 256) return;
+
+    int idx = mission->objectTriggerCount;
+    mission->objectTriggerCells[idx] = cell;
+    strncpy(mission->objectTriggerNames[idx], trigName, 23);
+    mission->objectTriggerNames[idx][23] = '\0';
+    mission->objectTriggerCount++;
+}
+
+// Parse object triggers from STRUCTURES, UNITS, INFANTRY, SHIPS sections
+// This extracts trigger attachments for ENTERED event support
+static void ParseObjectTriggersSection(MissionData* mission, INIClass* ini) {
+    mission->objectTriggerCount = 0;
+
+    // STRUCTURES format: house,type,health,cell,facing,trigger,sellable,rebuild
+    int count = ini->EntryCount("STRUCTURES");
+    for (int i = 0; i < count; i++) {
+        const char* entry = ini->GetEntry("STRUCTURES", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("STRUCTURES", entry, "", value, sizeof(value));
+
+        char house[32], type[32], trigger[32];
+        int health, cell, facing;
+        trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,]",
+                   house, type, &health, &cell, &facing, trigger) >= 6) {
+            AddObjectTrigger(mission, cell, trigger);
+        }
+    }
+
+    // UNITS format: house,type,health,cell,facing,mission,trigger
+    count = ini->EntryCount("UNITS");
+    for (int i = 0; i < count; i++) {
+        const char* entry = ini->GetEntry("UNITS", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("UNITS", entry, "", value, sizeof(value));
+
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, facing;
+        trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
+                   house, type, &health, &cell, &facing,
+                   missionStr, trigger) >= 7) {
+            AddObjectTrigger(mission, cell, trigger);
+        }
+    }
+
+    // INFANTRY format: house,type,health,cell,subcell,mission,facing,trigger
+    count = ini->EntryCount("INFANTRY");
+    for (int i = 0; i < count; i++) {
+        const char* entry = ini->GetEntry("INFANTRY", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("INFANTRY", entry, "", value, sizeof(value));
+
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, subCell, facing;
+        trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%31s",
+                   house, type, &health, &cell, &subCell,
+                   missionStr, &facing, trigger) >= 8) {
+            AddObjectTrigger(mission, cell, trigger);
+        }
+    }
+
+    // SHIPS format: house,type,health,cell,facing,mission,trigger
+    count = ini->EntryCount("SHIPS");
+    for (int i = 0; i < count; i++) {
+        const char* entry = ini->GetEntry("SHIPS", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("SHIPS", entry, "", value, sizeof(value));
+
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, facing;
+        trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
+                   house, type, &health, &cell, &facing,
+                   missionStr, trigger) >= 7) {
+            AddObjectTrigger(mission, cell, trigger);
+        }
+    }
+
+    if (mission->objectTriggerCount > 0) {
+        fprintf(stderr, "Mission: Parsed %d object triggers\n",
+                mission->objectTriggerCount);
+    }
+}
+
 // Parse single team type member (type:qty)
 static bool ParseTeamMember(char** ptr, TeamMember* member) {
     char* colon = strchr(*ptr, ':');
@@ -969,6 +1076,7 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
     ParseTrigsSection(ini);
     ParseWaypointsSection(mission, ini);
     ParseCellTriggersSection(mission, ini);
+    ParseObjectTriggersSection(mission, ini);
     ParseTeamTypesSection(mission, ini);
     ParseBaseSection(mission, ini);
 
@@ -1728,10 +1836,10 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
             return false;
 
         case RA_EVENT_ENTERED: {
-            // Two modes:
+            // Three modes:
             // 1. param1 >= 0: waypoint-based, check if player unit near waypoint
-            // 2. param1 < 0: cell-based, check if player unit on any cell
-            //    linked to this trigger via [CellTriggers]
+            // 2. param1 < 0: cell-based via [CellTriggers] section
+            // 3. param1 < 0: object-attached via STRUCTURES/UNITS trigger field
             if (!mission) break;
 
             int wp = param1;
@@ -1744,14 +1852,25 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
                     return true;
                 }
             } else {
-                // Cell-based: check all cells linked to this trigger name
+                // Cell-based: check [CellTriggers] entries for this trigger
                 for (int i = 0; i < mission->cellTriggerCount; i++) {
                     if (strcasecmp(mission->cellTriggerNames[i],
                                    trig->name) == 0) {
                         int cell = mission->cellTriggerCells[i];
                         int cellX = CELL_TO_X(cell);
                         int cellY = CELL_TO_Y(cell);
-                        // Use 0-cell radius for exact cell match
+                        if (IsPlayerUnitNearCell(cellX, cellY, 0)) {
+                            return true;
+                        }
+                    }
+                }
+                // Object-attached: check object trigger cells
+                for (int i = 0; i < mission->objectTriggerCount; i++) {
+                    if (strcasecmp(mission->objectTriggerNames[i],
+                                   trig->name) == 0) {
+                        int cell = mission->objectTriggerCells[i];
+                        int cellX = CELL_TO_X(cell);
+                        int cellY = CELL_TO_Y(cell);
                         if (IsPlayerUnitNearCell(cellX, cellY, 0)) {
                             return true;
                         }
