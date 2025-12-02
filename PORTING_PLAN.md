@@ -1,159 +1,140 @@
 # Red Alert macOS Port - Roadmap
 
-**Goal:** Full playable game with all 44 campaign missions and skirmish mode.
+**Goal:** Faithful recreation of original Red Alert with full 14-mission
+campaigns (Allied + Soviet) playable from original game assets.
 
-**Current State:** Demo mode works. Core systems complete. Most trigger
-actions/events implemented. Audio and video fully functional.
-
----
-
-## Active Bugs (Fix First)
-
-*All bugs fixed - see CHANGELOG.md for history*
+**Current State:** Core systems complete. Single missions playable. Campaign
+progression requires additional work to load missions from INI files.
 
 ---
 
-## Backlog
+## Campaign Mode Roadmap (Priority)
 
-### Gameplay Bugs (BUG-xx)
+The original Red Alert shipped with **14 missions per campaign** (not 22).
+The 44-mission count includes Aftermath + Counter-Strike expansions.
 
-*None pending - all moved to Active or Completed*
-
-### Features (FEAT-xx)
-
-| ID | Item | Effort | Description |
-|----|------|--------|-------------|
-| FEAT-1 | Skirmish mode | 8 hrs | Random map, AI opponent selection |
-| FEAT-2 | Multiplayer stub | 4 hrs | LAN discovery, lobby UI (no netcode) |
-
-### Polish (UI-xx, VIS-xx)
-
-| ID | Item | Effort | Description |
-|----|------|--------|-------------|
-| VIS-2 | Selection box visibility | 1 hr | Clearer unit selection |
-| UI-3 | Radar zoom | 2 hrs | Zoom levels for minimap |
-| UI-4 | Sidebar scroll | 1 hr | Scroll long build lists |
-| PR-3 | Power affects production | 2 hrs | Low power slows building |
-
-### Code Quality (SE-xx)
-
-| ID | Item | Effort | Description |
-|----|------|--------|-------------|
-| SE-3.1 | rules.cpp 80-col | 1 hr | Line length fixes |
-| SE-3.2 | menu.cpp 80-col | 1 hr | Line length fixes |
-| SE-3.3 | units.cpp 80-col | 1 hr | Line length fixes |
-
----
-
-## File-Based Configuration (CFG-xx)
-
-**Goal:** Move hardcoded values to RULES.INI for moddability and
-accuracy to original game.
-
-### Current State
-
-**Complete (CFG-1 through CFG-5):**
-- Mutable runtime type data arrays (no longer const)
-- Infantry stats loaded from [E1], [E2], etc. sections
-- Unit/vehicle stats loaded from [1TNK], [2TNK], etc. sections
-- Building stats loaded from [FACT], [POWR], etc. sections
-- Weapon stats loaded from [Colt45], [Dragon], etc. sections
-- Warhead damage matrices loaded from [SA], [HE], etc. sections
-- Game constants (GoldValue, GemValue) loaded from [General]
-
-**Remaining:**
-- `ProcessProjectiles()` - projectile data not loaded from INI
-
-### Hardcoded Values Inventory
-
-**Game Limits (units.h, mission.h):**
-
-| Constant | Value | Original | INI Key |
-|----------|-------|----------|---------|
-| MAX_UNITS | 256 | 500 | [General] MaxUnit |
-| MAX_BUILDINGS | 128 | 500 | [General] MaxBuilding |
-| MAX_PASSENGERS | 5 | per-type | [APC] Passengers |
-| HARVESTER_MAX_CARGO | 1000 | 28 | [Harvester] Storage |
-| HARVESTER_LOAD_RATE | 50 | - | [General] OreTruckRate |
-| ORE_VALUE | 7 | 25/50 | [General] GoldValue |
-| MAX_PATH_WAYPOINTS | 32 | 24 | hardcoded |
-
-**Unit Stats (units.cpp UnitTypeDef array):**
-- Health (Strength in INI)
-- Speed (Speed in INI)
-- AttackRange (Range in weapon section)
-- AttackDamage (Damage in weapon section)
-- AttackRate (ROF in weapon section)
-- SightRange (Sight in INI)
-- isInfantry/isNaval/isAircraft (inferred from SpeedType)
-
-**Timing (gameloop.h):**
-
-| Constant | Value | Notes |
-|----------|-------|-------|
-| DEFAULT_GAME_FPS | 15 | Original game tick rate |
-| TICKS_PER_SECOND | 60 | Frame subdivision |
-
-### Original Game Architecture (Reference)
-
-**Aircraft Movement:**
-- Aircraft do NOT use A* pathfinding
-- Use FlyClass for direct point-to-point flight
-- SpeedType::WINGED makes all terrain passable
-- Only check map bounds, no terrain collision
-
-**Type Data Loading:**
-```cpp
-// Original: TechnoTypeClass::Read_INI()
-Strength = ini.Get_Int(section, "Strength", Strength);
-Speed = ini.Get_Int(section, "Speed", Speed);
-Sight = ini.Get_Int(section, "Sight", Sight);
-```
-Hardcoded defaults in UDATA.CPP, IDATA.CPP, BDATA.CPP as fallbacks.
-
-### Migration Phases
+### Phase 1: Single Campaign Playable (~20 hrs)
 
 | ID | Item | Effort | Status |
 |----|------|--------|--------|
-| CFG-1 | Mutable Type Data | 4 hrs | **DONE** |
-| CFG-2 | Unit/Infantry Loading | 6 hrs | **DONE** |
-| CFG-3 | Building Loading | 4 hrs | **DONE** |
-| CFG-4 | Weapon/Warhead Loading | 6 hrs | **DONE** |
-| CFG-5 | Game Constants | 2 hrs | **DONE** |
-| CFG-6 | Aircraft Direct Flight | 4 hrs | **DONE** |
+| CAM-1 | INI-based mission loading | 8 hrs | Pending |
+| CAM-2 | Complete trigger actions | 6 hrs | Pending |
+| CAM-3 | Unit/building carryover | 4 hrs | Pending |
+| CAM-4 | Briefing video integration | 2 hrs | Pending |
 
-### Configuration Phase Complete
+**CAM-1: INI-Based Mission Loading**
+- Replace hardcoded `AlliedMissions[]`/`SovietMissions[]` with file loading
+- Load SCG01EA.INI, SCU01EA.INI, etc. from GENERAL.MIX
+- Parse [Basic], [Map], [Waypoints], [Terrain], [Units], [Structures]
+- Apply mission-specific overrides to type data
 
-All CFG milestones completed. Game data is now loaded from RULES.INI.
+**CAM-2: Complete Trigger Actions**
+Currently stubbed actions that need implementation:
+- `ALL_HUNT` - Set all units to hunt mode (partial)
+- `REVEAL_ALL` / `REVEAL_SOME` - Map reveal (partial)
+- `AUTOCREATE` - AI auto-creates teams (stub)
+- `FIRE_SALE` - Sell all buildings (stub)
+- `REINFORCE` - Spawn reinforcements at edge (partial)
+
+**CAM-3: Unit/Building Carryover**
+- Serialize surviving units/buildings after mission win
+- Deserialize at mission start for "carryover" missions
+- Implement `Save_Carryover()` / `Load_Carryover()`
+
+**CAM-4: Briefing Video Integration**
+- Play intro VQA before mission briefing
+- Play outro VQA after mission complete
+- Wire up `VQType` enum to actual video files
+
+### Phase 2: Full 14+14 Campaign (~15 hrs)
+
+| ID | Item | Effort | Status |
+|----|------|--------|--------|
+| CAM-5 | Mission variant branching | 4 hrs | Pending |
+| CAM-6 | Score screen | 3 hrs | Pending |
+| CAM-7 | All win/lose conditions | 4 hrs | Pending |
+| CAM-8 | Campaign testing/fixes | 4 hrs | Pending |
+
+**CAM-5: Mission Variant Branching**
+- Implement `Choose_Variant()` to select A/B/C/D missions
+- Map mission outcomes to branch selection
+- Support both linear and branching campaign paths
+
+**CAM-6: Score Screen**
+- Implement `ScoreClass::Presentation()`
+- Show units lost, buildings destroyed, time elapsed
+- Rank/medal system (optional)
+
+**CAM-7: All Win/Lose Conditions**
+Additional conditions beyond current 4:
+- Threshold-based (N buildings destroyed)
+- Specific unit type survival
+- Time-limited objectives
+
+### Phase 3: Expansion Content (~25 hrs)
+
+| ID | Item | Effort | Status |
+|----|------|--------|--------|
+| CAM-9 | Aftermath missions | 10 hrs | Pending |
+| CAM-10 | Counter-Strike missions | 10 hrs | Pending |
+| CAM-11 | New units/buildings | 5 hrs | Pending |
 
 ---
 
-## What's Complete
+## Trigger System Status
 
-### Trigger Actions (Implemented)
+### Implemented (Working)
 
-- CREATE_TEAM, REINFORCE, DESTROY_TEAM
-- ALL_HUNT, BEGIN_PROD, FIRE_SALE
-- REVEAL_ALL / REVEAL_SOME / REVEAL_ZONE
-- AUTOCREATE
-- START_TIMER / STOP_TIMER / ADD_TIMER / SUB_TIMER
-- SET_GLOBAL / CLEAR_GLOBAL
-- FORCE_TRIG / DESTR_TRIG
-- DESTROY_OBJ
-- WIN / LOSE / ALLOWWIN
-- DZ, PLAY_MOVIE, TEXT
-
-### Trigger Events (Implemented)
-
+**Events:**
 - TIME, ENTERED, ATTACKED, DESTROYED
 - CREDITS, DISCOVERED, HOUSE_DISC, GLOBAL
 
-### Game Systems (Implemented)
+**Actions:**
+- CREATE_TEAM, DESTROY_TEAM
+- BEGIN_PROD, WIN, LOSE, ALLOWWIN
+- START_TIMER / STOP_TIMER / ADD_TIMER / SUB_TIMER
+- SET_GLOBAL / CLEAR_GLOBAL
+- FORCE_TRIG / DESTR_TRIG
+- DESTROY_OBJ, DZ, TEXT
+
+### Needs Implementation
+
+**Events:**
+- NOFACTORIES, ALL_BRIDGES_DESTROYED
+- EVAC_CIVILIAN, FAKES_DESTROYED
+- BUILDING_EXISTS, cross-line/zone triggers
+
+**Actions (Stubbed):**
+- ALL_HUNT - needs to iterate all units
+- REVEAL_ALL / REVEAL_SOME - needs fog system integration
+- AUTOCREATE - needs AI team creation
+- FIRE_SALE - needs building sell logic
+- REINFORCE - needs edge spawn + transport logic
+- PLAY_MOVIE - needs video system integration
+
+---
+
+## Configuration Phase (Complete)
+
+| ID | Item | Status |
+|----|------|--------|
+| CFG-1 | Mutable Type Data | **DONE** |
+| CFG-2 | Unit/Infantry Loading | **DONE** |
+| CFG-3 | Building Loading | **DONE** |
+| CFG-4 | Weapon/Warhead Loading | **DONE** |
+| CFG-5 | Game Constants | **DONE** |
+| CFG-6 | Aircraft Direct Flight | **DONE** |
+
+All game data now loaded from RULES.INI.
+
+---
+
+## Core Systems (Complete)
 
 - Metal renderer 60 FPS
-- Terrain from theater MIX files
+- Terrain from theater MIX files (TEMPERAT, SNOW, INTERIOR)
 - Sprites with team color remapping
-- A* pathfinding (ground units)
+- A* pathfinding (ground), direct flight (aircraft)
 - Combat with armor/warhead damage matrix
 - Infantry scatter from explosions
 - Build prerequisites / tech tree
@@ -161,12 +142,51 @@ All CFG milestones completed. Game data is now loaded from RULES.INI.
 - AI threat assessment and hunt mode
 - Menu system
 - Sidebar UI with production
-- VQA video playback
-- Background music streaming
+- VQA video playback with audio
+- Background music streaming (AUD files)
 - Save/load system
-- Campaign flow
 - Fog of war
 
 ---
 
-See [CHANGELOG.md](CHANGELOG.md) for detailed completion history.
+## Backlog (Post-Campaign)
+
+### Features
+
+| ID | Item | Effort | Description |
+|----|------|--------|-------------|
+| FEAT-1 | Skirmish mode | 8 hrs | Random map, AI opponent |
+| FEAT-2 | Multiplayer stub | 4 hrs | LAN lobby (no netcode) |
+
+### Polish
+
+| ID | Item | Effort | Description |
+|----|------|--------|-------------|
+| VIS-2 | Selection box | 1 hr | Clearer unit selection |
+| UI-3 | Radar zoom | 2 hrs | Zoom levels |
+| UI-4 | Sidebar scroll | 1 hr | Long build lists |
+| PR-3 | Power production | 2 hrs | Low power penalty |
+
+---
+
+## Absolute Blockers for Campaign
+
+1. **Mission loading** - Must load from INI files, not hardcoded
+2. **Trigger stubs** - Several critical actions do nothing
+3. **Carryover** - Can't progress without unit persistence
+
+---
+
+## Effort Summary
+
+| Phase | Hours | Description |
+|-------|-------|-------------|
+| Phase 1 | 20 hrs | Single campaign playable |
+| Phase 2 | 15 hrs | Full 14+14 campaigns |
+| Phase 3 | 25 hrs | Expansion content |
+| Backlog | 18 hrs | Skirmish, polish |
+| **Total** | **~78 hrs** | Complete faithful port |
+
+---
+
+See [CHANGELOG.md](CHANGELOG.md) for completion history.
