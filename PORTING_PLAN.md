@@ -3,8 +3,8 @@
 **Goal:** Faithful recreation of original Red Alert with full 14-mission
 campaigns (Allied + Soviet) playable from original game assets.
 
-**Current State:** Core systems complete. Single missions playable. Campaign
-progression requires additional work to load missions from INI files.
+**Current State:** Core systems complete. INI-based mission loading from
+GENERAL.MIX implemented. Working on trigger actions and carryover.
 
 ---
 
