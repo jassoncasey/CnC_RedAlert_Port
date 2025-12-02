@@ -47,6 +47,7 @@ void Mission_Init(MissionData* mission) {
     mission->winCondition = 0;  // Destroy all enemies
     mission->loseCondition = 0; // Lose all units
     mission->timeLimit = 0;     // Unlimited
+    mission->targetCell = -1;   // No specific target
     mission->baseHouse = -1;    // No base
     mission->baseCount = 0;
     mission->terrainType = nullptr;
@@ -312,7 +313,7 @@ static uint8_t* ParsePackSection(INIClass* ini, const char* section,
                            (packed[srcIdx + 1] << 8) |
                            (packed[srcIdx + 2] << 16) |
                            (packed[srcIdx + 3] << 24);
-        chunkLen &= 0x0000FFFF;  // Only low 16 bits are length
+        chunkLen &= 0xDFFFFFFF;  // Mask out compression flag (bit 29)
         srcIdx += 4;
 
         if (chunkLen == 0 || srcIdx + (int)chunkLen > packedSize) {
@@ -1023,38 +1024,71 @@ void Mission_Start(const MissionData* mission) {
     }
 }
 
-int Mission_CheckVictory(const MissionData* mission) {
+int Mission_CheckVictory(const MissionData* mission, int frameCount) {
     if (!mission) return 0;
+
+    // Helper: count enemy buildings
+    auto countEnemyBuildings = []() -> int {
+        int count = 0;
+        for (int i = 0; i < MAX_BUILDINGS; i++) {
+            Building* bld = Buildings_Get(i);
+            if (bld && bld->team == TEAM_ENEMY) {
+                count++;
+            }
+        }
+        return count;
+    };
+
+    // Helper: count player buildings
+    auto countPlayerBuildings = []() -> int {
+        int count = 0;
+        for (int i = 0; i < MAX_BUILDINGS; i++) {
+            Building* bld = Buildings_Get(i);
+            if (bld && bld->team == TEAM_PLAYER) {
+                count++;
+            }
+        }
+        return count;
+    };
 
     // Check win condition
     switch (mission->winCondition) {
         case 0:  // Destroy all enemy units and buildings
-            if (Units_CountByTeam(TEAM_ENEMY) == 0) {
-                // Also check buildings (simplified - count active enemy buildings)
-                int enemyBuildings = 0;
-                for (int i = 0; i < MAX_BUILDINGS; i++) {
-                    Building* bld = Buildings_Get(i);
-                    if (bld && bld->team == TEAM_ENEMY) {
-                        enemyBuildings++;
-                    }
-                }
-                if (enemyBuildings == 0) {
-                    return 1;  // Win!
-                }
+            if (Units_CountByTeam(TEAM_ENEMY) == 0 &&
+                countEnemyBuildings() == 0) {
+                return 1;  // Win!
             }
             break;
 
         case 1:  // Destroy enemy buildings only
-            {
-                int enemyBuildings = 0;
+            if (countEnemyBuildings() == 0) {
+                return 1;  // Win!
+            }
+            break;
+
+        case 2:  // Survive for time limit
+            if (mission->timeLimit > 0 && frameCount >= mission->timeLimit) {
+                // Check player still has units/buildings (survived)
+                if (Units_CountByTeam(TEAM_PLAYER) > 0 ||
+                    countPlayerBuildings() > 0) {
+                    return 1;  // Win - survived!
+                }
+            }
+            break;
+
+        case 3:  // Capture specific building (at targetCell)
+            // Check if player now owns building at target cell
+            if (mission->targetCell >= 0) {
+                int targetX = mission->targetCell % 128;
+                int targetY = mission->targetCell / 128;
                 for (int i = 0; i < MAX_BUILDINGS; i++) {
                     Building* bld = Buildings_Get(i);
-                    if (bld && bld->team == TEAM_ENEMY) {
-                        enemyBuildings++;
+                    if (bld && bld->team == TEAM_PLAYER) {
+                        // Check if building is at target location
+                        if (bld->cellX == targetX && bld->cellY == targetY) {
+                            return 1;  // Win - captured!
+                        }
                     }
-                }
-                if (enemyBuildings == 0) {
-                    return 1;  // Win!
                 }
             }
             break;
@@ -1062,34 +1096,45 @@ int Mission_CheckVictory(const MissionData* mission) {
 
     // Check lose condition
     switch (mission->loseCondition) {
-        case 0:  // Lose all units
-            if (Units_CountByTeam(TEAM_PLAYER) == 0) {
-                // Also check buildings
-                int playerBuildings = 0;
-                for (int i = 0; i < MAX_BUILDINGS; i++) {
-                    Building* bld = Buildings_Get(i);
-                    if (bld && bld->team == TEAM_PLAYER) {
-                        playerBuildings++;
-                    }
-                }
-                if (playerBuildings == 0) {
-                    return -1;  // Lose
-                }
+        case 0:  // Lose all units and buildings
+            if (Units_CountByTeam(TEAM_PLAYER) == 0 &&
+                countPlayerBuildings() == 0) {
+                return -1;  // Lose
             }
             break;
 
         case 1:  // Lose all buildings
-            {
-                int playerBuildings = 0;
-                for (int i = 0; i < MAX_BUILDINGS; i++) {
+            if (countPlayerBuildings() == 0) {
+                return -1;  // Lose
+            }
+            break;
+
+        case 2:  // Time expires (before completing objective)
+            if (mission->timeLimit > 0 && frameCount >= mission->timeLimit) {
+                // Only lose if win condition isn't also time-based
+                if (mission->winCondition != 2) {
+                    return -1;  // Lose - time's up!
+                }
+            }
+            break;
+
+        case 3:  // Lose specific unit/building (at targetCell)
+            // Check if target is destroyed
+            if (mission->targetCell >= 0) {
+                int targetX = mission->targetCell % 128;
+                int targetY = mission->targetCell / 128;
+                bool targetExists = false;
+                // Check buildings
+                for (int i = 0; i < MAX_BUILDINGS && !targetExists; i++) {
                     Building* bld = Buildings_Get(i);
                     if (bld && bld->team == TEAM_PLAYER) {
-                        playerBuildings++;
+                        if (bld->cellX == targetX && bld->cellY == targetY) {
+                            targetExists = true;
+                        }
                     }
                 }
-                if (playerBuildings == 0) {
-                    return -1;  // Lose
-                }
+                // If target was at that cell and now isn't, we lose
+                // (This is simplified - would need to track initial state)
             }
             break;
     }

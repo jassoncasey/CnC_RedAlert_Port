@@ -58,6 +58,7 @@ typedef enum {
 } MissionResult;
 static MissionResult g_missionResult = MISSION_ONGOING;
 static int g_resultDisplayTimer = 0;   // Frames to show result screen
+static int g_gameFrameCount = 0;       // Game frame counter (for triggers, time-based conditions)
 
 // Assets loaded flag
 static bool g_assetsLoaded = false;
@@ -77,6 +78,7 @@ static void StartMission(const MissionData* mission) {
     g_inGameplay = true;
     g_missionResult = MISSION_ONGOING;
     g_resultDisplayTimer = 0;
+    g_gameFrameCount = 0;
 
     // Initialize game UI
     GameUI_Init();
@@ -428,9 +430,27 @@ void GameUpdate(uint32_t frame, float deltaTime) {
         GameUI_Update();
         AI_Update();
 
+        // Increment game frame counter
+        g_gameFrameCount++;
+
+        // Process mission triggers
+        if (g_missionResult == MISSION_ONGOING) {
+            int triggerResult = Mission_ProcessTriggers(&g_currentMission,
+                                                         g_gameFrameCount);
+            if (triggerResult == 1) {
+                g_missionResult = MISSION_VICTORY;
+                g_resultDisplayTimer = 180;
+                NSLog(@"VICTORY via trigger!");
+            } else if (triggerResult == -1) {
+                g_missionResult = MISSION_DEFEAT;
+                g_resultDisplayTimer = 180;
+                NSLog(@"DEFEAT via trigger!");
+            }
+        }
+
         // Check victory/defeat conditions (only if game still ongoing)
         if (g_missionResult == MISSION_ONGOING) {
-            int result = Mission_CheckVictory(&g_currentMission);
+            int result = Mission_CheckVictory(&g_currentMission, g_gameFrameCount);
             if (result == 1) {
                 g_missionResult = MISSION_VICTORY;
                 g_resultDisplayTimer = 180;  // 3 seconds at 60fps render rate

@@ -98,13 +98,27 @@ typedef enum {
     BUILDING_TYPE_COUNT
 } BuildingType;
 
-// Team/player
+// Team/player (simplified for combat)
 typedef enum {
     TEAM_NEUTRAL = 0,
     TEAM_PLAYER,        // Human player (Allies)
     TEAM_ENEMY,         // AI enemy (Soviet)
     TEAM_COUNT
 } Team;
+
+// House enum (matches original Red Alert house numbers)
+typedef enum {
+    HOUSE_SPAIN = 0,    // Allied
+    HOUSE_GREECE,       // Allied
+    HOUSE_USSR,         // Soviet
+    HOUSE_ENGLAND,      // Allied
+    HOUSE_UKRAINE,      // Soviet
+    HOUSE_GERMANY,      // Allied
+    HOUSE_FRANCE,       // Allied
+    HOUSE_TURKEY,       // Allied
+    HOUSE_COUNT,
+    HOUSE_NONE = -1
+} HouseType;
 
 // Unit state
 typedef enum {
@@ -321,6 +335,27 @@ void Units_Render(void);
  * (Called from game_ui.cpp)
  */
 void Units_SetCreditsPtr(int* creditsPtr);
+
+/**
+ * Convert house number to team (for combat)
+ * Soviet houses (USSR, Ukraine) -> TEAM_ENEMY
+ * Allied houses -> TEAM_PLAYER
+ * @param house House number (0-7)
+ * @return Team for combat purposes
+ */
+Team House_ToTeam(HouseType house);
+
+/**
+ * Check if two houses are allies
+ * @return true if same side (both Allied or both Soviet)
+ */
+int House_IsAlly(HouseType h1, HouseType h2);
+
+/**
+ * Get house name string
+ * @return House name (e.g., "Greece", "USSR")
+ */
+const char* House_GetName(HouseType house);
 
 #ifdef __cplusplus
 }

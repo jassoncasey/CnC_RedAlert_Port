@@ -1078,6 +1078,50 @@ void Units_SetCreditsPtr(int* creditsPtr) {
     g_pPlayerCredits = creditsPtr;
 }
 
+// House/team mapping functions
+Team House_ToTeam(HouseType house) {
+    // Soviet houses
+    if (house == HOUSE_USSR || house == HOUSE_UKRAINE) {
+        return TEAM_ENEMY;
+    }
+    // Allied houses (Spain, Greece, England, Germany, France, Turkey)
+    if (house >= HOUSE_SPAIN && house <= HOUSE_TURKEY &&
+        house != HOUSE_USSR && house != HOUSE_UKRAINE) {
+        return TEAM_PLAYER;
+    }
+    return TEAM_NEUTRAL;
+}
+
+int House_IsAlly(HouseType h1, HouseType h2) {
+    // Same house is always allied
+    if (h1 == h2) return 1;
+
+    // Both Soviet -> allied
+    int h1Soviet = (h1 == HOUSE_USSR || h1 == HOUSE_UKRAINE);
+    int h2Soviet = (h2 == HOUSE_USSR || h2 == HOUSE_UKRAINE);
+    if (h1Soviet && h2Soviet) return 1;
+
+    // Both Allied -> allied (neither is Soviet)
+    if (!h1Soviet && !h2Soviet &&
+        h1 >= HOUSE_SPAIN && h1 < HOUSE_COUNT &&
+        h2 >= HOUSE_SPAIN && h2 < HOUSE_COUNT) {
+        return 1;
+    }
+
+    return 0;  // Not allied
+}
+
+const char* House_GetName(HouseType house) {
+    static const char* names[] = {
+        "Spain", "Greece", "USSR", "England",
+        "Ukraine", "Germany", "France", "Turkey"
+    };
+    if (house >= HOUSE_SPAIN && house < HOUSE_COUNT) {
+        return names[house];
+    }
+    return "Unknown";
+}
+
 // Find nearest ore cell to the given position
 static bool FindNearestOre(int fromX, int fromY, int* outCellX, int* outCellY) {
     int mapW = Map_GetWidth();

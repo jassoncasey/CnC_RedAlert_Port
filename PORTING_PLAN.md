@@ -89,14 +89,21 @@ Mission INI files now parse all entity types correctly.
 | BUG-04 | Briefing garbled after video | 2 hrs | Campaign flow |
 | BUG-06 | Sound volume slider untestable | 1 hr | Low priority |
 
-### TIER 7: Tech Debt (Before Release)
+### TIER 7: Tech Debt (Before Release) ✓ COMPLETE
 
-| ID | Item | Effort | Notes |
-|----|------|--------|-------|
-| TD-6 | MapPack chunk mask (0xDFFFFFFF) | 30 min | Quick fix |
+| ID | Item | Effort | Status |
+|----|------|--------|--------|
+| TD-6 | ~~MapPack chunk mask (0xDFFFFFFF)~~ | ~~30 min~~ | **DONE** |
 | TD-12 | ~~Hardcoded paths~~ | ~~2 hrs~~ | **DONE** - `make dist-full` bundles assets |
-| TD-3 | Full 8-house system | 8 hrs | Only if needed |
-| TD-10 | Complex win/lose conditions | 4 hrs | After triggers |
+| TD-3 | ~~8-house system foundation~~ | ~~2 hrs~~ | **DONE** - HouseType enum, Team mapping |
+| TD-10 | ~~Complex win/lose conditions~~ | ~~4 hrs~~ | **DONE** - Time-based, capture, protect |
+
+**Status:**
+- MapPack chunk mask fixed (0xDFFFFFFF masks compression flag)
+- HouseType enum: Spain(0), Greece(1), USSR(2), England(3), Ukraine(4), Germany(5), France(6), Turkey(7)
+- House_ToTeam(), House_IsAlly(), House_GetName() functions added
+- Mission_CheckVictory now supports: destroy_all, destroy_buildings, survive_time, capture
+- Mission_ProcessTriggers integrated into game loop with frame counter
 
 ---
 

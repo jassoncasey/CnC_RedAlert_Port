@@ -181,10 +181,13 @@ typedef struct {
     int baseHouse;          // House that owns the base (-1 if not set)
     int baseCount;          // Number of base structures (for AI rebuild)
 
-    // Win/Lose conditions (simplified)
-    int winCondition;   // 0=destroy all, 1=destroy buildings, 2=survive time
-    int loseCondition;  // 0=lose all units, 1=lose buildings, 2=time expires
+    // Win/Lose conditions
+    // Win: 0=destroy all, 1=destroy buildings, 2=survive time, 3=capture building
+    // Lose: 0=lose all, 1=lose buildings, 2=time expires, 3=lose specific unit
+    int winCondition;
+    int loseCondition;
     int timeLimit;      // In frames (0=unlimited)
+    int targetCell;     // Target cell for capture/protect conditions (-1 if none)
 
     // Terrain data from [MapPack] - per cell
     uint8_t* terrainType;   // Template type index (MAP_CELL_TOTAL bytes)
@@ -230,9 +233,11 @@ void Mission_Start(const MissionData* mission);
 
 /**
  * Check win/lose conditions
+ * @param mission Active mission data
+ * @param frameCount Current game frame number (for time-based conditions)
  * @return 1=win, -1=lose, 0=ongoing
  */
-int Mission_CheckVictory(const MissionData* mission);
+int Mission_CheckVictory(const MissionData* mission, int frameCount);
 
 /**
  * Get current demo mission (hardcoded for testing)
