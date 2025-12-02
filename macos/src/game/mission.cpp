@@ -33,6 +33,10 @@ struct ParsedTrigger {
 static ParsedTrigger g_parsedTriggers[MAX_PARSED_TRIGGERS];
 static int g_parsedTriggerCount = 0;
 
+// Global flags for trigger system (up to 32 flags)
+#define MAX_GLOBAL_FLAGS 32
+static bool g_globalFlags[MAX_GLOBAL_FLAGS] = {false};
+
 void Mission_Init(MissionData* mission) {
     if (!mission) return;
 
@@ -82,17 +86,34 @@ void Mission_Free(MissionData* mission) {
 static UnitType ParseUnitType(const char* str) {
     if (!str) return UNIT_NONE;
 
-    // Infantry
+    // Infantry - Military
     if (strcasecmp(str, "E1") == 0) return UNIT_RIFLE;
     if (strcasecmp(str, "E2") == 0) return UNIT_GRENADIER;
     if (strcasecmp(str, "E3") == 0) return UNIT_ROCKET;
+    if (strcasecmp(str, "E4") == 0) return UNIT_FLAMETHROWER;
     if (strcasecmp(str, "E6") == 0) return UNIT_ENGINEER;
+    if (strcasecmp(str, "E7") == 0) return UNIT_TANYA;
     bool isSpy = strcasecmp(str, "E5") == 0 || strcasecmp(str, "SPY") == 0;
     if (isSpy) return UNIT_SPY;
     if (strcasecmp(str, "DOG") == 0) return UNIT_DOG;
     if (strcasecmp(str, "MEDI") == 0) return UNIT_MEDIC;
     if (strcasecmp(str, "THF") == 0) return UNIT_THIEF;
     if (strcasecmp(str, "SHOK") == 0) return UNIT_SHOCK;
+    if (strcasecmp(str, "GNRL") == 0) return UNIT_GENERAL;
+
+    // Infantry - Civilians
+    if (strcasecmp(str, "C1") == 0) return UNIT_CIVILIAN_1;
+    if (strcasecmp(str, "C2") == 0) return UNIT_CIVILIAN_2;
+    if (strcasecmp(str, "C3") == 0) return UNIT_CIVILIAN_3;
+    if (strcasecmp(str, "C4") == 0) return UNIT_CIVILIAN_4;
+    if (strcasecmp(str, "C5") == 0) return UNIT_CIVILIAN_5;
+    if (strcasecmp(str, "C6") == 0) return UNIT_CIVILIAN_6;
+    if (strcasecmp(str, "C7") == 0) return UNIT_CIVILIAN_7;
+    if (strcasecmp(str, "C8") == 0) return UNIT_CIVILIAN_8;
+    if (strcasecmp(str, "C9") == 0) return UNIT_CIVILIAN_9;
+    if (strcasecmp(str, "C10") == 0) return UNIT_CIVILIAN_10;
+    if (strcasecmp(str, "CHAN") == 0) return UNIT_CHAN;
+    if (strcasecmp(str, "EINSTEIN") == 0) return UNIT_CIVILIAN_8;
 
     // Vehicles
     if (strcasecmp(str, "HARV") == 0) return UNIT_HARVESTER;
@@ -108,6 +129,8 @@ static UnitType ParseUnitType(const char* str) {
     if (strcasecmp(str, "MNLY") == 0) return UNIT_MINELAYER;
     if (strcasecmp(str, "TRUK") == 0) return UNIT_TRUCK;
     if (strcasecmp(str, "CTNK") == 0) return UNIT_CHRONO;
+    if (strcasecmp(str, "MGG") == 0) return UNIT_MOBILE_GAP;
+    if (strcasecmp(str, "MRJ") == 0) return UNIT_MOBILE_RADAR;
 
     // Naval
     if (strcasecmp(str, "GNBT") == 0) return UNIT_GUNBOAT;
@@ -154,6 +177,9 @@ static BuildingType ParseBuildingType(const char* str) {
     isTech = isTech || strcasecmp(str, "STEK") == 0;
     if (isTech) return BUILDING_TECH_CENTER;
     if (strcasecmp(str, "KENN") == 0) return BUILDING_KENNEL;
+    if (strcasecmp(str, "BIO") == 0) return BUILDING_BIO_LAB;
+    if (strcasecmp(str, "FCOM") == 0) return BUILDING_FORWARD_COM;
+    if (strcasecmp(str, "MISS") == 0) return BUILDING_MISSION;
 
     // Defense
     if (strcasecmp(str, "GUN") == 0) return BUILDING_TURRET;
@@ -164,12 +190,39 @@ static BuildingType ParseBuildingType(const char* str) {
     if (strcasecmp(str, "HBOX") == 0) return BUILDING_CAMO_PILLBOX;
     if (strcasecmp(str, "FTUR") == 0) return BUILDING_FLAME_TOWER;
     if (strcasecmp(str, "GAP") == 0) return BUILDING_GAP;
+    if (strcasecmp(str, "MINP") == 0) return BUILDING_MINE_AP;
+    if (strcasecmp(str, "MINV") == 0) return BUILDING_MINE_AV;
 
     // Special
     if (strcasecmp(str, "FIX") == 0) return BUILDING_FIX;
     if (strcasecmp(str, "IRON") == 0) return BUILDING_IRON_CURTAIN;
     if (strcasecmp(str, "PDOX") == 0) return BUILDING_CHRONOSPHERE;
     if (strcasecmp(str, "MSLO") == 0) return BUILDING_MISSILE_SILO;
+
+    // Fake structures
+    if (strcasecmp(str, "FACF") == 0) return BUILDING_FAKE_CONST;
+    if (strcasecmp(str, "WEAF") == 0) return BUILDING_FAKE_FACTORY;
+    if (strcasecmp(str, "SYRF") == 0) return BUILDING_FAKE_SHIPYARD;
+    if (strcasecmp(str, "DOMF") == 0) return BUILDING_FAKE_RADAR;
+
+    // Props
+    if (strcasecmp(str, "BARL") == 0) return BUILDING_BARREL;
+    if (strcasecmp(str, "BRL3") == 0) return BUILDING_BARREL_3;
+
+    // Civilian buildings (V01-V19)
+    if (strcasecmp(str, "V01") == 0) return BUILDING_CIV_01;
+    if (strcasecmp(str, "V02") == 0) return BUILDING_CIV_02;
+    if (strcasecmp(str, "V03") == 0) return BUILDING_CIV_03;
+    if (strcasecmp(str, "V04") == 0) return BUILDING_CIV_04;
+    if (strcasecmp(str, "V05") == 0) return BUILDING_CIV_05;
+    if (strcasecmp(str, "V06") == 0) return BUILDING_CIV_06;
+    if (strcasecmp(str, "V07") == 0) return BUILDING_CIV_07;
+    if (strcasecmp(str, "V08") == 0) return BUILDING_CIV_08;
+    if (strcasecmp(str, "V09") == 0) return BUILDING_CIV_09;
+    if (strcasecmp(str, "V10") == 0) return BUILDING_CIV_10;
+    if (strcasecmp(str, "V11") == 0) return BUILDING_CIV_11;
+    if (strcasecmp(str, "V13") == 0) return BUILDING_CIV_13;
+    if (strcasecmp(str, "V19") == 0) return BUILDING_CIV_19;
 
     return BUILDING_NONE;
 }
@@ -1046,6 +1099,11 @@ static void LogMissionData(const MissionData* mission) {
 void Mission_Start(const MissionData* mission) {
     if (!mission) return;
 
+    // Reset global flags for new mission
+    for (int i = 0; i < MAX_GLOBAL_FLAGS; i++) {
+        g_globalFlags[i] = false;
+    }
+
     SetupTheater(mission);
     Map_Init();
     Units_Init();
@@ -1461,6 +1519,20 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
             // TODO: Track house discovery via fog reveal
             break;
 
+        case RA_EVENT_GLOBAL_SET:  // Global variable set
+            // param2 = global flag number
+            if (param2 >= 0 && param2 < MAX_GLOBAL_FLAGS) {
+                return g_globalFlags[param2];
+            }
+            break;
+
+        case RA_EVENT_GLOBAL_CLR:  // Global variable cleared
+            // param2 = global flag number
+            if (param2 >= 0 && param2 < MAX_GLOBAL_FLAGS) {
+                return !g_globalFlags[param2];
+            }
+            break;
+
         default:
             // Unsupported event types - don't trigger
             break;
@@ -1592,9 +1664,15 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
         }
 
         case RA_ACTION_FORCE_TRIG:
-            // param3 = trigger ID to force
+            // param3 = trigger ID to force (by index in our array)
+            // Note: In the real game, this uses trigger name lookup
             fprintf(stderr, "  TRIGGER: Force trigger %d\n", param3);
-            // TODO: Immediately execute specified trigger
+            if (param3 >= 0 && param3 < g_parsedTriggerCount) {
+                // Mark this trigger as ready to fire on next process
+                // We can't directly execute here due to recursion concerns
+                // So we'll mark it to fire on next frame via a flag
+                g_parsedTriggers[param3].active = true;
+            }
             break;
 
         case RA_ACTION_START_TIMER:
@@ -1609,12 +1687,17 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
         case RA_ACTION_SET_GLOBAL:
             // param3 = global flag number
             fprintf(stderr, "  TRIGGER: Set global flag %d\n", param3);
-            // TODO: Set global flag for trigger system
+            if (param3 >= 0 && param3 < MAX_GLOBAL_FLAGS) {
+                g_globalFlags[param3] = true;
+            }
             break;
 
         case RA_ACTION_CLEAR_GLOBAL:
             // param3 = global flag number
             fprintf(stderr, "  TRIGGER: Clear global flag %d\n", param3);
+            if (param3 >= 0 && param3 < MAX_GLOBAL_FLAGS) {
+                g_globalFlags[param3] = false;
+            }
             break;
 
         case RA_ACTION_DESTROY_OBJ:

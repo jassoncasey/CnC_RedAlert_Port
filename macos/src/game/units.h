@@ -21,16 +21,31 @@ extern "C" {
 // Unit types
 typedef enum {
     UNIT_NONE = 0,
-    // Infantry
+    // Infantry - Military
     UNIT_RIFLE,         // E1 - Rifle infantry
     UNIT_GRENADIER,     // E2 - Grenade infantry
     UNIT_ROCKET,        // E3 - Rocket soldier
+    UNIT_FLAMETHROWER,  // E4 - Flamethrower infantry
     UNIT_ENGINEER,      // E6 - Engineer
+    UNIT_TANYA,         // E7 - Tanya
     UNIT_DOG,           // DOG - Attack dog
     UNIT_SPY,           // SPY/E5 - Spy
     UNIT_MEDIC,         // MEDI - Medic
     UNIT_THIEF,         // THF - Thief
     UNIT_SHOCK,         // SHOK - Shock trooper
+    UNIT_GENERAL,       // GNRL - General (special mission unit)
+    // Infantry - Civilians
+    UNIT_CIVILIAN_1,    // C1 - Civilian
+    UNIT_CIVILIAN_2,    // C2 - Civilian
+    UNIT_CIVILIAN_3,    // C3 - Civilian
+    UNIT_CIVILIAN_4,    // C4 - Civilian
+    UNIT_CIVILIAN_5,    // C5 - Civilian
+    UNIT_CIVILIAN_6,    // C6 - Civilian
+    UNIT_CIVILIAN_7,    // C7 - Civilian (technician)
+    UNIT_CIVILIAN_8,    // C8 - Civilian (scientist - Einstein)
+    UNIT_CIVILIAN_9,    // C9 - Civilian
+    UNIT_CIVILIAN_10,   // C10 - Civilian
+    UNIT_CHAN,          // CHAN - Special civilian (crate?)
     // Vehicles
     UNIT_HARVESTER,     // HARV - Ore harvester
     UNIT_TANK_LIGHT,    // 1TNK - Light tank
@@ -45,6 +60,8 @@ typedef enum {
     UNIT_MINELAYER,     // MNLY - Minelayer
     UNIT_TRUCK,         // TRUK - Supply truck
     UNIT_CHRONO,        // CTNK - Chrono tank
+    UNIT_MOBILE_GAP,    // MGG - Mobile Gap Generator
+    UNIT_MOBILE_RADAR,  // MRJ - Mobile Radar Jammer
     // Naval
     UNIT_GUNBOAT,       // GNBT - Gunboat
     UNIT_DESTROYER,     // DD - Destroyer
@@ -81,6 +98,9 @@ typedef enum {
     BUILDING_RADAR,         // DOME - Radar dome
     BUILDING_TECH_CENTER,   // ATEK/STEK - Tech center
     BUILDING_KENNEL,        // KENN - Kennel (dog training)
+    BUILDING_BIO_LAB,       // BIO - Bio-research lab
+    BUILDING_FORWARD_COM,   // FCOM - Forward command post
+    BUILDING_MISSION,       // MISS - Mission control
     // Defense
     BUILDING_TURRET,        // GUN - Gun turret
     BUILDING_SAM,           // SAM - SAM site
@@ -90,11 +110,35 @@ typedef enum {
     BUILDING_CAMO_PILLBOX,  // HBOX - Camo pillbox
     BUILDING_FLAME_TOWER,   // FTUR - Flame tower
     BUILDING_GAP,           // GAP - Gap generator
+    BUILDING_MINE_AP,       // MINP - Anti-personnel mine
+    BUILDING_MINE_AV,       // MINV - Anti-vehicle mine
     // Special
     BUILDING_FIX,           // FIX - Service depot
     BUILDING_IRON_CURTAIN,  // IRON - Iron curtain
     BUILDING_CHRONOSPHERE,  // PDOX - Chronosphere
     BUILDING_MISSILE_SILO,  // MSLO - Missile silo
+    // Fake structures
+    BUILDING_FAKE_CONST,    // FACF - Fake construction yard
+    BUILDING_FAKE_FACTORY,  // WEAF - Fake weapons factory
+    BUILDING_FAKE_SHIPYARD, // SYRF - Fake shipyard
+    BUILDING_FAKE_RADAR,    // DOMF - Fake radar
+    // Props
+    BUILDING_BARREL,        // BARL - Explosive barrel
+    BUILDING_BARREL_3,      // BRL3 - Barrel variant
+    // Civilian buildings (V01-V19)
+    BUILDING_CIV_01,        // V01 - Church
+    BUILDING_CIV_02,        // V02 - Han's house
+    BUILDING_CIV_03,        // V03 - Hewitt house
+    BUILDING_CIV_04,        // V04 - Ricktor house
+    BUILDING_CIV_05,        // V05 - Gretchin house
+    BUILDING_CIV_06,        // V06 - Barn
+    BUILDING_CIV_07,        // V07 - Windmill
+    BUILDING_CIV_08,        // V08 - Fenced house
+    BUILDING_CIV_09,        // V09 - Church 2
+    BUILDING_CIV_10,        // V10 - Hospital
+    BUILDING_CIV_11,        // V11 - Grain silo
+    BUILDING_CIV_13,        // V13 - Water tower (V12 unused)
+    BUILDING_CIV_19,        // V19 - Oil derrick
     BUILDING_TYPE_COUNT
 } BuildingType;
 
