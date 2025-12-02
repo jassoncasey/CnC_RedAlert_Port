@@ -10,6 +10,7 @@
 #include "audio/audio.h"
 #include "video/music.h"
 #include "game/gameloop.h"
+#include "game/sounds.h"
 #include "assets/assetloader.h"
 #include "compat/assets.h"
 #include <cstring>
@@ -865,6 +866,8 @@ static void OnOptionsButton(int itemId, int value) {
         case SLD_SOUND_VOL:
             // Sound volume controls sound effects only (not music)
             Audio_SetSoundVolume((uint8_t)value);
+            // Play test sound so user can hear the volume change
+            Sounds_Play(SFX_CLICK, 255, 0);
             break;
 
         case SLD_MUSIC_VOL:

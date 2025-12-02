@@ -971,10 +971,7 @@ void GameRender(void) {
 - (void)drawInMTKView:(MTKView *)view {
     (void)view;
 
-    // Process input
-    Input_Update();
-
-    // Run game loop iteration
+    // Run game loop iteration (processes key presses set by NSEvent handlers)
     if (!GameLoop_RunFrame()) {
         // Quit requested
         [NSApp terminate:nil];
@@ -982,6 +979,11 @@ void GameRender(void) {
 
     // Present to screen
     Renderer_Present();
+
+    // Clear per-frame input state AFTER processing
+    // Key events are set by keyDown: before this callback
+    // They must persist until GameLoop_RunFrame processes them
+    Input_Update();
 }
 
 @end

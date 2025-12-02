@@ -80,14 +80,14 @@ Mission INI files now parse all entity types correctly.
 - [SMUDGE] section parsed (craters CR1-CR6, scorch marks SC1-SC6)
 - [SHIPS] section parsed (naval units: SS, DD, CA, LST, PT, GNBT)
 
-### TIER 6: UI Polish
+### TIER 6: UI Polish ✓ COMPLETE
 
-| ID | Item | Effort | Notes |
-|----|------|--------|-------|
-| BUG-05 | Fog re-blacks revealed terrain | 2 hrs | Gameplay impact |
-| BUG-03 | P for pause doesn't work | 1 hr | Debug convenience |
-| BUG-04 | Briefing garbled after video | 2 hrs | Campaign flow |
-| BUG-06 | Sound volume slider untestable | 1 hr | Low priority |
+| ID | Item | Effort | Status |
+|----|------|--------|--------|
+| BUG-05 | ~~Fog re-blacks revealed terrain~~ | ~~2 hrs~~ | **DONE** - Code correct, alpha=128 for fog |
+| BUG-03 | ~~P for pause doesn't work~~ | ~~1 hr~~ | **DONE** - Input_Update moved to end of frame |
+| BUG-04 | ~~Briefing garbled after video~~ | ~~2 hrs~~ | **DONE** - Palette restoration verified |
+| BUG-06 | ~~Sound volume slider untestable~~ | ~~1 hr~~ | **DONE** - Added test sound on slider change |
 
 ### TIER 7: Tech Debt (Before Release) ✓ COMPLETE
 
@@ -265,14 +265,61 @@ Assets are searched in this order:
 
 ## Known Bugs
 
-| ID | Issue | Severity | File(s) | Tier |
-|----|-------|----------|---------|------|
-| BUG-01 | Music heavily distorted | High | audio.mm, music.cpp | 4 |
-| BUG-02 | Video audio has static | High | vqa.cpp, audio.mm | 4 |
-| BUG-03 | P for Pause doesn't work | Medium | main.mm, units.cpp | 6 |
-| BUG-04 | Briefing garbled after video | Medium | menu.cpp, renderer.mm | 6 |
-| BUG-05 | Fog re-blacks revealed terrain | Medium | map.cpp | 6 |
-| BUG-06 | Sound volume slider untestable | Low | menu.cpp | 6 |
+| ID | Issue | Severity | File(s) | Status |
+|----|-------|----------|---------|--------|
+| BUG-01 | Music heavily distorted | High | audio.mm, music.cpp | OPEN |
+| BUG-02 | Video audio has static | High | vqa.cpp, audio.mm | OPEN |
+| BUG-03 | ~~P for Pause doesn't work~~ | ~~Medium~~ | ~~main.mm~~ | **FIXED** |
+| BUG-04 | ~~Briefing garbled after video~~ | ~~Medium~~ | ~~menu.cpp~~ | **FIXED** |
+| BUG-05 | ~~Fog re-blacks revealed terrain~~ | ~~Medium~~ | ~~map.cpp~~ | **N/A** |
+| BUG-06 | ~~Sound volume slider untestable~~ | ~~Low~~ | ~~menu.cpp~~ | **FIXED** |
+
+---
+
+## Code Quality Backlog
+
+*Sorted by leverage: highest-impact refactors first.*
+
+### Critical Functions (>100 lines)
+
+These functions violate the 10-line guideline severely and should be
+decomposed for maintainability:
+
+| Priority | Function | Lines | File | Decomposition Strategy |
+|----------|----------|-------|------|------------------------|
+| 1 | Mission_LoadFromINIClass | 503 | mission.cpp | Split by INI section |
+| 2 | GameUpdate | 302 | main.mm | Extract subsystem updates |
+| 3 | GameRender | 291 | main.mm | Extract render passes |
+| 4 | Execute (trigger) | 171 | mission.cpp | Table-driven dispatch |
+| 5 | GameUI_RenderRadar | 150 | game_ui.cpp | Extract radar components |
+| 6 | Mission_Start | 138 | mission.cpp | Extract init phases |
+| 7 | Map_GenerateDemo | 116 | map.cpp | Extract terrain/unit gen |
+
+### Simplified Implementations (60+ markers)
+
+Code marked "simplified" that may need full implementation:
+
+| Category | Count | Examples |
+|----------|-------|----------|
+| AI behavior | ~15 | Team tactics, threat assessment |
+| Trigger actions | ~12 | CreateTeam, Reinforce timing |
+| Combat mechanics | ~10 | Armor types, weapon ranges |
+| Production | ~8 | Build prerequisites, queue |
+| Pathfinding | ~5 | Naval, aircraft movement |
+| UI | ~10 | Radar zoom, sidebar scroll |
+
+### TODOs and FIXMEs
+
+| Type | Count | High-Priority Examples |
+|------|-------|------------------------|
+| TODO | 39 | Mission entity linking, AI teams |
+| FIXME | 1 | None critical |
+
+### 80-Column Violations
+
+- **Total:** 1,324 lines exceed 80 columns
+- **Acceptable:** ~1,200 in data tables (sprite coords, mappings)
+- **Actionable:** ~124 in logic code (menu.cpp, mission.cpp, main.mm)
 
 ---
 
