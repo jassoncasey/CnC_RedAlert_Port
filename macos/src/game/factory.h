@@ -23,6 +23,18 @@ class TechnoClass;
 
 constexpr int FACTORY_MAX = 32;        // Max factories per house
 constexpr int STEP_COUNT = 54;         // Production animation steps
+constexpr int QUEUE_MAX = 5;           // Max items in production queue
+
+//===========================================================================
+// QueueEntry - Item in production queue
+//===========================================================================
+
+struct QueueEntry {
+    RTTIType type = RTTIType::NONE;
+    int id = -1;
+    bool isValid() const { return type != RTTIType::NONE && id >= 0; }
+    void clear() { type = RTTIType::NONE; id = -1; }
+};
 
 //===========================================================================
 // FactoryClass - Production Manager
@@ -68,6 +80,12 @@ public:
     bool isSuspended_;                  // Production paused
     bool isDifferent_;                  // Stage changed (for animation)
     bool hasCompleted_;                 // Production finished
+
+    //-----------------------------------------------------------------------
+    // Queue
+    //-----------------------------------------------------------------------
+    QueueEntry queue_[QUEUE_MAX];       // Production queue (index 0 = current)
+    int queueCount_;                    // Number of items in queue
 
     //-----------------------------------------------------------------------
     // Construction
@@ -164,6 +182,37 @@ public:
      * Get production ID
      */
     int Get_ID() const { return productionId_; }
+
+    //-----------------------------------------------------------------------
+    // Queue Management
+    //-----------------------------------------------------------------------
+
+    /**
+     * Add item to end of queue
+     * @return true if added, false if queue full
+     */
+    bool Queue_Add(RTTIType type, int id);
+
+    /**
+     * Remove item from queue by index
+     * @return true if removed
+     */
+    bool Queue_Remove(int index);
+
+    /**
+     * Get queue count
+     */
+    int Queue_Count() const { return queueCount_; }
+
+    /**
+     * Get queue entry at index
+     */
+    const QueueEntry* Queue_Get(int index) const;
+
+    /**
+     * Start next queued item after current completes
+     */
+    void Queue_Advance();
 
     //-----------------------------------------------------------------------
     // Completion

@@ -9,6 +9,7 @@
 #include "bullet.h"
 #include "mapclass.h"
 #include "cell.h"
+#include "infantry.h"
 #include <cmath>
 #include <algorithm>
 
@@ -157,15 +158,14 @@ void Explosion_Damage(int32_t coord, int damage, TechnoClass* source,
             // Calculate distance from explosion center to object
             int distance = Distance(coord, occupier->CenterCoord());
 
-            // Get object's armor type
+            // Get object's armor type from its type data
             ArmorType armor = ArmorType::NONE;
             if (occupier->IsTechno()) {
-                // TechnoClass has armor type
-                // For now, use NONE as default
-                // TODO: Get armor from type data
+                TechnoClass* techno = static_cast<TechnoClass*>(occupier);
+                armor = techno->GetArmor();
             }
 
-            // Calculate modified damage
+            // Calculate modified damage (applies warhead vs armor matrix)
             int objDamage = Modify_Damage(damage, warhead, armor, distance);
 
             // Apply damage to object
@@ -184,11 +184,23 @@ void Explosion_Damage(int32_t coord, int damage, TechnoClass* source,
 
             int distance = Distance(coord, overlapper->CenterCoord());
             ArmorType armor = ArmorType::NONE;
+            if (overlapper->IsTechno()) {
+                TechnoClass* techno = static_cast<TechnoClass*>(overlapper);
+                armor = techno->GetArmor();
+            }
 
             int objDamage = Modify_Damage(damage, warhead, armor, distance);
             if (objDamage > 0) {
                 overlapper->TakeDamage(objDamage, distance, warhead,
                                        source, false);
+
+                // CB-3: Infantry scatter from nearby explosions
+                if (overlapper->WhatAmI() == RTTIType::INFANTRY && distance < 128) {
+                    InfantryClass* inf = static_cast<InfantryClass*>(overlapper);
+                    if (inf->IsAllowedToScatter()) {
+                        inf->Afraid();  // Set fear to max, triggers scatter
+                    }
+                }
             }
         }
 

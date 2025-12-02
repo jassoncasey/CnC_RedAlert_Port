@@ -163,6 +163,25 @@ void GameUI_RenderSelectionPanel(void);
 void GameUI_RenderHUD(void);
 
 //===========================================================================
+// Mission Timer Functions (UI-1)
+//===========================================================================
+
+/**
+ * Set mission timer (frames at 15 FPS). -1 disables timer.
+ */
+void GameUI_SetMissionTimer(int frames);
+
+/**
+ * Get current mission timer value (-1 if disabled)
+ */
+int GameUI_GetMissionTimer(void);
+
+/**
+ * Tick the mission timer (call once per frame)
+ */
+void GameUI_TickMissionTimer(void);
+
+//===========================================================================
 // Placement Functions
 //===========================================================================
 

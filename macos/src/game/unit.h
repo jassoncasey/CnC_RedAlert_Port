@@ -13,9 +13,16 @@
 
 #include "object.h"
 #include "unit_types.h"
+#include "infantry_types.h"
+
+// Forward declaration
+class InfantryClass;
 
 // Maximum units in game
 constexpr int UNIT_MAX = 500;
+
+// Maximum passengers for any transport
+constexpr int MAX_PASSENGERS = 5;
 
 // Track animation states
 constexpr int TRACK_STAGES = 8;     // Track animation frames
@@ -74,6 +81,7 @@ public:
 
     // Transport passengers (for APC)
     int8_t passengerCount_;
+    InfantryClass* passengers_[MAX_PASSENGERS];  // Stored infantry
 
     //-----------------------------------------------------------------------
     // Construction
@@ -118,6 +126,9 @@ public:
                                      FacingType facing = FacingType::NORTH
                                      ) const override;
     virtual int TopSpeed() const override;
+
+    // Get armor type from type data
+    virtual ArmorType GetArmor() const override;
 
     // Track/wheel animation
     void AnimateTracks();

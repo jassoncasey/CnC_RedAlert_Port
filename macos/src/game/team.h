@@ -294,6 +294,30 @@ extern int TeamTypeCount;
 extern int TeamCount;
 
 //===========================================================================
+// Formation Functions (AI-2)
+//===========================================================================
+
+/**
+ * Get formation offset for a unit at given index
+ * @param formation The formation type
+ * @param index Unit index in team (0 = leader)
+ * @param offsetX Output X offset in leptons
+ * @param offsetY Output Y offset in leptons
+ */
+void Get_Formation_Offset(FormationType formation, int index,
+                          int* offsetX, int* offsetY);
+
+/**
+ * Calculate destination coordinate for a unit in formation
+ * @param center Formation center coordinate
+ * @param formation Formation type
+ * @param index Unit index
+ * @return Coordinate for this unit
+ */
+int32_t Calc_Formation_Position(int32_t center, FormationType formation,
+                                int index);
+
+//===========================================================================
 // Helper Functions
 //===========================================================================
 

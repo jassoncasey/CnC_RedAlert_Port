@@ -53,6 +53,12 @@ void FactoryClass::Init() {
     isSuspended_ = false;
     isDifferent_ = false;
     hasCompleted_ = false;
+
+    // Clear queue
+    for (int i = 0; i < QUEUE_MAX; i++) {
+        queue_[i].clear();
+    }
+    queueCount_ = 0;
 }
 
 bool FactoryClass::Set(RTTIType type, int id, HouseClass* house) {
@@ -151,11 +157,12 @@ int FactoryClass::Calculate_Rate(int baseTime) {
     int time = baseTime;
     if (house_) {
         int powerFraction = house_->Power_Fraction();
-        // powerFraction is 0-100 (percentage)
-        // Minimum 6.25% (1/16), capped at 100%
-        powerFraction = std::max(6, std::min(100, powerFraction));
-        // time = baseTime * (100 / powerFraction)
-        time = (baseTime * 100) / powerFraction;
+        // powerFraction is 0-256 (256 = 100%)
+        // Minimum 16 (6.25%), capped at 256 (100%)
+        powerFraction = std::max(16, std::min(256, powerFraction));
+        // time = baseTime * (256 / powerFraction)
+        // Low power = slower production (higher time)
+        time = (baseTime * 256) / powerFraction;
     }
 
     // Divide into STEP_COUNT stages
@@ -283,10 +290,97 @@ TechnoClass* FactoryClass::Complete() {
     TechnoClass* obj = object_;
     object_ = nullptr;
 
-    // Reset factory for reuse
-    Init();
+    // Advance queue to next item
+    Queue_Advance();
 
     return obj;
+}
+
+//===========================================================================
+// Queue Management
+//===========================================================================
+
+bool FactoryClass::Queue_Add(RTTIType type, int id) {
+    // Check if queue is full
+    if (queueCount_ >= QUEUE_MAX) return false;
+
+    // Validate type
+    if (type == RTTIType::NONE || id < 0) return false;
+
+    // If nothing is currently being produced, start this item
+    if (productionType_ == RTTIType::NONE || !isActive_) {
+        if (Set(type, id, house_)) {
+            Start();
+            return true;
+        }
+        return false;
+    }
+
+    // If same type category, add to queue
+    // Note: In Red Alert, each factory type has its own queue
+    // (barracks for infantry, war factory for vehicles, etc.)
+    // For simplicity, we allow queueing items of the same RTTI type
+
+    // Add to queue
+    queue_[queueCount_].type = type;
+    queue_[queueCount_].id = id;
+    queueCount_++;
+
+    return true;
+}
+
+bool FactoryClass::Queue_Remove(int index) {
+    if (index < 0 || index >= queueCount_) return false;
+
+    // Shift remaining items down
+    for (int i = index; i < queueCount_ - 1; i++) {
+        queue_[i] = queue_[i + 1];
+    }
+
+    // Clear last slot
+    queueCount_--;
+    queue_[queueCount_].clear();
+
+    return true;
+}
+
+const QueueEntry* FactoryClass::Queue_Get(int index) const {
+    if (index < 0 || index >= queueCount_) return nullptr;
+    return &queue_[index];
+}
+
+void FactoryClass::Queue_Advance() {
+    // Reset current production state but keep house
+    HouseClass* savedHouse = house_;
+
+    productionType_ = RTTIType::NONE;
+    productionId_ = -1;
+    object_ = nullptr;
+    balance_ = 0;
+    originalBalance_ = 0;
+    stage_ = 0;
+    ticksRemaining_ = 0;
+    isSuspended_ = false;
+    isDifferent_ = false;
+    hasCompleted_ = false;
+
+    // Check if there's a queued item
+    if (queueCount_ > 0) {
+        RTTIType nextType = queue_[0].type;
+        int nextId = queue_[0].id;
+
+        // Shift queue
+        Queue_Remove(0);
+
+        // Start producing the next item
+        if (Set(nextType, nextId, savedHouse)) {
+            Start();
+        }
+    } else {
+        // No more items - deactivate factory
+        isActive_ = false;
+        house_ = nullptr;
+    }
 }
 
 //===========================================================================

@@ -125,6 +125,9 @@ public:
     // Get building size
     void GetSize(int& width, int& height) const;
 
+    // Get armor type from type data
+    virtual ArmorType GetArmor() const override;
+
     //-----------------------------------------------------------------------
     // Cell occupation
     //-----------------------------------------------------------------------

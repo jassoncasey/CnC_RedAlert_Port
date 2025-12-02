@@ -28,6 +28,10 @@ extern void EnableAIAutocreate(int houseIndex);
 extern void Units_DestroyByTrigger(const char* triggerName);
 extern void Buildings_DestroyByTrigger(const char* triggerName);
 
+// Forward declarations for trigger event helper functions
+// Implemented in units.cpp (C linkage) - declared in units.h
+// Just use casts where needed for HouseType param
+
 // Parsed trigger storage (simplified - stores raw INI data)
 // These will be used to create proper trigger instances when type systems merge
 struct ParsedTrigger {
@@ -59,6 +63,36 @@ static bool g_globalFlags[MAX_GLOBAL_FLAGS] = {false};
 static bool g_missionTimerActive = false;
 static int g_missionTimerValue = 0;      // Current timer value in frames
 static int g_missionTimerInitial = 0;    // Initial value (for display)
+
+// Team unit tracking - maps team type index to list of spawned unit IDs
+#define MAX_TEAM_TRACK 32
+#define MAX_UNITS_PER_TEAM 32
+struct TeamTrack {
+    int teamTypeIndex;          // Index into mission->teamTypes[]
+    int unitIds[MAX_UNITS_PER_TEAM];
+    int unitCount;
+    bool active;
+};
+static TeamTrack g_teamTracks[MAX_TEAM_TRACK];
+static int g_teamTrackCount = 0;
+
+// Mission text display state
+#define MAX_MISSION_TEXT 256
+static char g_missionText[MAX_MISSION_TEXT];
+static int g_missionTextTimer = 0;  // Frames remaining to display
+
+// Drop zone flare state
+struct DropZoneFlare {
+    int worldX, worldY;
+    int timer;  // Frames remaining
+    bool active;
+};
+#define MAX_DZ_FLARES 8
+static DropZoneFlare g_dzFlares[MAX_DZ_FLARES];
+
+// Forward declarations for VQA playback and AI sell
+extern bool VQA_Play(const char* filename);
+extern void AI_SellAllBuildings(int houseIndex);
 
 // ============================================================================
 // Trigger Event Notification Functions
@@ -124,8 +158,129 @@ void Mission_ResetTimer(void) {
     g_missionTimerInitial = 0;
 }
 
+// ============================================================================
+// Team Tracking Functions
+// ============================================================================
+
+static void ResetTeamTracking(void) {
+    for (int i = 0; i < MAX_TEAM_TRACK; i++) {
+        g_teamTracks[i].active = false;
+        g_teamTracks[i].unitCount = 0;
+    }
+    g_teamTrackCount = 0;
+}
+
+static TeamTrack* FindOrCreateTeamTrack(int teamTypeIndex) {
+    // Find existing
+    for (int i = 0; i < g_teamTrackCount; i++) {
+        if (g_teamTracks[i].active &&
+            g_teamTracks[i].teamTypeIndex == teamTypeIndex) {
+            return &g_teamTracks[i];
+        }
+    }
+    // Create new
+    if (g_teamTrackCount < MAX_TEAM_TRACK) {
+        TeamTrack* track = &g_teamTracks[g_teamTrackCount++];
+        track->teamTypeIndex = teamTypeIndex;
+        track->unitCount = 0;
+        track->active = true;
+        return track;
+    }
+    return nullptr;
+}
+
+static void TrackTeamUnit(int teamTypeIndex, int unitId) {
+    TeamTrack* track = FindOrCreateTeamTrack(teamTypeIndex);
+    if (track && track->unitCount < MAX_UNITS_PER_TEAM) {
+        track->unitIds[track->unitCount++] = unitId;
+    }
+}
+
+static void DestroyTeamUnits(int teamTypeIndex) {
+    for (int i = 0; i < g_teamTrackCount; i++) {
+        if (g_teamTracks[i].active &&
+            g_teamTracks[i].teamTypeIndex == teamTypeIndex) {
+            // Remove all units in this team
+            for (int j = 0; j < g_teamTracks[i].unitCount; j++) {
+                Units_Remove(g_teamTracks[i].unitIds[j]);
+            }
+            g_teamTracks[i].active = false;
+            g_teamTracks[i].unitCount = 0;
+            fprintf(stderr, "    Destroyed team %d units\n", teamTypeIndex);
+            return;
+        }
+    }
+}
+
+// ============================================================================
+// Drop Zone Flare Functions
+// ============================================================================
+
+static void ResetDropZoneFlares(void) {
+    for (int i = 0; i < MAX_DZ_FLARES; i++) {
+        g_dzFlares[i].active = false;
+    }
+}
+
+static void AddDropZoneFlare(int worldX, int worldY) {
+    for (int i = 0; i < MAX_DZ_FLARES; i++) {
+        if (!g_dzFlares[i].active) {
+            g_dzFlares[i].worldX = worldX;
+            g_dzFlares[i].worldY = worldY;
+            g_dzFlares[i].timer = 15 * 10;  // 10 seconds at 15 fps
+            g_dzFlares[i].active = true;
+            return;
+        }
+    }
+}
+
+int Mission_GetDropZoneFlare(int index, int* worldX, int* worldY) {
+    if (index < 0 || index >= MAX_DZ_FLARES) return 0;
+    if (!g_dzFlares[index].active) return 0;
+    if (worldX) *worldX = g_dzFlares[index].worldX;
+    if (worldY) *worldY = g_dzFlares[index].worldY;
+    return 1;
+}
+
+void Mission_UpdateDropZoneFlares(void) {
+    for (int i = 0; i < MAX_DZ_FLARES; i++) {
+        if (g_dzFlares[i].active) {
+            g_dzFlares[i].timer--;
+            if (g_dzFlares[i].timer <= 0) {
+                g_dzFlares[i].active = false;
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Mission Text Functions
+// ============================================================================
+
+static void SetMissionText(const char* text, int duration) {
+    strncpy(g_missionText, text, MAX_MISSION_TEXT - 1);
+    g_missionText[MAX_MISSION_TEXT - 1] = '\0';
+    g_missionTextTimer = duration;
+}
+
+const char* Mission_GetDisplayText(void) {
+    return g_missionTextTimer > 0 ? g_missionText : nullptr;
+}
+
+void Mission_UpdateDisplayText(void) {
+    if (g_missionTextTimer > 0) {
+        g_missionTextTimer--;
+    }
+}
+
 void Mission_Init(MissionData* mission) {
     if (!mission) return;
+
+    // Reset trigger-related state
+    ResetTeamTracking();
+    ResetDropZoneFlares();
+    g_missionText[0] = '\0';
+    g_missionTextTimer = 0;
 
     memset(mission, 0, sizeof(MissionData));
     strncpy(mission->name, "Untitled", sizeof(mission->name) - 1);
@@ -2085,20 +2240,30 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
 
         case RA_EVENT_CREDITS:  // Credits reach amount
             // param2 = amount needed
-            // TODO: Check player credits >= param2
+            if (Units_GetPlayerCredits() >= param2) {
+                return true;
+            }
             break;
 
         case RA_EVENT_ANY:  // Any event (always triggers)
             return true;
 
         case RA_EVENT_DISCOVERED:  // Object discovered (revealed)
-            // Triggered when unit/building is first seen
-            // TODO: Track fog reveal events
+            // Triggered when unit/building is first seen by player
+            // param1 = unit ID to check (set when trigger is attached to object)
+            if (param1 >= 0 && Units_WasDiscovered(param1)) {
+                Units_ClearDiscovered(param1);  // One-shot event
+                return true;
+            }
             break;
 
         case RA_EVENT_HOUSE_DISC:  // House discovered
-            // Triggered when any unit of a house is discovered
-            // TODO: Track house discovery via fog reveal
+            // Triggered when any unit of a house is discovered for first time
+            // param2 = house index to check
+            if (param2 >= 0 && param2 < HOUSE_COUNT &&
+                Units_WasHouseDiscovered(static_cast<HouseType>(param2))) {
+                return true;
+            }
             break;
 
         case RA_EVENT_GLOBAL_SET:  // Global variable set
@@ -2166,6 +2331,11 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
                 int spawnedIds[32];
                 int spawnCount = SpawnTeamUnits(team, mission, spawnedIds, 32);
 
+                // Track spawned units for DESTROY_TEAM
+                for (int i = 0; i < spawnCount; i++) {
+                    TrackTeamUnit(param1, spawnedIds[i]);
+                }
+
                 // Execute the team's first mission
                 if (spawnCount > 0) {
                     ExecuteTeamMission(team, mission, spawnedIds, spawnCount);
@@ -2179,7 +2349,7 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
         case RA_ACTION_DESTROY_TEAM:
             // param1 = team type index
             fprintf(stderr, "  TRIGGER: Destroy team %d\n", param1);
-            // TODO: Remove all units from team
+            DestroyTeamUnits(param1);
             break;
 
         case RA_ACTION_ALL_HUNT: {
@@ -2208,6 +2378,11 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
                 int spawnedIds[32];
                 int spawnCount = SpawnTeamUnits(team, mission, spawnedIds, 32);
 
+                // Track spawned units for DESTROY_TEAM
+                for (int i = 0; i < spawnCount; i++) {
+                    TrackTeamUnit(param1, spawnedIds[i]);
+                }
+
                 // Execute the team's first mission
                 if (spawnCount > 0) {
                     ExecuteTeamMission(team, mission, spawnedIds, spawnCount);
@@ -2218,26 +2393,77 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             break;
         }
 
-        case RA_ACTION_DZ:
+        case RA_ACTION_DZ: {
             // param3 = waypoint for drop zone flare
             fprintf(stderr, "  TRIGGER: Drop zone at waypoint %d\n", param3);
+            int dzX, dzY;
+            if (Mission_GetWaypoint(mission, param3, &dzX, &dzY)) {
+                AddDropZoneFlare(dzX, dzY);
+                fprintf(stderr, "    Flare at world %d,%d\n", dzX, dzY);
+            }
             break;
+        }
 
-        case RA_ACTION_FIRE_SALE:
-            fprintf(stderr, "  TRIGGER: Fire sale\n");
-            // TODO: Sell all AI buildings
+        case RA_ACTION_FIRE_SALE: {
+            // Sell all buildings for the trigger's house
+            fprintf(stderr, "  TRIGGER: Fire sale for house %d\n", trig->house);
+            // Iterate buildings and sell those owned by this house
+            for (int i = 0; i < MAX_BUILDINGS; i++) {
+                Building* bld = Buildings_Get(i);
+                if (bld && bld->active) {
+                    Team bldTeam = HouseToTeam(trig->house);
+                    if (bld->team == (uint8_t)bldTeam) {
+                        Buildings_Remove(i);
+                    }
+                }
+            }
             break;
+        }
 
-        case RA_ACTION_PLAY_MOVIE:
-            // param3 = movie name (usually via text lookup)
-            fprintf(stderr, "  TRIGGER: Play movie\n");
+        case RA_ACTION_PLAY_MOVIE: {
+            // param3 = movie index (would need text table lookup)
+            // For now, use common briefing videos
+            fprintf(stderr, "  TRIGGER: Play movie (id=%d)\n", param3);
+            // Simple mapping of common movie IDs
+            const char* movieName = nullptr;
+            switch (param3) {
+                case 0: movieName = "ALLY1.VQA"; break;
+                case 1: movieName = "ALLY2.VQA"; break;
+                case 2: movieName = "SOVT1.VQA"; break;
+                case 3: movieName = "SOVT2.VQA"; break;
+                default: movieName = nullptr; break;
+            }
+            if (movieName) {
+                VQA_Play(movieName);
+            }
             break;
+        }
 
-        case RA_ACTION_TEXT:
-            // param3 = text ID
+        case RA_ACTION_TEXT: {
+            // param3 = text ID from mission strings
             fprintf(stderr, "  TRIGGER: Display text ID %d\n", param3);
-            // TODO: Display mission text from strings
+            // Simple canned messages for common text IDs
+            const char* text = nullptr;
+            switch (param3) {
+                case 1: text = "Mission objective updated."; break;
+                case 2: text = "Reinforcements have arrived!"; break;
+                case 3: text = "Warning: Enemy forces detected."; break;
+                case 4: text = "Base is under attack!"; break;
+                case 5: text = "Objective complete."; break;
+                default:
+                    // Generic message with ID
+                    {
+                        static char buf[64];
+                        snprintf(buf, sizeof(buf), "Message #%d", param3);
+                        text = buf;
+                    }
+                    break;
+            }
+            if (text) {
+                SetMissionText(text, 15 * 5);  // Display for 5 seconds
+            }
             break;
+        }
 
         case RA_ACTION_DESTR_TRIG:
             // param3 = trigger ID to destroy

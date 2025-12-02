@@ -5,8 +5,10 @@
  */
 
 #include "aircraft.h"
+#include "infantry.h"
 #include "mapclass.h"
 #include "cell.h"
+#include "pathfind.h"
 #include <cmath>
 #include <cstring>
 
@@ -35,6 +37,7 @@ AircraftClass::AircraftClass()
     , rotorFrame_(0)
     , rotorCounter_(0)
     , passengerCount_(0)
+    , passengers_{}
 {
 }
 
@@ -54,6 +57,7 @@ AircraftClass::AircraftClass(AircraftType type, HousesType house)
     , rotorFrame_(0)
     , rotorCounter_(0)
     , passengerCount_(0)
+    , passengers_{}
 {
     Init(type, house);
 }
@@ -361,12 +365,20 @@ bool AircraftClass::LoadPassenger(ObjectClass* passenger) {
     const AircraftTypeData* typeData = TypeClass();
     if (!typeData) return false;
 
-    if (passengerCount_ >= typeData->passengers) {
-        return false;  // Full
-    }
+    // Check capacity
+    int maxPassengers = typeData->passengers;
+    if (maxPassengers <= 0) return false;
+    if (passengerCount_ >= maxPassengers) return false;
+    if (passengerCount_ >= AIRCRAFT_MAX_PASSENGERS) return false;
 
+    // Only infantry can board transports
+    if (passenger->WhatAmI() != RTTIType::INFANTRY) return false;
+
+    // Store passenger and limbo the unit
+    InfantryClass* infantry = static_cast<InfantryClass*>(passenger);
+    passengers_[passengerCount_] = infantry;
     passengerCount_++;
-    passenger->Limbo();
+    infantry->Limbo();
 
     return true;
 }
@@ -376,10 +388,54 @@ bool AircraftClass::UnloadPassengers() {
     if (passengerCount_ == 0) return false;
     if (IsAirborne()) return false;  // Must land first
 
-    // Would unload passengers one by one
-    passengerCount_ = 0;
+    CELL baseCell = Coord_Cell(coord_);
+    int unloaded = 0;
 
-    return true;
+    // Try to unload each passenger to adjacent cells
+    for (int i = 0; i < passengerCount_; i++) {
+        InfantryClass* infantry = passengers_[i];
+        if (infantry == nullptr) continue;
+
+        // Find an adjacent cell to place infantry
+        bool placed = false;
+        for (int d = 0; d < 8; d++) {
+            FacingType dir = static_cast<FacingType>(d);
+            CELL adjacent = Adjacent_Cell(baseCell, dir);
+
+            if (adjacent == baseCell) continue;
+            if (!Map.IsValidCell(adjacent)) continue;
+
+            // Check if cell can accept infantry
+            CellClass& cell = Map[adjacent];
+            if (!cell.IsClearToMove(SpeedType::FOOT)) continue;
+
+            // Place infantry in adjacent cell
+            int32_t coord = Cell_Coord(adjacent);
+            if (infantry->Unlimbo(coord, static_cast<DirType>(d * 32))) {
+                infantry->AssignMission(MissionType::GUARD);
+                placed = true;
+                unloaded++;
+                break;
+            }
+        }
+
+        // If no adjacent cell, try the base cell
+        if (!placed) {
+            CellClass& cell = Map[baseCell];
+            if (cell.IsClearToMove(SpeedType::FOOT, true)) {
+                int32_t coord = Cell_Coord(baseCell);
+                if (infantry->Unlimbo(coord, DirType::S)) {
+                    infantry->AssignMission(MissionType::GUARD);
+                    unloaded++;
+                }
+            }
+        }
+
+        passengers_[i] = nullptr;
+    }
+
+    passengerCount_ = 0;
+    return unloaded > 0;
 }
 
 //===========================================================================

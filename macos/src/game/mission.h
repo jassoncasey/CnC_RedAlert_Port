@@ -311,6 +311,30 @@ void Mission_UpdateTimer(void);
  */
 void Mission_ResetTimer(void);
 
+/**
+ * Get current mission text to display (or NULL if none)
+ */
+const char* Mission_GetDisplayText(void);
+
+/**
+ * Update mission text display timer (call once per frame)
+ */
+void Mission_UpdateDisplayText(void);
+
+/**
+ * Get drop zone flare data for rendering
+ * @param index Flare index (0 to MAX_DZ_FLARES-1)
+ * @param worldX Output X coordinate (if returns true)
+ * @param worldY Output Y coordinate (if returns true)
+ * @return true if flare is active
+ */
+int Mission_GetDropZoneFlare(int index, int* worldX, int* worldY);
+
+/**
+ * Update drop zone flares (call once per frame)
+ */
+void Mission_UpdateDropZoneFlares(void);
+
 #ifdef __cplusplus
 }
 #endif

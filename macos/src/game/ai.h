@@ -70,6 +70,35 @@ BOOL AI_HasBuilding(BuildingType type);
  */
 int AI_CountUnits(UnitType type);
 
+/**
+ * Calculate threat score for a target unit (AI-3: Threat assessment)
+ * Higher scores = more valuable/dangerous targets
+ * @param target Target unit to evaluate
+ * @param attacker The unit evaluating the target
+ * @return Threat score (0-1000)
+ */
+int AI_CalcThreatScore(Unit* target, Unit* attacker);
+
+/**
+ * Hunt mode targeting - find best target for hunt mission (AI-1)
+ * Searches wider range than normal auto-acquire
+ * @param unit The hunting unit
+ * @return Unit ID of best target, or -1 if none
+ */
+int AI_FindHuntTarget(int unitId);
+
+/**
+ * Set hunt mode for an AI unit
+ * @param unitId Unit to put in hunt mode
+ * @param enabled Whether hunt mode is enabled
+ */
+void AI_SetHuntMode(int unitId, BOOL enabled);
+
+/**
+ * Check if unit is in hunt mode
+ */
+BOOL AI_IsHunting(int unitId);
+
 #ifdef __cplusplus
 }
 #endif

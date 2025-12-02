@@ -135,6 +135,9 @@ public:
                                    TechnoClass* source = nullptr,
                                    bool forced = false) override;
 
+    // Get armor type from type data
+    virtual ArmorType GetArmor() const override;
+
     // Fire weapon
     virtual bool CanFire() const override;
     virtual int WeaponRange(int weapon = 0) const override;

@@ -461,10 +461,17 @@ void TeamClass::Assign_Mission_Target(uint32_t newTarget) {
 
 bool TeamClass::Move_To(int32_t coord) {
     destination_ = coord;
+    formationCenter_ = coord;  // Formation center is destination
     isMoving_ = true;
 
-    // Command all members to move
-    // Stub - would issue move orders to all members
+    // Issue move orders to all members with formation offsets (AI-2)
+    for (int i = 0; i < memberCount_; i++) {
+        if (members_[i]) {
+            // Calculate this unit's position in formation
+            int32_t unitDest = Calc_Formation_Position(coord, formation_, i);
+            members_[i]->StartDrive(unitDest);
+        }
+    }
 
     return true;
 }
@@ -556,6 +563,106 @@ void TeamClass::Resume() {
         currentMission_ = suspendedMission_;
         suspendedMission_ = -1;
     }
+}
+
+//===========================================================================
+// Formation Functions (AI-2)
+//===========================================================================
+
+// Unit spacing in leptons (1 cell = 256 leptons)
+constexpr int FORMATION_SPACING = 192;  // 0.75 cells
+
+void Get_Formation_Offset(FormationType formation, int index,
+                          int* offsetX, int* offsetY) {
+    if (!offsetX || !offsetY) return;
+
+    // Leader (index 0) is always at center
+    if (index == 0) {
+        *offsetX = 0;
+        *offsetY = 0;
+        return;
+    }
+
+    // Adjust index for follower positions (1-based for followers)
+    int followerIndex = index - 1;
+
+    switch (formation) {
+        case FormationType::LINE:
+            // Horizontal line: units spread left/right
+            // Pattern: L R L R (alternating sides)
+            {
+                int side = (followerIndex % 2 == 0) ? -1 : 1;
+                int distance = (followerIndex / 2) + 1;
+                *offsetX = side * distance * FORMATION_SPACING;
+                *offsetY = 0;
+            }
+            break;
+
+        case FormationType::WEDGE:
+            // V-shape wedge formation (good for assault)
+            // Pattern: alternating left/right, each row back further
+            {
+                int side = (followerIndex % 2 == 0) ? -1 : 1;
+                int row = (followerIndex / 2) + 1;
+                *offsetX = side * row * FORMATION_SPACING;
+                *offsetY = row * FORMATION_SPACING;  // Behind leader
+            }
+            break;
+
+        case FormationType::COLUMN:
+            // Single file column (good for roads/chokepoints)
+            {
+                *offsetX = 0;
+                *offsetY = (followerIndex + 1) * FORMATION_SPACING;
+            }
+            break;
+
+        case FormationType::DOUBLE_COLUMN:
+            // Two-file column (wider but still linear)
+            {
+                int side = (followerIndex % 2 == 0) ? -1 : 1;
+                int row = followerIndex / 2;
+                *offsetX = side * (FORMATION_SPACING / 2);
+                *offsetY = (row + 1) * FORMATION_SPACING;
+            }
+            break;
+
+        default:
+            // No formation - cluster near leader
+            // Simple grid pattern
+            {
+                int gridSize = 4;  // 4x4 grid
+                int gx = followerIndex % gridSize;
+                int gy = followerIndex / gridSize;
+                // Center the grid
+                *offsetX = (gx - gridSize / 2) * FORMATION_SPACING;
+                *offsetY = (gy + 1) * FORMATION_SPACING;
+            }
+            break;
+    }
+}
+
+int32_t Calc_Formation_Position(int32_t center, FormationType formation,
+                                int index) {
+    int offsetX, offsetY;
+    Get_Formation_Offset(formation, index, &offsetX, &offsetY);
+
+    // Extract X and Y from center coordinate
+    int centerX = (center >> 16) & 0xFFFF;
+    int centerY = center & 0xFFFF;
+
+    // Apply offset
+    int newX = centerX + offsetX;
+    int newY = centerY + offsetY;
+
+    // Clamp to valid range (0-65535)
+    if (newX < 0) newX = 0;
+    if (newX > 65535) newX = 65535;
+    if (newY < 0) newY = 0;
+    if (newY > 65535) newY = 65535;
+
+    // Reconstruct coordinate
+    return (newX << 16) | newY;
 }
 
 //===========================================================================

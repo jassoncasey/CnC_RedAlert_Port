@@ -81,6 +81,9 @@ static int g_aiProductionTimer = 0;
 static int g_aiAttackTimer = 0;
 static int g_aiHarvesterCount = 0;
 
+// Hunt mode state (AI-1)
+static uint8_t g_aiHuntMode[MAX_UNITS] = {0};
+
 // Timings based on difficulty (in game ticks, ~15 FPS)
 static int g_buildDelay = 300;      // 20 seconds between buildings
 static int g_productionDelay = 150; // 10 seconds between units
@@ -507,6 +510,7 @@ void AI_Update(void) {
     }
 
     // Auto-acquire for idle AI units (defend/attack nearby enemies)
+    // Now uses threat assessment (AI-3) for smarter targeting
     for (int i = 0; i < MAX_UNITS; i++) {
         Unit* unit = Units_Get(i);
         if (!unit || !unit->active) continue;
@@ -514,29 +518,153 @@ void AI_Update(void) {
         if (unit->type == UNIT_HARVESTER) continue;
         if (unit->attackDamage == 0) continue;
 
-        // If idle, look for nearby enemies
+        // If idle, look for targets
         if (unit->state == STATE_IDLE) {
-            int closestEnemy = -1;
-            int closestDist = unit->attackRange * 3;  // Aggro range
-            closestDist *= closestDist;
+            int bestTarget = -1;
+            int bestScore = 0;
 
-            for (int j = 0; j < MAX_UNITS; j++) {
-                Unit* target = Units_Get(j);
-                if (!target || !target->active) continue;
-                if (target->team == TEAM_PLAYER) {
+            // Hunt mode uses AI_FindHuntTarget for full-map search
+            if (AI_IsHunting(i)) {
+                bestTarget = AI_FindHuntTarget(i);
+            } else {
+                // Normal aggro range check with threat assessment
+                int aggroRange = unit->attackRange * 3;
+                int aggroRangeSq = aggroRange * aggroRange;
+
+                for (int j = 0; j < MAX_UNITS; j++) {
+                    Unit* target = Units_Get(j);
+                    if (!target || !target->active) continue;
+                    if (target->team != TEAM_PLAYER) continue;
+
                     int dx = target->worldX - unit->worldX;
                     int dy = target->worldY - unit->worldY;
-                    int dist = dx * dx + dy * dy;
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        closestEnemy = j;
+                    int distSq = dx * dx + dy * dy;
+
+                    if (distSq < aggroRangeSq) {
+                        // Use threat assessment to pick best target
+                        int score = AI_CalcThreatScore(target, unit);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestTarget = j;
+                        }
                     }
                 }
             }
 
-            if (closestEnemy >= 0) {
-                Units_CommandAttack(i, closestEnemy);
+            if (bestTarget >= 0) {
+                Units_CommandAttack(i, bestTarget);
             }
         }
     }
+}
+
+//===========================================================================
+// AI-3: Threat Assessment
+//===========================================================================
+
+// Threat priority by unit type (higher = more valuable target)
+static int GetUnitThreatPriority(UnitType type) {
+    switch (type) {
+        case UNIT_HARVESTER:     return 100;  // High value economic
+        case UNIT_TANK_HEAVY:    return 90;   // Dangerous
+        case UNIT_TANK_MEDIUM:   return 80;
+        case UNIT_TANK_LIGHT:    return 70;
+        case UNIT_ARTILLERY:     return 85;   // High damage
+        case UNIT_ROCKET:        return 60;   // Anti-armor
+        case UNIT_APC:           return 50;   // May carry infantry
+        case UNIT_GRENADIER:     return 40;
+        case UNIT_RIFLE:         return 30;
+        case UNIT_ENGINEER:      return 95;   // Very high priority - can capture
+        default:                 return 25;
+    }
+}
+
+int AI_CalcThreatScore(Unit* target, Unit* attacker) {
+    if (!target || !target->active) return 0;
+    if (!attacker || !attacker->active) return 0;
+
+    int score = 0;
+
+    // Base priority by unit type
+    score += GetUnitThreatPriority(static_cast<UnitType>(target->type)) * 3;
+
+    // Distance factor - closer targets score higher
+    int dx = target->worldX - attacker->worldX;
+    int dy = target->worldY - attacker->worldY;
+    int distSq = dx * dx + dy * dy;
+    int distCells = (int)sqrt(distSq) / CELL_SIZE;
+    if (distCells < 1) distCells = 1;
+    score += 200 / distCells;  // Closer = higher score
+
+    // Damaged targets are easier to finish off
+    if (target->health < target->maxHealth / 2) {
+        score += 50;
+    }
+    if (target->health < target->maxHealth / 4) {
+        score += 50;  // Critical health bonus
+    }
+
+    // Targets that are attacking us get priority
+    if (target->state == STATE_ATTACKING) {
+        score += 80;
+    }
+
+    // Targets in range get bonus
+    if (distCells <= attacker->attackRange / CELL_SIZE) {
+        score += 100;
+    }
+
+    return score;
+}
+
+//===========================================================================
+// AI-1: Hunt Mode
+//===========================================================================
+
+void AI_SetHuntMode(int unitId, BOOL enabled) {
+    if (unitId >= 0 && unitId < MAX_UNITS) {
+        g_aiHuntMode[unitId] = enabled ? 1 : 0;
+    }
+}
+
+BOOL AI_IsHunting(int unitId) {
+    if (unitId >= 0 && unitId < MAX_UNITS) {
+        return g_aiHuntMode[unitId] != 0;
+    }
+    return FALSE;
+}
+
+int AI_FindHuntTarget(int unitId) {
+    Unit* unit = Units_Get(unitId);
+    if (!unit || !unit->active) return -1;
+    if (unit->attackDamage == 0) return -1;
+
+    int bestTarget = -1;
+    int bestScore = 0;
+
+    // Hunt mode searches entire map, not just aggro range
+    for (int j = 0; j < MAX_UNITS; j++) {
+        Unit* target = Units_Get(j);
+        if (!target || !target->active) continue;
+
+        // Check if enemy
+        bool isEnemy = false;
+        if (unit->team == TEAM_ENEMY && target->team == TEAM_PLAYER) {
+            isEnemy = true;
+        } else if (unit->team == TEAM_PLAYER && target->team == TEAM_ENEMY) {
+            isEnemy = true;
+        }
+
+        if (!isEnemy) continue;
+
+        // Calculate threat score
+        int score = AI_CalcThreatScore(target, unit);
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestTarget = j;
+        }
+    }
+
+    return bestTarget;
 }

@@ -576,7 +576,18 @@ static void RenderSelectionBox(void) {
     int x2 = mx, y2 = my;
     if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
     if (y1 > y2) { int t = y1; y1 = y2; y2 = t; }
-    Renderer_DrawRect(x1, y1, x2 - x1, y2 - y1, 15);
+
+    int w = x2 - x1, h = y2 - y1;
+    if (w < 2 || h < 2) return;  // Too small to draw
+
+    // Draw outer black border for contrast
+    Renderer_DrawRect(x1 - 1, y1 - 1, w + 2, h + 2, 12);  // Black
+    // Draw inner white/green rectangle
+    Renderer_DrawRect(x1, y1, w, h, 4);      // Light green
+    // Draw second inner line for thickness
+    if (w > 4 && h > 4) {
+        Renderer_DrawRect(x1 + 1, y1 + 1, w - 2, h - 2, 15);  // White
+    }
 }
 
 // Render mouse cursor crosshair

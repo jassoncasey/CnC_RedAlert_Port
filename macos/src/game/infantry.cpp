@@ -109,6 +109,11 @@ bool InfantryClass::IsCivilian() const {
     return typeData ? typeData->isCivilian : false;
 }
 
+ArmorType InfantryClass::GetArmor() const {
+    const InfantryTypeData* typeData = TypeClass();
+    return typeData ? typeData->armor : ArmorType::NONE;
+}
+
 //===========================================================================
 // Position and Movement
 //===========================================================================

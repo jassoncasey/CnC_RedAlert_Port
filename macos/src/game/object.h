@@ -366,6 +366,7 @@ public:
     virtual bool IsAllowedToRetaliate() const;
     virtual bool IsAllowedToScatter() const;
     virtual bool CanFire() const;
+    virtual ArmorType GetArmor() const { return ArmorType::NONE; }
     virtual int RearmTime(int weapon = 0) const;
     virtual void Assign_Target(uint32_t target);
     virtual uint32_t GetTarget() const { return tarCom_; }

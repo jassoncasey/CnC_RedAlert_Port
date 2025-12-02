@@ -1289,8 +1289,54 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
 // Player credits (shared with game_ui.cpp via extern)
 static int* g_pPlayerCredits = nullptr;
 
+// Discovery tracking for trigger events
+static uint8_t g_unitDiscovered[MAX_UNITS] = {0};
+static uint8_t g_houseDiscovered[HOUSE_COUNT] = {0};
+
 void Units_SetCreditsPtr(int* creditsPtr) {
     g_pPlayerCredits = creditsPtr;
+}
+
+int Units_GetPlayerCredits(void) {
+    return g_pPlayerCredits ? *g_pPlayerCredits : 0;
+}
+
+void Units_MarkDiscovered(int unitId) {
+    if (unitId >= 0 && unitId < MAX_UNITS) {
+        g_unitDiscovered[unitId] = 1;
+    }
+}
+
+int Units_WasDiscovered(int unitId) {
+    if (unitId >= 0 && unitId < MAX_UNITS) {
+        return g_unitDiscovered[unitId];
+    }
+    return 0;
+}
+
+void Units_ClearDiscovered(int unitId) {
+    if (unitId >= 0 && unitId < MAX_UNITS) {
+        g_unitDiscovered[unitId] = 0;
+    }
+}
+
+void Units_MarkHouseDiscovered(HouseType house) {
+    if (house >= 0 && house < HOUSE_COUNT) {
+        g_houseDiscovered[house] = 1;
+    }
+}
+
+int Units_WasHouseDiscovered(HouseType house) {
+    if (house >= 0 && house < HOUSE_COUNT) {
+        return g_houseDiscovered[house];
+    }
+    return 0;
+}
+
+void Units_ClearHouseDiscoveredFlags(void) {
+    for (int i = 0; i < HOUSE_COUNT; i++) {
+        g_houseDiscovered[i] = 0;
+    }
 }
 
 // House/team mapping functions

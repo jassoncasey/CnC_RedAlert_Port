@@ -1,6 +1,6 @@
 # Completed Milestones
 
-This document archives completed work. See [PORTING_PLAN.md](PORTING_PLAN.md) for current roadmap.
+This document archives completed work (M0-M47). See [PORTING_PLAN.md](PORTING_PLAN.md) for current roadmap.
 
 ---
 
@@ -292,6 +292,37 @@ This document archives completed work. See [PORTING_PLAN.md](PORTING_PLAN.md) fo
 - AUD streaming (IMA ADPCM)
 - Volume control, fade in/out
 - Shuffle and playlist support
+
+---
+
+## Phase 11: Combat & AI Polish (M47) - COMPLETE
+
+### M47: Combat and AI Systems - COMPLETE (Dec 2)
+
+**Combat Systems:**
+- Armor types with full warhead damage matrix (CB-1, CB-2)
+- Infantry scatter from explosions (CB-3)
+- Warhead modifiers per armor type (None/Wood/Light/Heavy/Concrete)
+
+**AI Systems:**
+- Hunt mode with map-wide targeting (AI-1)
+- Threat assessment for target prioritization (AI-3)
+- Team formations (LINE, WEDGE, COLUMN, etc.) (AI-2)
+
+**Build System:**
+- Full tech tree prerequisites validation (PR-1)
+- Prerequisite flags: POWER, BARRACKS, FACTORY, RADAR, TECH
+
+**Trigger Events:**
+- CREDITS event - threshold comparison (EV-4)
+- DISCOVERED event - fog reveal tracking (EV-5)
+- HOUSE_DISC event - enemy sighting (EV-6)
+
+**Trigger Actions:**
+- AUTOCREATE - AI team auto-creation (TR-5)
+- START_TIMER / STOP_TIMER - Mission timer control (TR-10)
+- DESTROY_OBJ - Trigger-linked destruction (TR-11)
+- Timer operations: ADD_TIMER, SUB_TIMER, SET_TIMER
 
 ---
 

@@ -255,10 +255,138 @@ int HouseClass::Power_Fraction() const {
 // Production Queries
 //===========================================================================
 
+/**
+ * Get prerequisite flags based on owned buildings
+ * Maps building types to PrereqFlag bits
+ */
+uint32_t HouseClass::Get_Prereqs_Met() const {
+    uint32_t prereqs = 0;
+
+    // Check each building type and set corresponding prereq flag
+    // POWER: Power Plant or Advanced Power Plant
+    if ((bScan_ & (1ULL << static_cast<int>(BuildingType::POWER))) ||
+        (bScan_ & (1ULL << static_cast<int>(BuildingType::ADVANCED_POWER)))) {
+        prereqs |= PrereqFlag::POWER;
+    }
+
+    // BARRACKS: Allied Barracks or Soviet Barracks (Tent)
+    if ((bScan_ & (1ULL << static_cast<int>(BuildingType::BARRACKS))) ||
+        (bScan_ & (1ULL << static_cast<int>(BuildingType::TENT)))) {
+        prereqs |= PrereqFlag::BARRACKS;
+    }
+
+    // RADAR: Radar Dome
+    if (bScan_ & (1ULL << static_cast<int>(BuildingType::RADAR))) {
+        prereqs |= PrereqFlag::RADAR;
+    }
+
+    // FACTORY: Weapons Factory
+    if (bScan_ & (1ULL << static_cast<int>(BuildingType::WEAP))) {
+        prereqs |= PrereqFlag::FACTORY;
+    }
+
+    // TECH: Allied Tech Center or Soviet Tech Center
+    if ((bScan_ & (1ULL << static_cast<int>(BuildingType::ADVANCED_TECH))) ||
+        (bScan_ & (1ULL << static_cast<int>(BuildingType::SOVIET_TECH)))) {
+        prereqs |= PrereqFlag::TECH;
+    }
+
+    // HELIPAD: Helipad
+    if (bScan_ & (1ULL << static_cast<int>(BuildingType::HELIPAD))) {
+        prereqs |= PrereqFlag::HELIPAD;
+    }
+
+    // AIRFIELD: Airfield/Airstrip
+    if (bScan_ & (1ULL << static_cast<int>(BuildingType::AIRSTRIP))) {
+        prereqs |= PrereqFlag::AIRFIELD;
+    }
+
+    // PROC: Ore Refinery (processor)
+    if (bScan_ & (1ULL << static_cast<int>(BuildingType::REFINERY))) {
+        prereqs |= PrereqFlag::PROC;
+    }
+
+    // ADVANCED: Tech Center (same as TECH for simplicity)
+    if ((bScan_ & (1ULL << static_cast<int>(BuildingType::ADVANCED_TECH))) ||
+        (bScan_ & (1ULL << static_cast<int>(BuildingType::SOVIET_TECH)))) {
+        prereqs |= PrereqFlag::ADVANCED;
+    }
+
+    return prereqs;
+}
+
 bool HouseClass::Can_Build(int type, RTTIType rtti) const {
-    // Simplified - would check tech tree, prerequisites
-    (void)type;
-    (void)rtti;
+    // Get prerequisite flags this house has met
+    uint32_t prereqsMet = Get_Prereqs_Met();
+
+    // Check based on object type
+    switch (rtti) {
+        case RTTIType::BUILDING: {
+            BuildingType btype = static_cast<BuildingType>(type);
+            const BuildingTypeData* data = GetBuildingType(btype);
+            if (!data) return false;
+
+            // Check prerequisites
+            uint32_t required = data->prereqs;
+            if ((prereqsMet & required) != required) {
+                return false;
+            }
+
+            // Check ownership (which side can build this)
+            const HouseTypeData* houseData = TypeClass();
+            if (houseData) {
+                SideType side = houseData->side;
+                uint32_t owners = data->owners;
+
+                // Check if house's side can own this building
+                if (side == SideType::ALLIED &&
+                    !(owners & OwnerFlag::ALLIES)) {
+                    return false;
+                }
+                if (side == SideType::SOVIET &&
+                    !(owners & OwnerFlag::SOVIET)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        case RTTIType::INFANTRY: {
+            InfantryType itype = static_cast<InfantryType>(type);
+            const InfantryTypeData* data = GetInfantryType(itype);
+            if (!data) return false;
+
+            // Infantry just need barracks
+            if (!(prereqsMet & PrereqFlag::BARRACKS)) {
+                return false;
+            }
+            return true;
+        }
+
+        case RTTIType::UNIT: {
+            UnitType utype = static_cast<UnitType>(type);
+            const UnitTypeData* data = GetUnitType(utype);
+            if (!data) return false;
+
+            // Vehicles need weapons factory
+            if (!(prereqsMet & PrereqFlag::FACTORY)) {
+                return false;
+            }
+            return true;
+        }
+
+        case RTTIType::AIRCRAFT: {
+            // Aircraft need helipad or airfield
+            if (!(prereqsMet & (PrereqFlag::HELIPAD | PrereqFlag::AIRFIELD))) {
+                return false;
+            }
+            return true;
+        }
+
+        default:
+            break;
+    }
+
     return true;
 }
 

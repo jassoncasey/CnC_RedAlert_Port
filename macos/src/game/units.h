@@ -385,6 +385,26 @@ void Units_Render(void);
 void Units_SetCreditsPtr(int* creditsPtr);
 
 /**
+ * Get current player credits
+ * @return Player credits or 0 if not set
+ */
+int Units_GetPlayerCredits(void);
+
+/**
+ * Discovery tracking for triggers
+ */
+void Units_MarkDiscovered(int unitId);
+int Units_WasDiscovered(int unitId);
+void Units_ClearDiscovered(int unitId);
+
+/**
+ * House discovery tracking (first time any unit of house seen)
+ */
+void Units_MarkHouseDiscovered(HouseType house);
+int Units_WasHouseDiscovered(HouseType house);
+void Units_ClearHouseDiscoveredFlags(void);
+
+/**
  * Convert house number to team (for combat)
  * Soviet houses (USSR, Ukraine) -> TEAM_ENEMY
  * Allied houses -> TEAM_PLAYER

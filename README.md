@@ -63,25 +63,18 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed task breakdown.
 |----|-------|----------|--------|
 | BUG-01 | Music heavily distorted | High | **FIXED** |
 | BUG-02 | Video audio has static | High | **FIXED** |
-| BUG-03 | P for Pause doesn't work | Medium | Open |
+| BUG-03 | P for Pause | Medium | Investigate |
 | BUG-04 | Briefing garbled after video | Medium | Open |
 | BUG-05 | Fog re-blacks revealed terrain | Medium | Open |
-| BUG-06 | Sound volume untestable | Low | Open |
 | BUG-07 | Map not centered on player units | Medium | **FIXED** |
 | BUG-08 | Some units don't respond to movement | High | **FIXED** |
 
-### Implementation Simplifications (TODO)
+### Minor Simplifications
 
-Items that were simplified during implementation and need completion:
-
-| Area | Simplification | Notes |
-|------|---------------|-------|
-| EV-2/EV-3 | Trigger fires once per event, not per-hit | Original may track multiple attacks |
-| EV-2/EV-3 | No attacker source tracking | Original passes attacker to trigger |
-| Triggers | Dual type system (TechnoClass + Unit/Building) | Both paths hooked but may have edge cases |
-| Mission spawn | No health scaling from INI | Spawns at full health, ignores health field |
-| Mission spawn | No facing from INI | Units spawn facing default direction |
-| Mission spawn | No initial mission from INI | Units start IDLE, not mission-specified state |
+| Area | Note |
+|------|------|
+| EV-2/EV-3 | Trigger fires once per event, not per-hit |
+| Mission spawn | No health/facing from INI (spawns at full health) |
 
 ---
 
@@ -132,8 +125,8 @@ make dmg    # Creates DMG image
 ```
 CnC_Red_Alert/
 ├── README.md              # This file
-├── PORTING_PLAN.md        # Milestone roadmap (M33-M50)
-├── COMPLETED.md           # Archived completed work (M0-M32)
+├── PORTING_PLAN.md        # Active work queue
+├── COMPLETED.md           # Archived completed work (M0-M47)
 ├── archeology.md          # Original source analysis
 │
 ├── original/              # Original Windows source (read-only reference)

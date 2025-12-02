@@ -5,7 +5,9 @@
  */
 
 #include "unit.h"
+#include "infantry.h"
 #include "mapclass.h"
+#include "pathfind.h"
 #include "cell.h"
 #include <cmath>
 #include <cstring>
@@ -37,6 +39,7 @@ UnitClass::UnitClass()
     , tiltX_(0)
     , tiltY_(0)
     , passengerCount_(0)
+    , passengers_{}
 {
 }
 
@@ -58,6 +61,7 @@ UnitClass::UnitClass(UnitType type, HousesType house)
     , tiltX_(0)
     , tiltY_(0)
     , passengerCount_(0)
+    , passengers_{}
 {
     Init(type, house);
 }
@@ -119,6 +123,11 @@ bool UnitClass::IsTransport() const {
 
 bool UnitClass::IsMCV() const {
     return type_ == UnitType::MCV;
+}
+
+ArmorType UnitClass::GetArmor() const {
+    const UnitTypeData* typeData = TypeClass();
+    return typeData ? typeData->armor : ArmorType::NONE;
 }
 
 //===========================================================================
@@ -445,6 +454,9 @@ bool UnitClass::LoadPassenger(ObjectClass* passenger) {
     if (!IsTransport()) return false;
     if (passenger == nullptr) return false;
 
+    // Only infantry can be passengers
+    if (!passenger->IsInfantry()) return false;
+
     const UnitTypeData* typeData = TypeClass();
     if (!typeData) return false;
 
@@ -452,9 +464,15 @@ bool UnitClass::LoadPassenger(ObjectClass* passenger) {
         return false;  // Full
     }
 
-    // Would add passenger to internal list
+    if (passengerCount_ >= MAX_PASSENGERS) {
+        return false;  // Safety check
+    }
+
+    // Store passenger pointer and limbo the unit
+    InfantryClass* infantry = static_cast<InfantryClass*>(passenger);
+    passengers_[passengerCount_] = infantry;
     passengerCount_++;
-    passenger->Limbo();
+    infantry->Limbo();
 
     return true;
 }
@@ -463,11 +481,54 @@ bool UnitClass::UnloadPassengers() {
     if (!IsTransport()) return false;
     if (passengerCount_ == 0) return false;
 
-    // Would unload passengers one by one
-    // For now, just clear count
-    passengerCount_ = 0;
+    CELL baseCell = Coord_Cell(coord_);
+    int unloaded = 0;
 
-    return true;
+    // Try to unload each passenger to adjacent cells
+    for (int i = 0; i < passengerCount_; i++) {
+        InfantryClass* infantry = passengers_[i];
+        if (infantry == nullptr) continue;
+
+        // Find an adjacent cell to place infantry
+        bool placed = false;
+        for (int d = 0; d < 8; d++) {
+            FacingType dir = static_cast<FacingType>(d);
+            CELL adjacent = Adjacent_Cell(baseCell, dir);
+
+            if (adjacent == baseCell) continue;
+            if (!Map.IsValidCell(adjacent)) continue;
+
+            // Check if cell can accept infantry
+            CellClass& cell = Map[adjacent];
+            if (!cell.IsClearToMove(SpeedType::FOOT)) continue;
+
+            // Place infantry in adjacent cell
+            int32_t coord = Cell_Coord(adjacent);
+            if (infantry->Unlimbo(coord, static_cast<DirType>(d * 32))) {
+                infantry->AssignMission(MissionType::GUARD);
+                placed = true;
+                unloaded++;
+                break;
+            }
+        }
+
+        // If no adjacent cell, try the base cell
+        if (!placed) {
+            CellClass& cell = Map[baseCell];
+            if (cell.IsClearToMove(SpeedType::FOOT, true)) {
+                int32_t coord = Cell_Coord(baseCell);
+                if (infantry->Unlimbo(coord, DirType::S)) {
+                    infantry->AssignMission(MissionType::GUARD);
+                    unloaded++;
+                }
+            }
+        }
+
+        passengers_[i] = nullptr;
+    }
+
+    passengerCount_ = 0;
+    return unloaded > 0;
 }
 
 //===========================================================================

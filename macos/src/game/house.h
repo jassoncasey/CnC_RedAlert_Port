@@ -259,6 +259,7 @@ public:
     //-----------------------------------------------------------------------
     // Production
     //-----------------------------------------------------------------------
+    uint32_t Get_Prereqs_Met() const;
     bool Can_Build(int type, RTTIType rtti) const;
     int Cost_Of(int type, RTTIType rtti) const;
 

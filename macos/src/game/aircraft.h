@@ -17,6 +17,9 @@
 // Maximum aircraft in game
 constexpr int AIRCRAFT_MAX = 100;
 
+// Maximum passengers in transport aircraft (Chinook carries 5)
+constexpr int AIRCRAFT_MAX_PASSENGERS = 5;
+
 // Flight level (leptons above ground)
 constexpr int FLIGHT_LEVEL = 256;
 
@@ -74,6 +77,7 @@ public:
 
     // Passengers (transports)
     int8_t passengerCount_;
+    class InfantryClass* passengers_[AIRCRAFT_MAX_PASSENGERS];
 
     //-----------------------------------------------------------------------
     // Construction

@@ -51,6 +51,9 @@ static int g_flashFrame = 0;
 // Player credits
 static int g_playerCredits = 5000;
 
+// Mission timer (in game frames, 15 FPS; -1 = disabled)
+static int g_missionTimer = -1;
+
 // Production state for structures
 static int g_structureProducing = -1;  // Index in g_structureDefs being built
 static int g_structureProgress = 0;    // Progress 0-100
@@ -1201,4 +1204,37 @@ void GameUI_RenderHUD(void) {
     char creditsText[32];
     snprintf(creditsText, sizeof(creditsText), "$%d", g_playerCredits);
     Renderer_DrawText(creditsText, SIDEBAR_X + 8, 4, PAL_YELLOW, 0);
+
+    // UI-1: Mission timer display (if active)
+    if (g_missionTimer >= 0) {
+        int totalSeconds = g_missionTimer / 15;  // 15 FPS
+        int minutes = totalSeconds / 60;
+        int seconds = totalSeconds % 60;
+
+        char timerText[16];
+        snprintf(timerText, sizeof(timerText), "%d:%02d", minutes, seconds);
+
+        // Draw timer in top-left of game area (above map)
+        DrawBeveledBox(4, 1, 48, 14, PAL_BLACK, false);
+        // Flash red when under 1 minute
+        int color = (minutes == 0 && (g_flashFrame & 8)) ? PAL_RED : PAL_WHITE;
+        Renderer_DrawText(timerText, 10, 4, color, 0);
+    }
+}
+
+// Set mission timer (frames at 15 FPS, -1 to disable)
+void GameUI_SetMissionTimer(int frames) {
+    g_missionTimer = frames;
+}
+
+// Get mission timer
+int GameUI_GetMissionTimer(void) {
+    return g_missionTimer;
+}
+
+// Decrement mission timer by 1 frame
+void GameUI_TickMissionTimer(void) {
+    if (g_missionTimer > 0) {
+        g_missionTimer--;
+    }
 }

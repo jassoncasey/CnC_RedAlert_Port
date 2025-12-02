@@ -220,6 +220,11 @@ bool BuildingClass::HasTurret() const {
     return typeData ? typeData->hasTurret : false;
 }
 
+ArmorType BuildingClass::GetArmor() const {
+    const BuildingTypeData* typeData = TypeClass();
+    return typeData ? typeData->armor : ArmorType::WOOD;
+}
+
 void BuildingClass::GetSize(int& width, int& height) const {
     const BuildingTypeData* typeData = TypeClass();
     if (typeData) {
