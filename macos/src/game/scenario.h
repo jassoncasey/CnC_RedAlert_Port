@@ -279,8 +279,10 @@ extern ScenarioClass Scen;
 //===========================================================================
 
 // Set scenario by number and variant
-void Set_Scenario_Name(int scenario, TheaterType theater = TheaterType::TEMPERATE,
-                       SideType side = SideType::ALLIED, bool isAftermathSC = false);
+void Set_Scenario_Name(int scenario,
+                       TheaterType theater = TheaterType::TEMPERATE,
+                       SideType side = SideType::ALLIED,
+                       bool isAftermathSC = false);
 
 // Get scenario INI filename
 const char* Scenario_Filename(int scenario, TheaterType theater,

@@ -109,7 +109,9 @@ public:
     // Override movement for infantry-specific handling
     virtual bool StartDrive(int32_t destination) override;
     virtual bool StopDrive() override;
-    virtual MoveType CanEnterCell(int16_t cell, FacingType facing = FacingType::NORTH) const override;
+    virtual MoveType CanEnterCell(int16_t cell,
+                                     FacingType facing = FacingType::NORTH
+                                     ) const override;
     virtual int TopSpeed() const override;
 
     //-----------------------------------------------------------------------
@@ -128,8 +130,10 @@ public:
     bool IsProne() const { return isProne_; }
 
     // Take damage (override for prone bonus)
-    virtual ResultType TakeDamage(int& damage, int distance, WarheadType warhead,
-                                   TechnoClass* source = nullptr, bool forced = false) override;
+    virtual ResultType TakeDamage(int& damage, int distance,
+                                   WarheadType warhead,
+                                   TechnoClass* source = nullptr,
+                                   bool forced = false) override;
 
     // Fire weapon
     virtual bool CanFire() const override;

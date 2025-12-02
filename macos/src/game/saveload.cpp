@@ -44,7 +44,9 @@ static const char* GetSaveDirectory() {
     if (path[0] == 0) {
         const char* home = getenv("HOME");
         if (home) {
-            snprintf(path, sizeof(path), "%s/Library/Application Support/RedAlert/saves", home);
+            snprintf(path, sizeof(path),
+                     "%s/Library/Application Support/RedAlert/saves",
+                     home);
         } else {
             snprintf(path, sizeof(path), "saves");
         }

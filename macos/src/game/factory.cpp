@@ -74,7 +74,8 @@ bool FactoryClass::Set(RTTIType type, int id, HouseClass* house) {
             if (id >= 0 && id < static_cast<int>(InfantryType::COUNT)) {
                 const InfantryTypeData& inf = InfantryTypes[id];
                 cost = inf.cost;
-                buildTime = 100;  // Default build time - would come from RULES.INI
+                // Default build time - would come from RULES.INI
+                buildTime = 100;
             }
             break;
 
@@ -196,7 +197,7 @@ bool FactoryClass::Abandon() {
     }
 
     // Clean up object if one was created
-    // Note: In the full implementation, this would delete the TechnoClass object
+    // Note: In the full implementation, this deletes the TechnoClass
     // For now, we don't create objects during production
     object_ = nullptr;
 

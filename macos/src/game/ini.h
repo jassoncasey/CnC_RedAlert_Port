@@ -139,12 +139,14 @@ public:
     /**
      * Get a boolean value (yes/no, true/false, 1/0)
      */
-    bool GetBool(const char* section, const char* entry, bool defvalue = false) const;
+    bool GetBool(const char* section, const char* entry,
+                 bool defvalue = false) const;
 
     /**
      * Get a fixed-point value (stored as floating point string)
      */
-    float GetFixed(const char* section, const char* entry, float defvalue = 0.0f) const;
+    float GetFixed(const char* section, const char* entry,
+                   float defvalue = 0.0f) const;
 
     //=========================================================================
     // Put Values

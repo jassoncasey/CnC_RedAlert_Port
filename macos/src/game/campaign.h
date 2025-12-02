@@ -190,7 +190,9 @@ public:
     // Get current campaign info
     CampaignType Get_Campaign() const { return currentCampaign_; }
     int Get_Current_Mission() const { return currentMission_; }
-    bool Is_Campaign_Active() const { return currentCampaign_ != CampaignType::NONE; }
+    bool Is_Campaign_Active() const {
+        return currentCampaign_ != CampaignType::NONE;
+    }
 
     // Get mission count for campaign type
     static int Get_Mission_Count(CampaignType campaign);

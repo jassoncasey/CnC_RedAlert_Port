@@ -27,10 +27,15 @@ static const int16_t Occupy11[] = { 0, static_cast<int16_t>(0x8000) };
 static const int16_t Occupy21[] = { 0, 1, static_cast<int16_t>(0x8000) };
 
 // 1x2 building
-static const int16_t Occupy12[] = { 0, MAP_CELL_W, static_cast<int16_t>(0x8000) };
+static const int16_t Occupy12[] = {
+    0, MAP_CELL_W, static_cast<int16_t>(0x8000)
+};
 
 // 2x2 building
-static const int16_t Occupy22[] = { 0, 1, MAP_CELL_W, MAP_CELL_W + 1, static_cast<int16_t>(0x8000) };
+static const int16_t Occupy22[] = {
+    0, 1, MAP_CELL_W, MAP_CELL_W + 1,
+    static_cast<int16_t>(0x8000)
+};
 
 // 2x3 building
 static const int16_t Occupy23[] = {
@@ -176,7 +181,9 @@ RTTIType BuildingClass::FactoryType() const {
 }
 
 bool BuildingClass::IsPowerPlant() const {
-    return type_ == BuildingType::POWER || type_ == BuildingType::ADVANCED_POWER;
+    bool isPwr = type_ == BuildingType::POWER;
+    bool isAdv = type_ == BuildingType::ADVANCED_POWER;
+    return isPwr || isAdv;
 }
 
 int BuildingClass::PowerOutput() const {
@@ -391,7 +398,8 @@ int BuildingClass::RearmTime(int weapon) const {
     return 60;
 }
 
-ResultType BuildingClass::TakeDamage(int& damage, int distance, WarheadType warhead,
+ResultType BuildingClass::TakeDamage(int& damage, int distance,
+                                      WarheadType warhead,
                                       TechnoClass* source, bool forced) {
     // Walls take extra damage from AP
     if (IsWall() && warhead == WarheadType::AP) {
@@ -585,7 +593,9 @@ void BuildingClass::AI() {
     if (chargeTimer_ > 0) chargeTimer_--;
 
     // Superweapon charging
-    if (type_ == BuildingType::CHRONOSPHERE || type_ == BuildingType::IRON_CURTAIN) {
+    bool isChrono = type_ == BuildingType::CHRONOSPHERE;
+    bool isIronC = type_ == BuildingType::IRON_CURTAIN;
+    if (isChrono || isIronC) {
         if (chargeTimer_ == 0 && isPowered_) {
             hasCharged_ = true;
         }

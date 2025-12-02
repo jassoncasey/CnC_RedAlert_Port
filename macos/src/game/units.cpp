@@ -121,9 +121,10 @@ void Units_Clear(void) {
 // Check if a cell is occupied by another unit
 // moverTeam: team of the unit trying to move (-1 to block on all)
 // canCrush: if true, don't block on enemy infantry (vehicle can crush them)
-static BOOL IsCellOccupiedForTeam(int cellX, int cellY, int excludeUnitId, int moverTeam, BOOL canCrush) {
+static BOOL IsCellOccupiedForTeam(int cellX, int cellY, int excludeId,
+                                  int moverTeam, BOOL canCrush) {
     for (int i = 0; i < MAX_UNITS; i++) {
-        if (i == excludeUnitId) continue;
+        if (i == excludeId) continue;
         if (!g_units[i].active) continue;
         if (g_units[i].state == STATE_DYING) continue;
 
@@ -151,7 +152,8 @@ static BOOL IsCellOccupied(int cellX, int cellY, int excludeUnitId = -1) {
 }
 
 // Update cell occupancy for a unit
-static void UpdateCellOccupancy(int unitId, int oldCellX, int oldCellY, int newCellX, int newCellY) {
+static void UpdateCellOccupancy(int unitId, int oldCellX, int oldCellY,
+                                int newCellX, int newCellY) {
     // Clear old cell
     if (oldCellX >= 0 && oldCellY >= 0) {
         MapCell* oldCell = Map_GetCell(oldCellX, oldCellY);
@@ -174,7 +176,8 @@ static BOOL FindValidSpawnPosition(int* worldX, int* worldY, BOOL isNaval) {
     Map_WorldToCell(*worldX, *worldY, &cellX, &cellY);
 
     // Check if original position is valid and unoccupied
-    if (IsCellPassable(cellX, cellY, isNaval) && !IsCellOccupied(cellX, cellY)) {
+    bool passable = IsCellPassable(cellX, cellY, isNaval);
+    if (passable && !IsCellOccupied(cellX, cellY)) {
         return TRUE;
     }
 
@@ -182,11 +185,13 @@ static BOOL FindValidSpawnPosition(int* worldX, int* worldY, BOOL isNaval) {
     for (int radius = 1; radius <= 10; radius++) {
         for (int dy = -radius; dy <= radius; dy++) {
             for (int dx = -radius; dx <= radius; dx++) {
-                if (abs(dx) != radius && abs(dy) != radius) continue; // Only check perimeter
+                // Only check perimeter
+                if (abs(dx) != radius && abs(dy) != radius) continue;
 
                 int testX = cellX + dx;
                 int testY = cellY + dy;
-                if (IsCellPassable(testX, testY, isNaval) && !IsCellOccupied(testX, testY)) {
+                bool ok = IsCellPassable(testX, testY, isNaval);
+                if (ok && !IsCellOccupied(testX, testY)) {
                     Map_CellToWorld(testX, testY, worldX, worldY);
                     return TRUE;
                 }
@@ -335,7 +340,8 @@ void Buildings_Remove(int buildingId) {
             // Clear cells
             for (int dy = 0; dy < bld->height; dy++) {
                 for (int dx = 0; dx < bld->width; dx++) {
-                    MapCell* cell = Map_GetCell(bld->cellX + dx, bld->cellY + dy);
+                    int cx = bld->cellX + dx, cy = bld->cellY + dy;
+                    MapCell* cell = Map_GetCell(cx, cy);
                     if (cell) {
                         cell->terrain = TERRAIN_CLEAR;
                         cell->buildingId = -1;
@@ -348,10 +354,9 @@ void Buildings_Remove(int buildingId) {
 }
 
 Building* Buildings_Get(int buildingId) {
-    if (buildingId >= 0 && buildingId < MAX_BUILDINGS && g_buildings[buildingId].active) {
-        return &g_buildings[buildingId];
-    }
-    return nullptr;
+    if (buildingId < 0 || buildingId >= MAX_BUILDINGS) return nullptr;
+    if (!g_buildings[buildingId].active) return nullptr;
+    return &g_buildings[buildingId];
 }
 
 void Units_CommandMove(int unitId, int worldX, int worldY) {
@@ -445,8 +450,9 @@ void Units_CommandForceAttack(int unitId, int worldX, int worldY) {
         const UnitTypeDef* tdef = &g_unitTypes[target->type];
         int halfSize = tdef->size / 2;
 
-        if (worldX >= target->worldX - halfSize && worldX <= target->worldX + halfSize &&
-            worldY >= target->worldY - halfSize && worldY <= target->worldY + halfSize) {
+        int tx = target->worldX, ty = target->worldY;
+        if (worldX >= tx - halfSize && worldX <= tx + halfSize &&
+            worldY >= ty - halfSize && worldY <= ty + halfSize) {
             targetId = i;
             break;
         }
@@ -589,8 +595,9 @@ int Units_GetAtScreen(int screenX, int screenY) {
         const UnitTypeDef* def = &g_unitTypes[unit->type];
         int halfSize = def->size / 2;
 
-        if (worldX >= unit->worldX - halfSize && worldX <= unit->worldX + halfSize &&
-            worldY >= unit->worldY - halfSize && worldY <= unit->worldY + halfSize) {
+        int ux = unit->worldX, uy = unit->worldY;
+        if (worldX >= ux - halfSize && worldX <= ux + halfSize &&
+            worldY >= uy - halfSize && worldY <= uy + halfSize) {
             return i;
         }
     }
@@ -618,12 +625,13 @@ static BOOL CanMoveTo(Unit* unit, int worldX, int worldY) {
     return IsCellPassable(cellX, cellY, def->isNaval);
 }
 // Suppress unused warning - function available for future use
-__attribute__((unused)) static BOOL (*CanMoveToRef)(Unit*, int, int) = CanMoveTo;
+__attribute__((unused))
+static BOOL (*CanMoveToRef)(Unit*, int, int) = CanMoveTo;
 
-// Direction offsets for 8-way movement
-static const int DIR_DX[8] = { 0,  1, 1, 1, 0, -1, -1, -1 };  // N, NE, E, SE, S, SW, W, NW
+// Direction offsets for 8-way movement (N, NE, E, SE, S, SW, W, NW)
+static const int DIR_DX[8] = { 0,  1, 1, 1, 0, -1, -1, -1 };
 static const int DIR_DY[8] = { -1, -1, 0, 1, 1,  1,  0, -1 };
-static const int DIR_COST[8] = { 10, 14, 10, 14, 10, 14, 10, 14 };  // Diagonal costs more
+static const int DIR_COST[8] = { 10, 14, 10, 14, 10, 14, 10, 14 };
 
 // A* node for pathfinding
 struct PathNode {
@@ -641,7 +649,8 @@ static int Heuristic(int x1, int y1, int x2, int y2) {
 
 // Find path from start cell to target cell using A*
 // Returns true if path found, fills unit->pathCells and unit->pathLength
-static BOOL FindPath(Unit* unit, int startCellX, int startCellY, int targetCellX, int targetCellY) {
+static BOOL FindPath(Unit* unit, int startCellX, int startCellY,
+                     int targetCellX, int targetCellY) {
     const UnitTypeDef* def = &g_unitTypes[unit->type];
     BOOL isNaval = def->isNaval;
 
@@ -663,7 +672,8 @@ static BOOL FindPath(Unit* unit, int startCellX, int startCellY, int targetCellX
     int mapH = Map_GetHeight();
 
     // Open set (priority queue)
-    std::priority_queue<PathNode, std::vector<PathNode>, std::greater<PathNode>> openSet;
+    std::priority_queue<PathNode, std::vector<PathNode>,
+                        std::greater<PathNode>> openSet;
 
     // Closed set and g-scores (simple 2D array for small maps)
     std::vector<bool> closed(mapW * mapH, false);
@@ -715,7 +725,9 @@ static BOOL FindPath(Unit* unit, int startCellX, int startCellY, int targetCellX
                 cx = px;
                 cy = py;
 
-                if ((int)pathReverse.size() > MAX_PATH_WAYPOINTS * 2) break;  // Safety
+                // Safety limit
+                if ((int)pathReverse.size() > MAX_PATH_WAYPOINTS * 2)
+                    break;
             }
 
             // Copy path (reversed) to unit
@@ -803,7 +815,8 @@ static BOOL CanCrushInfantry(Unit* unit) {
 
 // Check for and crush any enemy infantry at the given position
 // Only crushes ENEMY infantry - friendly units are avoided
-static void TryCrushInfantry(Unit* crusher, int unitId, int worldX, int worldY) {
+static void TryCrushInfantry(Unit* crusher, int unitId,
+                             int worldX, int worldY) {
     if (!CanCrushInfantry(crusher)) return;
 
     const UnitTypeDef* crusherDef = &g_unitTypes[crusher->type];
@@ -832,7 +845,8 @@ static void TryCrushInfantry(Unit* crusher, int unitId, int worldX, int worldY) 
             target->state = STATE_DYING;
 
             // Play squish sound
-            Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX, target->worldY, 120);
+            Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX,
+                          target->worldY, 120);
         }
     }
 }
@@ -849,7 +863,8 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
     if (unit->pathLength == 0) {
         int startCellX, startCellY, targetCellX, targetCellY;
         Map_WorldToCell(unit->worldX, unit->worldY, &startCellX, &startCellY);
-        Map_WorldToCell(unit->targetX, unit->targetY, &targetCellX, &targetCellY);
+        Map_WorldToCell(unit->targetX, unit->targetY,
+                        &targetCellX, &targetCellY);
 
         if (!FindPath(unit, startCellX, startCellY, targetCellX, targetCellY)) {
             // No path available
@@ -864,12 +879,14 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
 
     // Check if next waypoint is occupied (by another unit)
     int waypointCellX, waypointCellY;
-    Map_WorldToCell(unit->nextWaypointX, unit->nextWaypointY, &waypointCellX, &waypointCellY);
+    Map_WorldToCell(unit->nextWaypointX, unit->nextWaypointY,
+                    &waypointCellX, &waypointCellY);
 
     // Vehicles that can crush don't block on enemy infantry
     BOOL canCrush = CanCrushInfantry(unit);
-    if (IsCellOccupiedForTeam(waypointCellX, waypointCellY, unitId, unit->team, canCrush)) {
-        // Cell is occupied by something we can't move through - wait or recalculate path
+    int wcx = waypointCellX, wcy = waypointCellY;
+    if (IsCellOccupiedForTeam(wcx, wcy, unitId, unit->team, canCrush)) {
+        // Cell occupied - wait or recalculate path
         // For now, just stop and clear path to recalculate next frame
         unit->pathLength = 0;
         return;
@@ -931,7 +948,8 @@ static int FindNearestEnemy(Unit* unit, int maxRange) {
     for (int i = 0; i < MAX_UNITS; i++) {
         Unit* target = &g_units[i];
         if (!target->active) continue;
-        if (target->team == unit->team || target->team == TEAM_NEUTRAL) continue;
+        if (target->team == unit->team) continue;
+        if (target->team == TEAM_NEUTRAL) continue;
         if (target->health <= 0) continue;
 
         int dx = target->worldX - unit->worldX;
@@ -971,7 +989,8 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
 
     // Auto-engage: if idle and has attack capability, look for enemies
     if (unit->state == STATE_IDLE && unit->attackRange > 0) {
-        int enemyId = FindNearestEnemy(unit, unit->attackRange * 2);  // Scan wider than attack range
+        // Scan wider than attack range
+        int enemyId = FindNearestEnemy(unit, unit->attackRange * 2);
         if (enemyId >= 0) {
             unit->targetUnit = (int16_t)enemyId;
             unit->state = STATE_ATTACKING;
@@ -997,17 +1016,19 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
         }
     }
 
-    // Handle combat for ATTACKING, ATTACK_MOVE (with target), and GUARDING (with target)
-    if ((unit->state == STATE_ATTACKING || unit->state == STATE_ATTACK_MOVE || unit->state == STATE_GUARDING)
-        && unit->targetUnit >= 0) {
+    // Handle combat (ATTACKING, ATTACK_MOVE with target, GUARDING with target)
+    bool inCombat = (unit->state == STATE_ATTACKING ||
+                     unit->state == STATE_ATTACK_MOVE ||
+                     unit->state == STATE_GUARDING);
+    if (inCombat && unit->targetUnit >= 0) {
         Unit* target = Units_Get(unit->targetUnit);
         if (!target || target->health <= 0) {
-            // Target dead - clear target but preserve state for attack-move/guard
+            // Target dead - clear target, preserve state for attack-move
             unit->targetUnit = -1;
             if (unit->state == STATE_ATTACKING) {
                 unit->state = STATE_IDLE;
             }
-            // ATTACK_MOVE and GUARDING keep their state and will look for new targets
+            // ATTACK_MOVE and GUARDING look for new targets
             return;
         }
 
@@ -1052,16 +1073,18 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
 
             // Infantry scatter from explosive attacks
             if (isExplosive) {
-                Units_ScatterInfantryNear(target->worldX, target->worldY, CELL_SIZE * 2);
+                Units_ScatterInfantryNear(target->worldX, target->worldY,
+                                         CELL_SIZE * 2);
             }
 
             // Check if target dies
             if (target->health <= 0) {
                 target->state = STATE_DYING;
                 // Play death sound
-                Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX, target->worldY, 180);
+                int tx = target->worldX, ty = target->worldY;
+                Sounds_PlayAt(SFX_EXPLOSION_SM, tx, ty, 180);
                 // Scatter infantry near the explosion
-                Units_ScatterInfantryNear(target->worldX, target->worldY, CELL_SIZE * 3);
+                Units_ScatterInfantryNear(tx, ty, CELL_SIZE * 3);
             }
         }
     }
@@ -1134,8 +1157,10 @@ static bool FindNearestOre(int fromX, int fromY, int* outCellX, int* outCellY) {
 
     // Search in expanding rings
     for (int radius = 1; radius < 30; radius++) {
-        for (int cy = startCellY - radius; cy <= startCellY + radius; cy++) {
-            for (int cx = startCellX - radius; cx <= startCellX + radius; cx++) {
+        int minY = startCellY - radius, maxY = startCellY + radius;
+        int minX = startCellX - radius, maxX = startCellX + radius;
+        for (int cy = minY; cy <= maxY; cy++) {
+            for (int cx = minX; cx <= maxX; cx++) {
                 if (cx < 0 || cy < 0 || cx >= mapW || cy >= mapH) continue;
 
                 MapCell* cell = Map_GetCell(cx, cy);
@@ -1171,7 +1196,9 @@ static int FindNearestRefinery(int fromX, int fromY, Team team) {
         if (bld->team != team) continue;
 
         int bldWorldX, bldWorldY;
-        Map_CellToWorld(bld->cellX + bld->width / 2, bld->cellY + bld->height / 2, &bldWorldX, &bldWorldY);
+        int cx = bld->cellX + bld->width / 2;
+        int cy = bld->cellY + bld->height / 2;
+        Map_CellToWorld(cx, cy, &bldWorldX, &bldWorldY);
 
         int dx = bldWorldX - fromX;
         int dy = bldWorldY - fromY;
@@ -1201,7 +1228,8 @@ static void UpdateHarvester(Unit* unit, int unitId) {
             } else {
                 // Look for ore
                 int oreCellX, oreCellY;
-                if (FindNearestOre(unit->worldX, unit->worldY, &oreCellX, &oreCellY)) {
+                int wx = unit->worldX, wy = unit->worldY;
+                if (FindNearestOre(wx, wy, &oreCellX, &oreCellY)) {
                     int oreWorldX, oreWorldY;
                     Map_CellToWorld(oreCellX, oreCellY, &oreWorldX, &oreWorldY);
                     Units_CommandMove(unitId, oreWorldX, oreWorldY);
@@ -1213,7 +1241,8 @@ static void UpdateHarvester(Unit* unit, int unitId) {
 
         case STATE_MOVING: {
             // Check if we've arrived at ore
-            if (currentCell && currentCell->terrain == TERRAIN_ORE && currentCell->oreAmount > 0) {
+            bool hasOre = currentCell && currentCell->terrain == TERRAIN_ORE;
+            if (hasOre && currentCell->oreAmount > 0) {
                 // Start harvesting
                 unit->state = STATE_HARVESTING;
                 unit->harvestTimer = 30;  // Harvest every 30 ticks
@@ -1224,7 +1253,8 @@ static void UpdateHarvester(Unit* unit, int unitId) {
 
         case STATE_HARVESTING: {
             // Harvest ore from current cell
-            if (!currentCell || currentCell->terrain != TERRAIN_ORE || currentCell->oreAmount == 0) {
+            bool noOre = !currentCell || currentCell->terrain != TERRAIN_ORE;
+            if (noOre || currentCell->oreAmount == 0) {
                 // No more ore here - find more or return
                 if (unit->cargo >= HARVESTER_MAX_CARGO * 3 / 4) {
                     // Mostly full - return
@@ -1269,7 +1299,9 @@ static void UpdateHarvester(Unit* unit, int unitId) {
         case STATE_RETURNING: {
             // Find refinery and return
             if (unit->homeRefinery < 0 || !Buildings_Get(unit->homeRefinery)) {
-                unit->homeRefinery = FindNearestRefinery(unit->worldX, unit->worldY, (Team)unit->team);
+                int wx = unit->worldX, wy = unit->worldY;
+                Team tm = (Team)unit->team;
+                unit->homeRefinery = FindNearestRefinery(wx, wy, tm);
             }
 
             Building* refinery = Buildings_Get(unit->homeRefinery);
@@ -1281,7 +1313,9 @@ static void UpdateHarvester(Unit* unit, int unitId) {
 
             // Move toward refinery
             int refX, refY;
-            Map_CellToWorld(refinery->cellX + 1, refinery->cellY + refinery->height, &refX, &refY);
+            int rx = refinery->cellX + 1;
+            int ry = refinery->cellY + refinery->height;
+            Map_CellToWorld(rx, ry, &refX, &refY);
 
             int dx = refX - unit->worldX;
             int dy = refY - unit->worldY;
@@ -1289,7 +1323,8 @@ static void UpdateHarvester(Unit* unit, int unitId) {
 
             if (dist < CELL_SIZE * 2) {
                 // At refinery - unload
-                if (unit->cargo > 0 && g_pPlayerCredits && unit->team == TEAM_PLAYER) {
+                bool isPlayer = unit->team == TEAM_PLAYER;
+                if (unit->cargo > 0 && g_pPlayerCredits && isPlayer) {
                     int credits = (unit->cargo * ORE_VALUE) / 10;  // Scale down
                     *g_pPlayerCredits += credits;
                     unit->cargo = 0;
@@ -1310,7 +1345,7 @@ static void UpdateHarvester(Unit* unit, int unitId) {
 }
 
 void Units_Update(void) {
-    // === Fog of War: Clear visibility and reveal around player units/buildings ===
+    // === Fog of War: Clear and reveal around player units/buildings ===
     Map_ClearVisibility();
 
     // Reveal around player units
@@ -1368,14 +1403,17 @@ void Units_Update(void) {
 
         // Find closest enemy
         int bldWorldX, bldWorldY;
-        Map_CellToWorld(bld->cellX + bld->width / 2, bld->cellY + bld->height / 2, &bldWorldX, &bldWorldY);
+        int cx = bld->cellX + bld->width / 2;
+        int cy = bld->cellY + bld->height / 2;
+        Map_CellToWorld(cx, cy, &bldWorldX, &bldWorldY);
 
         int closestDist = def->attackRange + 1;
         int closestEnemy = -1;
 
         for (int j = 0; j < MAX_UNITS; j++) {
             Unit* target = &g_units[j];
-            if (!target->active || target->team == bld->team || target->team == TEAM_NEUTRAL) continue;
+            bool skip = !target->active || target->team == bld->team;
+            if (skip || target->team == TEAM_NEUTRAL) continue;
 
             int dx = target->worldX - bldWorldX;
             int dy = target->worldY - bldWorldY;
@@ -1406,7 +1444,8 @@ void Units_Update(void) {
 
             if (target->health <= 0) {
                 target->state = STATE_DYING;
-                Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX, target->worldY, 180);
+                int tx = target->worldX, ty = target->worldY;
+                Sounds_PlayAt(SFX_EXPLOSION_SM, tx, ty, 180);
             }
         }
     }
@@ -1450,22 +1489,31 @@ void Units_Render(void) {
         uint8_t color = g_teamColors[bld->team];
 
         // Try to render with real sprite first
-        if (!Sprites_RenderBuilding((BuildingType)bld->type, 0, screenX, screenY, color)) {
+        BuildingType bt = (BuildingType)bld->type;
+        if (!Sprites_RenderBuilding(bt, 0, screenX, screenY, color)) {
             // Fallback to basic shapes
-            Renderer_FillRect(screenX + 2, screenY + 2, pixelWidth - 4, pixelHeight - 4, def->color);
-            Renderer_DrawRect(screenX + 1, screenY + 1, pixelWidth - 2, pixelHeight - 2, color);
+            int x2 = screenX + 2, y2 = screenY + 2;
+            int w4 = pixelWidth - 4, h4 = pixelHeight - 4;
+            Renderer_FillRect(x2, y2, w4, h4, def->color);
+            int x1 = screenX + 1, y1 = screenY + 1;
+            int w2 = pixelWidth - 2, h2 = pixelHeight - 2;
+            Renderer_DrawRect(x1, y1, w2, h2, color);
         }
 
         // Draw selection indicator
         if (bld->selected) {
-            Renderer_DrawRect(screenX - 1, screenY - 1, pixelWidth + 2, pixelHeight + 2, 15);
+            int sx = screenX - 1, sy = screenY - 1;
+            int sw = pixelWidth + 2, sh = pixelHeight + 2;
+            Renderer_DrawRect(sx, sy, sw, sh, 15);
         }
 
         // Draw health bar
-        int healthWidth = (pixelWidth - 4) * bld->health / bld->maxHealth;
-        uint8_t healthColor = (bld->health > bld->maxHealth / 2) ? 10 :
-                              (bld->health > bld->maxHealth / 4) ? 14 : 4;
-        Renderer_FillRect(screenX + 2, screenY - 4, healthWidth, 2, healthColor);
+        int hw = (pixelWidth - 4) * bld->health / bld->maxHealth;
+        int halfHp = bld->maxHealth / 2;
+        int quartHp = bld->maxHealth / 4;
+        uint8_t hc = (bld->health > halfHp) ? 10 :
+                     (bld->health > quartHp) ? 14 : 4;
+        Renderer_FillRect(screenX + 2, screenY - 4, hw, 2, hc);
     }
 
     // Render units
@@ -1500,22 +1548,26 @@ void Units_Render(void) {
         uint8_t teamColor = g_teamColors[unit->team];
 
         // Try to render with real sprite first
-        if (!Sprites_RenderUnit((UnitType)unit->type, unit->facing, 0, screenX, screenY, teamColor)) {
+        UnitType ut = (UnitType)unit->type;
+        int sx = screenX, sy = screenY;
+        if (!Sprites_RenderUnit(ut, unit->facing, 0, sx, sy, teamColor)) {
             // Fallback to basic shapes
+            int ux = screenX - halfSize, uy = screenY - halfSize;
             if (def->isInfantry) {
                 // Draw infantry as small circle
                 Renderer_FillCircle(screenX, screenY, halfSize, teamColor);
             } else {
                 // Draw vehicle as rectangle
-                Renderer_FillRect(screenX - halfSize, screenY - halfSize, def->size, def->size, def->color);
+                int sz = def->size;
+                Renderer_FillRect(ux, uy, sz, sz, def->color);
                 // Team color stripe
-                Renderer_FillRect(screenX - halfSize, screenY - halfSize, def->size, 3, teamColor);
+                Renderer_FillRect(ux, uy, sz, 3, teamColor);
             }
 
             // Draw facing indicator (gun barrel) - only for fallback
             if (unit->attackRange > 0) {
-                static const int facingDx[] = { 0, 1, 1, 1, 0, -1, -1, -1 };
-                static const int facingDy[] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+                static const int facingDx[] = {0, 1, 1, 1, 0, -1, -1, -1};
+                static const int facingDy[] = {-1, -1, 0, 1, 1, 1, 0, -1};
                 int barrelLen = halfSize + 2;
                 int bx = screenX + facingDx[unit->facing] * barrelLen;
                 int by = screenY + facingDy[unit->facing] * barrelLen;
@@ -1529,9 +1581,12 @@ void Units_Render(void) {
         }
 
         // Draw health bar
-        int healthWidth = (def->size) * unit->health / unit->maxHealth;
-        uint8_t healthColor = (unit->health > unit->maxHealth / 2) ? 10 :
-                              (unit->health > unit->maxHealth / 4) ? 14 : 4;
-        Renderer_FillRect(screenX - halfSize, screenY - halfSize - 4, healthWidth, 2, healthColor);
+        int hw = (def->size) * unit->health / unit->maxHealth;
+        int halfHp = unit->maxHealth / 2;
+        int quartHp = unit->maxHealth / 4;
+        uint8_t hc = (unit->health > halfHp) ? 10 :
+                     (unit->health > quartHp) ? 14 : 4;
+        int hx = screenX - halfSize, hy = screenY - halfSize - 4;
+        Renderer_FillRect(hx, hy, hw, 2, hc);
     }
 }

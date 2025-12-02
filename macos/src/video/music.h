@@ -89,7 +89,8 @@ void Music_Shutdown();
 bool Music_Play(ThemeType theme, bool loop = true, bool crossfade = false);
 
 // Play a track by filename (for custom tracks)
-bool Music_PlayFile(const char* filename, bool loop = true, bool crossfade = false);
+bool Music_PlayFile(const char* filename, bool loop = true,
+                    bool crossfade = false);
 
 // Stop current music
 // If fadeOut is true, fade out over fadeMs milliseconds

@@ -143,7 +143,8 @@ bool BulletClass::Launch(int32_t sourceCoord) {
     // Calculate arc parameters if arcing
     if (isArcing_) {
         int distance = DistanceTo(targetCoord_);
-        arcPeak_ = static_cast<int16_t>(distance / 4);  // Peak at 1/4 distance height
+        // Peak at 1/4 distance height
+        arcPeak_ = static_cast<int16_t>(distance / 4);
         arcProgress_ = 0;
     }
 
@@ -208,7 +209,9 @@ void BulletClass::UpdateFlight() {
     if (isArcing_) {
         int totalDist = DistanceTo(sourceCoord_) + DistanceToTarget();
         if (totalDist > 0) {
-            arcProgress_ = static_cast<int16_t>((DistanceTo(sourceCoord_) * 256) / totalDist);
+            int srcDist = DistanceTo(sourceCoord_);
+            int prog = (srcDist * 256) / totalDist;
+            arcProgress_ = static_cast<int16_t>(prog);
         }
         height_ = CalculateArcHeight();
     }
@@ -364,9 +367,10 @@ int BulletClass::ShapeNumber() const {
     if (!typeData) return 0;
 
     // Calculate frame from facing if bullet has rotation stages
-    if (typeData->rotationStages > 0) {
-        int facing = static_cast<int>(facing_) / (256 / typeData->rotationStages);
-        return facing % typeData->rotationStages;
+    int stages = typeData->rotationStages;
+    if (stages > 0) {
+        int facing = static_cast<int>(facing_) / (256 / stages);
+        return facing % stages;
     }
 
     return 0;
@@ -392,8 +396,9 @@ bool BulletClass::Unlimbo(int32_t coord, DirType facing) {
 // Helper Functions
 //===========================================================================
 
-BulletClass* CreateBullet(BulletType type, TechnoClass* source, int32_t sourceCoord,
-                          int32_t targetCoord, int damage, WarheadType warhead) {
+BulletClass* CreateBullet(BulletType type, TechnoClass* source,
+                          int32_t sourceCoord, int32_t targetCoord,
+                          int damage, WarheadType warhead) {
     // Check for instant-hit bullets
     const BulletTypeData* typeData = GetBulletType(type);
     if (typeData && typeData->isInvisible) {
@@ -411,7 +416,8 @@ BulletClass* CreateBullet(BulletType type, TechnoClass* source, int32_t sourceCo
     return bullet;
 }
 
-void InstantHit(TechnoClass* source, int32_t targetCoord, int damage, WarheadType warhead) {
+void InstantHit(TechnoClass* source, int32_t targetCoord,
+                int damage, WarheadType warhead) {
     // Apply damage immediately without creating a bullet
     Explosion_Damage(targetCoord, damage, source, warhead);
 }

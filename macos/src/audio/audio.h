@@ -55,7 +55,8 @@ void Audio_Update(void);
  * @param loop     If TRUE, loop the sound
  * @return Handle to the playing sound, or 0 on failure
  */
-SoundHandle Audio_Play(const AudioSample* sample, uint8_t volume, int8_t pan, BOOL loop);
+SoundHandle Audio_Play(const AudioSample* sample, uint8_t volume,
+                       int8_t pan, BOOL loop);
 
 /**
  * Stop a playing sound
@@ -135,7 +136,8 @@ void Audio_FreeTestTone(AudioSample* sample);
  * @param sampleCount Number of samples to fill
  * @return Number of samples actually filled (0 if finished)
  */
-typedef int (*MusicStreamCallback)(int16_t* buffer, int sampleCount, void* userdata);
+typedef int (*MusicStreamCallback)(int16_t* buffer, int sampleCount,
+                                   void* userdata);
 
 /**
  * Set the music streaming callback
@@ -161,7 +163,8 @@ float Audio_GetMusicVolume(void);
 /**
  * Callback type for video audio streaming (same signature as music)
  */
-typedef int (*VideoAudioCallback)(int16_t* buffer, int sampleCount, void* userdata);
+typedef int (*VideoAudioCallback)(int16_t* buffer, int sampleCount,
+                                  void* userdata);
 
 /**
  * Set the video audio streaming callback
@@ -169,7 +172,8 @@ typedef int (*VideoAudioCallback)(int16_t* buffer, int sampleCount, void* userda
  * @param userdata  User data passed to callback
  * @param sampleRate Sample rate of video audio (e.g., 22050)
  */
-void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata, int sampleRate);
+void Audio_SetVideoCallback(VideoAudioCallback callback,
+                            void* userdata, int sampleRate);
 
 /**
  * Set video audio volume (0.0 to 1.0)

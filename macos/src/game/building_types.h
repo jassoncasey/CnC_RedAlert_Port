@@ -72,7 +72,7 @@ struct BuildingTypeData {
     int16_t strength;           // Hit points
     int16_t cost;               // Build cost
     int8_t sightRange;          // Sight range in cells
-    int16_t power;              // Power produced (positive) or consumed (negative)
+    int16_t power;              // Power +/- (positive=produce)
     ArmorType armor;            // Armor type
     WeaponType primaryWeapon;   // Primary weapon
     WeaponType secondaryWeapon; // Secondary weapon

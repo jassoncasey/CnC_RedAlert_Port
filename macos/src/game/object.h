@@ -2,7 +2,8 @@
  * Red Alert macOS Port - Object Class Hierarchy
  *
  * Base classes for all game objects. The inheritance chain is:
- * AbstractClass -> ObjectClass -> MissionClass -> RadioClass -> TechnoClass -> FootClass
+ * AbstractClass -> ObjectClass -> MissionClass -> RadioClass
+ * -> TechnoClass -> FootClass
  *
  * Based on original ABSTRACT.H, OBJECT.H, MISSION.H, RADIO.H, TECHNO.H
  */
@@ -46,7 +47,9 @@ public:
     bool isActive_;
 
     // Construction/destruction
-    AbstractClass() : rtti_(RTTIType::NONE), id_(0), coord_(0), height_(0), isActive_(true) {}
+    AbstractClass()
+        : rtti_(RTTIType::NONE), id_(0), coord_(0), height_(0),
+          isActive_(true) {}
     AbstractClass(RTTIType rtti, int id);
     virtual ~AbstractClass() = default;
 
@@ -67,7 +70,8 @@ public:
     int DistanceTo(const AbstractClass* object) const;
 
     // Movement queries
-    virtual MoveType CanEnterCell(int16_t cell, FacingType facing = FacingType::NORTH) const;
+    virtual MoveType CanEnterCell(int16_t cell,
+                                  FacingType facing = FacingType::NORTH) const;
 
     // AI processing
     virtual void AI() {}
@@ -97,7 +101,10 @@ public:
     int16_t strength_;
 
     // Construction
-    ObjectClass() : AbstractClass(), isDown_(false), isToDamage_(false), isToDisplay_(false), isInLimbo_(true), isSelected_(false), strength_(0) {}
+    ObjectClass()
+        : AbstractClass(), isDown_(false), isToDamage_(false),
+          isToDisplay_(false), isInLimbo_(true), isSelected_(false),
+          strength_(0) {}
     ObjectClass(RTTIType rtti, int id);
     virtual ~ObjectClass() = default;
 
@@ -137,9 +144,11 @@ public:
     // Combat
     virtual bool InRange(int32_t coord, int weapon = 0) const;
     virtual int WeaponRange(int weapon = 0) const;
-    virtual ResultType TakeDamage(int& damage, int distance, WarheadType warhead,
-                                   TechnoClass* source = nullptr, bool forced = false);
-    virtual void Scatter(int32_t coord, bool forced = false, bool nokidding = false) {}
+    virtual ResultType TakeDamage(int& damage, int distance,
+        WarheadType warhead, TechnoClass* source = nullptr,
+        bool forced = false);
+    virtual void Scatter(int32_t coord, bool forced = false,
+                         bool nokidding = false) {}
     virtual bool CatchFire() { return false; }
     virtual void FireOut() {}
     virtual int Value() const { return 0; }
@@ -149,7 +158,7 @@ public:
     virtual void AI() override;
 
     // Static constants
-    static constexpr int FLIGHT_LEVEL = 256;  // Leptons above ground for aircraft
+    static constexpr int FLIGHT_LEVEL = 256;  // Leptons above ground
 };
 
 //===========================================================================
@@ -169,7 +178,10 @@ public:
     int16_t timer_;
 
     // Construction
-    MissionClass() : ObjectClass(), mission_(MissionType::SLEEP), suspendedMission_(MissionType::NONE), missionQueue_(MissionType::NONE), status_(0), timer_(0) {}
+    MissionClass()
+        : ObjectClass(), mission_(MissionType::SLEEP),
+          suspendedMission_(MissionType::NONE),
+          missionQueue_(MissionType::NONE), status_(0), timer_(0) {}
     MissionClass(RTTIType rtti, int id);
     virtual ~MissionClass() = default;
 
@@ -201,7 +213,8 @@ public:
     virtual int MissionMissile();
 
     // Mission override/restore
-    virtual void OverrideMission(MissionType mission, uint32_t target1, uint32_t target2);
+    virtual void OverrideMission(MissionType mission, uint32_t target1,
+                                 uint32_t target2);
     virtual bool RestoreMission();
 
     // Static helpers
@@ -225,19 +238,28 @@ public:
     RadioClass* radio_;
 
     // Construction
-    RadioClass() : MissionClass(), radio_(nullptr) { oldMessages_[0] = oldMessages_[1] = oldMessages_[2] = RadioMessageType::STATIC; }
+    RadioClass()
+        : MissionClass(), radio_(nullptr) {
+        oldMessages_[0] = oldMessages_[1] = oldMessages_[2] =
+            RadioMessageType::STATIC;
+    }
     RadioClass(RTTIType rtti, int id);
     virtual ~RadioClass() = default;
 
     // Radio status
     bool InRadioContact() const { return radio_ != nullptr; }
     void RadioOff() { radio_ = nullptr; }
-    TechnoClass* ContactWithWhom() const { return reinterpret_cast<TechnoClass*>(radio_); }
+    TechnoClass* ContactWithWhom() const {
+        return reinterpret_cast<TechnoClass*>(radio_);
+    }
 
     // Message handling
-    virtual RadioMessageType ReceiveMessage(RadioClass* from, RadioMessageType message, int32_t& param);
-    virtual RadioMessageType TransmitMessage(RadioMessageType message, int32_t& param, RadioClass* to = nullptr);
-    virtual RadioMessageType TransmitMessage(RadioMessageType message, RadioClass* to);
+    virtual RadioMessageType ReceiveMessage(RadioClass* from,
+        RadioMessageType message, int32_t& param);
+    virtual RadioMessageType TransmitMessage(RadioMessageType message,
+        int32_t& param, RadioClass* to = nullptr);
+    virtual RadioMessageType TransmitMessage(RadioMessageType message,
+        RadioClass* to);
 
     // Override limbo to handle radio contacts
     virtual bool Limbo() override;
@@ -306,15 +328,23 @@ public:
     DirType turretFacingTarget_;
 
     // Construction
-    TechnoClass() : RadioClass(), isUseless_(false), isTickedOff_(false), isCloakable_(false), isLeader_(false),
-                    isALoaner_(false), isLocked_(false), isInRecoilState_(false), isTethered_(false),
-                    isOwnedByPlayer_(false), isDiscoveredByPlayer_(false), isDiscoveredByComputer_(false),
-                    isALemon_(false), isSecondShot_(false), armorBias_(256), firepowerBias_(256),
-                    idleTimer_(0), ironCurtainTimer_(0), spiedBy_(0), archiveTarget_(0),
-                    house_(HousesType::NONE), cloakState_(CloakType::UNCLOAKED), cloakTimer_(0), cloakStage_(0),
-                    tarCom_(0), suspendedTarCom_(0), navCom_(0), suspendedNavCom_(0),
-                    ammo_(-1), pricePaid_(0), turretFacing_(DirType::N), turretFacingTarget_(DirType::N)
-                    { arm_[0] = arm_[1] = 0; }
+    TechnoClass()
+        : RadioClass(),
+          isUseless_(false), isTickedOff_(false), isCloakable_(false),
+          isLeader_(false), isALoaner_(false), isLocked_(false),
+          isInRecoilState_(false), isTethered_(false),
+          isOwnedByPlayer_(false), isDiscoveredByPlayer_(false),
+          isDiscoveredByComputer_(false), isALemon_(false),
+          isSecondShot_(false), armorBias_(256), firepowerBias_(256),
+          idleTimer_(0), ironCurtainTimer_(0), spiedBy_(0),
+          archiveTarget_(0), house_(HousesType::NONE),
+          cloakState_(CloakType::UNCLOAKED), cloakTimer_(0),
+          cloakStage_(0), tarCom_(0), suspendedTarCom_(0), navCom_(0),
+          suspendedNavCom_(0), ammo_(-1), pricePaid_(0),
+          turretFacing_(DirType::N), turretFacingTarget_(DirType::N)
+    {
+        arm_[0] = arm_[1] = 0;
+    }
     TechnoClass(RTTIType rtti, int id);
     virtual ~TechnoClass() = default;
 
@@ -331,7 +361,8 @@ public:
     virtual void Assign_Target(uint32_t target);
     virtual uint32_t GetTarget() const { return tarCom_; }
     virtual bool Fire_At(int32_t targetCoord, int weapon = 0);
-    virtual int GetWeapon(int which = 0) const { return -1; }  // Override in derived classes
+    // Override in derived classes
+    virtual int GetWeapon(int which = 0) const { return -1; }
 
     // Cloaking
     virtual void Cloak();
@@ -389,11 +420,19 @@ public:
     DirType bodyFacingTarget_;
 
     // Construction
-    FootClass() : TechnoClass(), isInitiated_(false), isMovingOntoBridge_(false), isUnloading_(false),
-                  isScattering_(false), isPrimaryFacing_(false), isRotating_(false), isFiring_(false),
-                  isDriving_(false), isToLook_(false), isDeploying_(false), isNewNavCom_(false), isPlanning_(false),
-                  pathLength_(0), pathIndex_(0), headTo_(0), member_(0), speed_(0), speedAccum_(0), group_(-1),
-                  bodyFacing_(DirType::N), bodyFacingTarget_(DirType::N) { memset(path_, 0, sizeof(path_)); }
+    FootClass()
+        : TechnoClass(),
+          isInitiated_(false), isMovingOntoBridge_(false),
+          isUnloading_(false), isScattering_(false),
+          isPrimaryFacing_(false), isRotating_(false), isFiring_(false),
+          isDriving_(false), isToLook_(false), isDeploying_(false),
+          isNewNavCom_(false), isPlanning_(false),
+          pathLength_(0), pathIndex_(0), headTo_(0), member_(0),
+          speed_(0), speedAccum_(0), group_(-1),
+          bodyFacing_(DirType::N), bodyFacingTarget_(DirType::N)
+    {
+        memset(path_, 0, sizeof(path_));
+    }
     FootClass(RTTIType rtti, int id);
     virtual ~FootClass() = default;
 
@@ -405,7 +444,8 @@ public:
 
     // Pathfinding
     virtual bool BasicPath(int32_t destination);
-    virtual MoveType CanEnterCell(int16_t cell, FacingType facing = FacingType::NORTH) const override;
+    MoveType CanEnterCell(int16_t cell,
+        FacingType facing = FacingType::NORTH) const override;
 
     // Speed
     virtual int TopSpeed() const;

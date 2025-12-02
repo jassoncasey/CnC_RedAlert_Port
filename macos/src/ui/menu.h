@@ -116,7 +116,9 @@ void Menu_Destroy(Menu* menu);
 /**
  * Add a button to a menu
  */
-int Menu_AddButton(Menu* menu, int id, const char* text, int x, int y, int width, int height, MenuCallback callback);
+int Menu_AddButton(Menu* menu, int id, const char* text,
+                   int x, int y, int width, int height,
+                   MenuCallback callback);
 
 /**
  * Add a label to a menu
@@ -131,18 +133,23 @@ int Menu_AddSeparator(Menu* menu, int y);
 /**
  * Add a slider
  */
-int Menu_AddSlider(Menu* menu, int id, const char* text, int x, int y, int width,
-                   int minVal, int maxVal, int currentVal, MenuCallback callback);
+int Menu_AddSlider(Menu* menu, int id, const char* text,
+                   int x, int y, int width,
+                   int minVal, int maxVal, int currentVal,
+                   MenuCallback callback);
 
 /**
  * Add a toggle (checkbox)
  */
-int Menu_AddToggle(Menu* menu, int id, const char* text, int x, int y, BOOL currentVal, MenuCallback callback);
+int Menu_AddToggle(Menu* menu, int id, const char* text,
+                   int x, int y, BOOL currentVal,
+                   MenuCallback callback);
 
 /**
  * Set menu colors
  */
-void Menu_SetColors(Menu* menu, uint8_t bg, uint8_t text, uint8_t highlight, uint8_t disabled);
+void Menu_SetColors(Menu* menu, uint8_t bg, uint8_t text,
+                    uint8_t highlight, uint8_t disabled);
 
 /**
  * Enable/disable a menu item
@@ -183,7 +190,8 @@ void Menu_HandleKey(Menu* menu, int vkCode);
 /**
  * Handle mouse input
  */
-void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY, BOOL leftDown, BOOL leftClicked);
+void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY,
+                      BOOL leftDown, BOOL leftClicked);
 
 /**
  * Get current menu screen
@@ -275,7 +283,8 @@ void Menu_UpdateBriefing(void);
  * @param skippable         If TRUE, can be skipped with any key/click
  */
 typedef void (*VideoCompleteCallback)(void);
-void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete, BOOL skippable);
+void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete,
+                    BOOL skippable);
 
 /**
  * Update video playback (call each frame)

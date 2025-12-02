@@ -46,7 +46,7 @@ void StubAssets_CreatePalette(Palette* palette) {
     memset(palette->colors, 0, sizeof(palette->colors));
 
     // Grayscale ramp for indices 0-15 (used by menu buttons)
-    // This matches menu.cpp's expectations: BTN_SHADOW=2, BTN_FACE=8, BTN_HIGHLIGHT=12, PAL_WHITE=15
+    // Matches menu.cpp: BTN_SHADOW=2, BTN_FACE=8, BTN_HIGHLIGHT=12
     for (int i = 0; i <= 15; i++) {
         uint8_t gray = (uint8_t)((i * 255) / 15);
         palette->colors[i][0] = gray;
@@ -84,7 +84,7 @@ void StubAssets_CreatePalette(Palette* palette) {
         palette->colors[i][2] = b;
     }
 
-    // Yellow/Gold ramp for indices 216-223 (used for PAL_GOLD=223, PAL_YELLOW=220)
+    // Yellow/Gold ramp for 216-223 (PAL_GOLD=223, PAL_YELLOW=220)
     for (int i = 216; i <= 223; i++) {
         int level = i - 216;  // 0-7
         uint8_t r = (uint8_t)(180 + (level * 75) / 7);   // 180-255
@@ -126,7 +126,8 @@ void StubAssets_CreatePalette(Palette* palette) {
 /**
  * Create a simple colored rectangle sprite
  */
-void StubAssets_CreateSprite(uint16_t width, uint16_t height, uint8_t colorIdx, uint8_t* data) {
+void StubAssets_CreateSprite(uint16_t width, uint16_t height,
+                             uint8_t colorIdx, uint8_t* data) {
     if (!data || width == 0 || height == 0) return;
 
     // Fill with solid color
@@ -205,7 +206,9 @@ uint8_t* StubAssets_CreateTone(AudioBuffer* buffer, uint16_t frequency,
 /**
  * Create silence
  */
-uint8_t* StubAssets_CreateSilence(AudioBuffer* buffer, uint16_t durationMs, uint16_t sampleRate) {
+uint8_t* StubAssets_CreateSilence(AudioBuffer* buffer,
+                                  uint16_t durationMs,
+                                  uint16_t sampleRate) {
     if (!buffer || sampleRate == 0) return nullptr;
 
     // Calculate buffer size

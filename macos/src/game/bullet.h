@@ -79,11 +79,13 @@ public:
     // Construction
     //-----------------------------------------------------------------------
     BulletClass();
-    BulletClass(BulletType type, TechnoClass* source, int32_t target, int damage, WarheadType warhead);
+    BulletClass(BulletType type, TechnoClass* source,
+                int32_t target, int damage, WarheadType warhead);
     virtual ~BulletClass() = default;
 
     // Initialize
-    void Init(BulletType type, TechnoClass* source, int32_t target, int damage, WarheadType warhead);
+    void Init(BulletType type, TechnoClass* source,
+              int32_t target, int damage, WarheadType warhead);
 
     //-----------------------------------------------------------------------
     // Type queries
@@ -176,12 +178,14 @@ extern ObjectPool<BulletClass, BULLET_MAX> Bullets;
 /**
  * Create and launch a new bullet
  */
-BulletClass* CreateBullet(BulletType type, TechnoClass* source, int32_t sourceCoord,
-                          int32_t targetCoord, int damage, WarheadType warhead);
+BulletClass* CreateBullet(BulletType type, TechnoClass* source,
+                          int32_t sourceCoord, int32_t targetCoord,
+                          int damage, WarheadType warhead);
 
 /**
  * Create instant-hit effect (no actual bullet travel)
  */
-void InstantHit(TechnoClass* source, int32_t targetCoord, int damage, WarheadType warhead);
+void InstantHit(TechnoClass* source, int32_t targetCoord,
+                int damage, WarheadType warhead);
 
 #endif // GAME_BULLET_H

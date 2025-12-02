@@ -136,26 +136,27 @@ void StripClass::Recalc(HouseClass* house) {
         bool valid = true;
 
         // Basic validation - check type range
+        int bid = buildables_[i].buildableId;
+        int infMax = static_cast<int>(InfantryType::COUNT);
+        int unitMax = static_cast<int>(UnitType::COUNT);
+        int bldMax = static_cast<int>(BuildingType::COUNT);
+        int airMax = static_cast<int>(AircraftType::COUNT);
+        int spcMax = static_cast<int>(SpecialWeaponType::SPC_COUNT);
         switch (buildables_[i].buildableType) {
             case RTTIType::INFANTRY:
-                valid = buildables_[i].buildableId >= 0 &&
-                        buildables_[i].buildableId < static_cast<int>(InfantryType::COUNT);
+                valid = bid >= 0 && bid < infMax;
                 break;
             case RTTIType::UNIT:
-                valid = buildables_[i].buildableId >= 0 &&
-                        buildables_[i].buildableId < static_cast<int>(UnitType::COUNT);
+                valid = bid >= 0 && bid < unitMax;
                 break;
             case RTTIType::BUILDING:
-                valid = buildables_[i].buildableId >= 0 &&
-                        buildables_[i].buildableId < static_cast<int>(BuildingType::COUNT);
+                valid = bid >= 0 && bid < bldMax;
                 break;
             case RTTIType::AIRCRAFT:
-                valid = buildables_[i].buildableId >= 0 &&
-                        buildables_[i].buildableId < static_cast<int>(AircraftType::COUNT);
+                valid = bid >= 0 && bid < airMax;
                 break;
             case RTTIType::SPECIAL:
-                valid = buildables_[i].buildableId >= 0 &&
-                        buildables_[i].buildableId < static_cast<int>(SpecialWeaponType::SPC_COUNT);
+                valid = bid >= 0 && bid < spcMax;
                 break;
             default:
                 valid = false;
@@ -252,7 +253,9 @@ bool StripClass::Click(int x, int y, bool leftClick, HouseClass* house) {
             // Start new production
             FactoryClass* factory = Create_Factory();
             if (factory) {
-                if (factory->Set(build.buildableType, build.buildableId, house)) {
+                RTTIType btype = build.buildableType;
+                int bid = build.buildableId;
+                if (factory->Set(btype, bid, house)) {
                     factory->Start();
                     build.factoryIndex = factory->id_;
                     flasher_ = buildableIndex;
@@ -321,7 +324,8 @@ void StripClass::AI(HouseClass* house) {
             } else {
                 topIndex_--;
             }
-            topIndex_ = std::max(0, std::min(buildableCount_ - MAX_VISIBLE, topIndex_));
+            int maxIdx = buildableCount_ - MAX_VISIBLE;
+            topIndex_ = std::max(0, std::min(maxIdx, topIndex_));
             needsRedraw_ = true;
         }
     }
@@ -482,7 +486,8 @@ void SidebarClass::Zoom() {
     // For now, just a placeholder
 }
 
-bool SidebarClass::Input(int key, int x, int y, bool leftClick, bool rightClick) {
+bool SidebarClass::Input(int key, int x, int y,
+                         bool leftClick, bool rightClick) {
     if (!isActive_) {
         return false;
     }

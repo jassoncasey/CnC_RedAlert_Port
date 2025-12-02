@@ -15,8 +15,12 @@
 
 int Distance(int32_t coord1, int32_t coord2) {
     // Coordinate format: high 16 bits = X, low 16 bits = Y
-    int dx = static_cast<int16_t>(coord1 >> 16) - static_cast<int16_t>(coord2 >> 16);
-    int dy = static_cast<int16_t>(coord1 & 0xFFFF) - static_cast<int16_t>(coord2 & 0xFFFF);
+    int16_t x1 = static_cast<int16_t>(coord1 >> 16);
+    int16_t x2 = static_cast<int16_t>(coord2 >> 16);
+    int16_t y1 = static_cast<int16_t>(coord1 & 0xFFFF);
+    int16_t y2 = static_cast<int16_t>(coord2 & 0xFFFF);
+    int dx = x1 - x2;
+    int dy = y1 - y2;
     // Approximate distance using max + half min
     int ax = abs(dx);
     int ay = abs(dy);
@@ -25,8 +29,12 @@ int Distance(int32_t coord1, int32_t coord2) {
 
 uint8_t Direction256(int32_t coord1, int32_t coord2) {
     // Coordinate format: high 16 bits = X, low 16 bits = Y
-    int dx = static_cast<int16_t>(coord2 >> 16) - static_cast<int16_t>(coord1 >> 16);
-    int dy = static_cast<int16_t>(coord2 & 0xFFFF) - static_cast<int16_t>(coord1 & 0xFFFF);
+    int16_t x1 = static_cast<int16_t>(coord1 >> 16);
+    int16_t x2 = static_cast<int16_t>(coord2 >> 16);
+    int16_t y1 = static_cast<int16_t>(coord1 & 0xFFFF);
+    int16_t y2 = static_cast<int16_t>(coord2 & 0xFFFF);
+    int dx = x2 - x1;
+    int dy = y2 - y1;
 
     if (dx == 0 && dy == 0) return 0;
 
@@ -69,7 +77,8 @@ int AbstractClass::DistanceTo(const AbstractClass* object) const {
     return Distance(CenterCoord(), object->TargetCoord());
 }
 
-MoveType AbstractClass::CanEnterCell(int16_t /*cell*/, FacingType /*facing*/) const {
+MoveType AbstractClass::CanEnterCell(int16_t /*cell*/,
+                                     FacingType /*facing*/) const {
     return MoveType::OK;
 }
 
@@ -175,8 +184,10 @@ int ObjectClass::WeaponRange(int /*weapon*/) const {
     return 0;  // Override in derived classes
 }
 
-ResultType ObjectClass::TakeDamage(int& damage, int /*distance*/, WarheadType /*warhead*/,
-                                    TechnoClass* /*source*/, bool /*forced*/) {
+ResultType ObjectClass::TakeDamage(int& damage, int /*distance*/,
+                                   WarheadType /*warhead*/,
+                                   TechnoClass* /*source*/,
+                                   bool /*forced*/) {
     if (damage <= 0) return ResultType::NONE;
 
     // Apply damage
@@ -261,7 +272,9 @@ int MissionClass::MissionDeconstruction() { return 15; }
 int MissionClass::MissionRepair() { return 15; }
 int MissionClass::MissionMissile() { return 15; }
 
-void MissionClass::OverrideMission(MissionType mission, uint32_t /*target1*/, uint32_t /*target2*/) {
+void MissionClass::OverrideMission(MissionType mission,
+                                   uint32_t /*target1*/,
+                                   uint32_t /*target2*/) {
     suspendedMission_ = mission_;
     SetMission(mission);
 }
@@ -370,7 +383,9 @@ void MissionClass::AI() {
         case MissionType::UNLOAD: delay = MissionUnload(); break;
         case MissionType::ENTER: delay = MissionEnter(); break;
         case MissionType::CONSTRUCTION: delay = MissionConstruction(); break;
-        case MissionType::DECONSTRUCTION: delay = MissionDeconstruction(); break;
+        case MissionType::DECONSTRUCTION:
+            delay = MissionDeconstruction();
+            break;
         case MissionType::REPAIR: delay = MissionRepair(); break;
         case MissionType::MISSILE: delay = MissionMissile(); break;
         default: break;
@@ -391,7 +406,9 @@ RadioClass::RadioClass(RTTIType rtti, int id)
     oldMessages_[2] = RadioMessageType::STATIC;
 }
 
-RadioMessageType RadioClass::ReceiveMessage(RadioClass* from, RadioMessageType message, int32_t& /*param*/) {
+RadioMessageType RadioClass::ReceiveMessage(RadioClass* from,
+                                            RadioMessageType message,
+                                            int32_t& /*param*/) {
     // Store message history
     oldMessages_[2] = oldMessages_[1];
     oldMessages_[1] = oldMessages_[0];
@@ -416,7 +433,9 @@ RadioMessageType RadioClass::ReceiveMessage(RadioClass* from, RadioMessageType m
     }
 }
 
-RadioMessageType RadioClass::TransmitMessage(RadioMessageType message, int32_t& param, RadioClass* to) {
+RadioMessageType RadioClass::TransmitMessage(RadioMessageType message,
+                                             int32_t& param,
+                                             RadioClass* to) {
     if (to == nullptr) {
         to = radio_;
     }
@@ -426,7 +445,8 @@ RadioMessageType RadioClass::TransmitMessage(RadioMessageType message, int32_t& 
     return to->ReceiveMessage(this, message, param);
 }
 
-RadioMessageType RadioClass::TransmitMessage(RadioMessageType message, RadioClass* to) {
+RadioMessageType RadioClass::TransmitMessage(RadioMessageType message,
+                                             RadioClass* to) {
     int32_t param = 0;
     return TransmitMessage(message, param, to);
 }
@@ -496,7 +516,8 @@ TechnoClass::TechnoClass(RTTIType rtti, int id)
 
 void TechnoClass::SetHouse(HousesType house) {
     house_ = house;
-    isOwnedByPlayer_ = (house == HousesType::GOOD);  // Simplified - would check actual player house
+    // Simplified - would check actual player house
+    isOwnedByPlayer_ = (house == HousesType::GOOD);
 }
 
 bool TechnoClass::IsAllowedToRetaliate() const {

@@ -54,8 +54,8 @@ enum OverlayTypeRA {
     OVERLAY_RA_NONE = 255
 };
 // Viewport dimensions (game view area, excluding sidebar)
-static constexpr int GAME_VIEW_WIDTH = 560;   // Screen width minus sidebar
-static constexpr int GAME_VIEW_HEIGHT = 368;  // Screen height minus HUD and control bars
+static constexpr int GAME_VIEW_WIDTH = 560;   // w/o sidebar
+static constexpr int GAME_VIEW_HEIGHT = 368;  // w/o HUD
 
 static Viewport g_viewport = {0, 0, GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT};
 
@@ -119,7 +119,8 @@ static void AddForestCluster(int cx, int cy, int radius) {
             if (x < 0 || x >= g_mapWidth || y < 0 || y >= g_mapHeight) continue;
             // Circular falloff with randomness
             int dist2 = dx * dx + dy * dy;
-            if (dist2 <= radius * radius && g_cells[y][x].terrain == TERRAIN_CLEAR) {
+            int r2 = radius * radius;
+            if (dist2 <= r2 && g_cells[y][x].terrain == TERRAIN_CLEAR) {
                 // Higher chance near center
                 if (rand() % (radius * radius + 1) > dist2 / 2) {
                     Map_SetTerrain(x, y, TERRAIN_TREE);
@@ -166,11 +167,13 @@ static void AddOreField(int cx, int cy, int radius) {
             int y = cy + dy;
             if (x < 0 || x >= g_mapWidth || y < 0 || y >= g_mapHeight) continue;
             int dist2 = dx * dx + dy * dy;
-            if (dist2 <= radius * radius && g_cells[y][x].terrain == TERRAIN_CLEAR) {
+            int r2 = radius * radius;
+            if (dist2 <= r2 && g_cells[y][x].terrain == TERRAIN_CLEAR) {
                 if (rand() % 3 != 0) {  // 67% density
                     Map_SetTerrain(x, y, TERRAIN_ORE);
-                    // Set ore amount - more in center, less at edges
-                    int amount = ORE_MAX_AMOUNT - (dist2 * 100 / (radius * radius + 1));
+                    // Ore amount: more in center, less at edges
+                    int rr1 = r2 + 1;
+                    int amount = ORE_MAX_AMOUNT - (dist2 * 100 / rr1);
                     if (amount < 50) amount = 50 + rand() % 50;
                     g_cells[y][x].oreAmount = (uint8_t)amount;
                 }
@@ -379,20 +382,22 @@ void Map_LoadFromMission(const uint8_t* terrainType, const uint8_t* terrainIcon,
                     uint8_t variant = overlayData ? overlayData[cellIdx] : 0;
 
                     // Map Red Alert overlay types to terrain
-                    if (overlay >= OVERLAY_RA_GOLD1 && overlay <= OVERLAY_RA_GOLD4) {
-                        // Ore (GOLD1-4) - different amounts based on type
+                    bool isOre = overlay >= OVERLAY_RA_GOLD1 &&
+                                 overlay <= OVERLAY_RA_GOLD4;
+                    bool isGem = overlay >= OVERLAY_RA_GEMS1 &&
+                                 overlay <= OVERLAY_RA_GEMS4;
+                    if (isOre) {
+                        // Ore (GOLD1-4) - different amounts
                         g_cells[y][x].terrain = TERRAIN_ORE;
-                        // Ore amount: GOLD1=lowest, GOLD4=highest
-                        // variant (0-11) indicates growth stage
-                        int baseAmount = 50 + (overlay - OVERLAY_RA_GOLD1) * 50;
-                        int variantBonus = (variant % 12) * 10;
-                        g_cells[y][x].oreAmount = (uint8_t)(baseAmount + variantBonus);
-                    } else if (overlay >= OVERLAY_RA_GEMS1 && overlay <= OVERLAY_RA_GEMS4) {
+                        int base = 50 + (overlay - OVERLAY_RA_GOLD1) * 50;
+                        int bonus = (variant % 12) * 10;
+                        g_cells[y][x].oreAmount = (uint8_t)(base + bonus);
+                    } else if (isGem) {
                         // Gems - worth more than ore
                         g_cells[y][x].terrain = TERRAIN_GEM;
-                        int baseAmount = 100 + (overlay - OVERLAY_RA_GEMS1) * 40;
-                        int variantBonus = (variant % 4) * 20;
-                        g_cells[y][x].oreAmount = (uint8_t)(baseAmount + variantBonus);
+                        int base = 100 + (overlay - OVERLAY_RA_GEMS1) * 40;
+                        int bonus = (variant % 4) * 20;
+                        g_cells[y][x].oreAmount = (uint8_t)(base + bonus);
                     } else if (overlay >= OVERLAY_RA_SANDBAG_WALL &&
                                overlay <= OVERLAY_RA_WOOD_WALL) {
                         // Walls - impassable
@@ -494,7 +499,9 @@ void Map_ScrollViewport(int dx, int dy) {
 }
 
 void Map_CenterViewport(int worldX, int worldY) {
-    Map_SetViewport(worldX - g_viewport.width / 2, worldY - g_viewport.height / 2);
+    int newX = worldX - g_viewport.width / 2;
+    int newY = worldY - g_viewport.height / 2;
+    Map_SetViewport(newX, newY);
 }
 
 BOOL Map_IsInViewport(int worldX, int worldY) {
@@ -548,15 +555,18 @@ void Map_Render(void) {
 
             // Unrevealed cells (shroud) - draw black
             if (!isRevealed) {
-                Renderer_FillRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 0);  // Black
+                // Black (shroud)
+                Renderer_FillRect(screenX, screenY, CELL_SIZE, CELL_SIZE, 0);
                 continue;
             }
 
             // Revealed but not visible (fog) - show terrain but dimmed
             BOOL inFog = !isVisible;
 
-            // Try to render with mission terrain data first (actual map tiles)
-            if (g_useMissionTerrain && g_missionTerrainType && g_missionTerrainIcon) {
+            // Try mission terrain data first (actual map tiles)
+            bool hasMissionData = g_useMissionTerrain &&
+                g_missionTerrainType && g_missionTerrainIcon;
+            if (hasMissionData) {
                 // Get cell in the full 128x128 array
                 int fullX = g_missionMapX + cx;
                 int fullY = g_missionMapY + cy;
@@ -567,9 +577,12 @@ void Map_Render(void) {
                     int tileIndex = g_missionTerrainIcon[cellIdx];
 
                     // Render using the template ID from the mission
-                    if (Terrain_RenderByID(templateID, tileIndex, screenX, screenY)) {
+                    bool ok = Terrain_RenderByID(templateID, tileIndex,
+                                                 screenX, screenY);
+                    if (ok) {
                         if (inFog) {
-                            Renderer_SetAlpha(screenX, screenY, CELL_SIZE, CELL_SIZE, 128);
+                            Renderer_SetAlpha(screenX, screenY,
+                                              CELL_SIZE, CELL_SIZE, 128);
                         }
                         continue;
                     }
@@ -580,10 +593,13 @@ void Map_Render(void) {
             if (useTiles) {
                 // Use cell coordinates as variant for visual variety
                 int variant = (cx * 7 + cy * 13) % 20;
-                if (Terrain_RenderTile(cell->terrain, variant, screenX, screenY)) {
-                    // Tile rendered successfully - dim if in fog using alpha
+                bool ok = Terrain_RenderTile(cell->terrain, variant,
+                                             screenX, screenY);
+                if (ok) {
+                    // Tile rendered - dim if in fog using alpha
                     if (inFog) {
-                        Renderer_SetAlpha(screenX, screenY, CELL_SIZE, CELL_SIZE, 128);
+                        Renderer_SetAlpha(screenX, screenY,
+                                          CELL_SIZE, CELL_SIZE, 128);
                     }
                     continue;
                 }
@@ -593,7 +609,8 @@ void Map_Render(void) {
             uint8_t color = g_terrainColors[cell->terrain];
 
             // Draw cell as filled rectangle
-            Renderer_FillRect(screenX, screenY, CELL_SIZE - 1, CELL_SIZE - 1, color);
+            int sz = CELL_SIZE - 1;
+            Renderer_FillRect(screenX, screenY, sz, sz, color);
 
             // Add some visual variety based on terrain type
             if (cell->terrain == TERRAIN_TREE) {
@@ -661,13 +678,16 @@ void Map_RevealAround(int cellX, int cellY, int sightRange, int team) {
             int cy = cellY + dy;
 
             // Bounds check
-            if (cx < 0 || cx >= g_mapWidth || cy < 0 || cy >= g_mapHeight) continue;
+            bool outOfBounds = cx < 0 || cx >= g_mapWidth ||
+                               cy < 0 || cy >= g_mapHeight;
+            if (outOfBounds) continue;
 
             // Circle check
             if (dx * dx + dy * dy > rangeSquared) continue;
 
             // Mark as revealed and visible
-            g_cells[cy][cx].flags |= CELL_FLAG_REVEALED | CELL_FLAG_VISIBLE;
+            uint8_t vis = CELL_FLAG_REVEALED | CELL_FLAG_VISIBLE;
+            g_cells[cy][cx].flags |= vis;
         }
     }
 }
@@ -725,8 +745,11 @@ void Map_RevealArea(int worldX, int worldY, int radius) {
         for (int dx = -cellRadius; dx <= cellRadius; dx++) {
             int tx = cellX + dx;
             int ty = cellY + dy;
-            if (tx >= 0 && tx < g_mapWidth && ty >= 0 && ty < g_mapHeight) {
-                g_cells[ty][tx].flags |= (CELL_FLAG_VISIBLE | CELL_FLAG_REVEALED);
+            bool inBounds = tx >= 0 && tx < g_mapWidth &&
+                            ty >= 0 && ty < g_mapHeight;
+            if (inBounds) {
+                uint8_t vis = CELL_FLAG_VISIBLE | CELL_FLAG_REVEALED;
+                g_cells[ty][tx].flags |= vis;
             }
         }
     }

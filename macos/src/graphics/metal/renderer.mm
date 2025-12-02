@@ -12,6 +12,10 @@
 #include <cstring>
 #include <cstdlib>
 
+// Shorthand for framebuffer dimensions
+#define FBW FRAMEBUFFER_WIDTH
+#define FBH FRAMEBUFFER_HEIGHT
+
 // Shader source for fullscreen quad
 static const char* shaderSource = R"(
 #include <metal_stdlib>
@@ -91,25 +95,26 @@ BOOL Renderer_Init(void* metalView) {
 
     // Compile shaders
     NSError* error = nil;
-    id<MTLLibrary> library = [g_renderer.device newLibraryWithSource:@(shaderSource)
-                                                              options:nil
-                                                                error:&error];
+    id<MTLDevice> dev = g_renderer.device;
+    id<MTLLibrary> library = [dev newLibraryWithSource:@(shaderSource)
+                                               options:nil
+                                                 error:&error];
     if (!library) {
         NSLog(@"Renderer_Init: Failed to compile shaders: %@", error);
         return FALSE;
     }
 
-    id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertexShader"];
-    id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragmentShader"];
+    id<MTLFunction> vFunc = [library newFunctionWithName:@"vertexShader"];
+    id<MTLFunction> fFunc = [library newFunctionWithName:@"fragmentShader"];
 
     // Create pipeline
-    MTLRenderPipelineDescriptor* pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
-    pipelineDesc.vertexFunction = vertexFunction;
-    pipelineDesc.fragmentFunction = fragmentFunction;
-    pipelineDesc.colorAttachments[0].pixelFormat = view.colorPixelFormat;
+    auto* desc = [[MTLRenderPipelineDescriptor alloc] init];
+    desc.vertexFunction = vFunc;
+    desc.fragmentFunction = fFunc;
+    desc.colorAttachments[0].pixelFormat = view.colorPixelFormat;
 
-    g_renderer.pipelineState = [g_renderer.device newRenderPipelineStateWithDescriptor:pipelineDesc
-                                                                                  error:&error];
+    g_renderer.pipelineState =
+        [dev newRenderPipelineStateWithDescriptor:desc error:&error];
     if (!g_renderer.pipelineState) {
         NSLog(@"Renderer_Init: Failed to create pipeline state: %@", error);
         return FALSE;
@@ -118,24 +123,26 @@ BOOL Renderer_Init(void* metalView) {
     // Create framebuffer texture
     MTLTextureDescriptor* texDesc = [MTLTextureDescriptor
         texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-                                     width:FRAMEBUFFER_WIDTH
-                                    height:FRAMEBUFFER_HEIGHT
+                                     width:FBW
+                                    height:FBH
                                  mipmapped:NO];
     texDesc.usage = MTLTextureUsageShaderRead;
 
-    g_renderer.framebufferTexture = [g_renderer.device newTextureWithDescriptor:texDesc];
+    g_renderer.framebufferTexture = [dev newTextureWithDescriptor:texDesc];
     if (!g_renderer.framebufferTexture) {
         NSLog(@"Renderer_Init: Failed to create framebuffer texture");
         return FALSE;
     }
 
     // Allocate CPU-side buffers
-    size_t pixelCount = FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT;
+    size_t pixelCount = FBW * FBH;
     g_renderer.framebuffer = (uint8_t*)calloc(pixelCount, sizeof(uint8_t));
     g_renderer.alphaBuffer = (uint8_t*)malloc(pixelCount);
     g_renderer.rgbaBuffer = (uint32_t*)calloc(pixelCount, sizeof(uint32_t));
 
-    if (!g_renderer.framebuffer || !g_renderer.alphaBuffer || !g_renderer.rgbaBuffer) {
+    bool alloc = g_renderer.framebuffer && g_renderer.alphaBuffer &&
+                 g_renderer.rgbaBuffer;
+    if (!alloc) {
         NSLog(@"Renderer_Init: Failed to allocate framebuffer");
         Renderer_Shutdown();
         return FALSE;
@@ -152,7 +159,7 @@ BOOL Renderer_Init(void* metalView) {
     view.enableSetNeedsDisplay = NO;
 
     g_renderer.initialized = true;
-    NSLog(@"Renderer initialized: %dx%d framebuffer", FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT);
+    NSLog(@"Renderer initialized: %dx%d framebuffer", FBW, FBH);
 
     return TRUE;
 }
@@ -185,11 +192,11 @@ uint8_t* Renderer_GetFramebuffer(void) {
 }
 
 int Renderer_GetWidth(void) {
-    return FRAMEBUFFER_WIDTH;
+    return FBW;
 }
 
 int Renderer_GetHeight(void) {
-    return FRAMEBUFFER_HEIGHT;
+    return FBH;
 }
 
 void Renderer_SetPalette(const Palette* palette) {
@@ -204,7 +211,7 @@ void Renderer_Present(void) {
     }
 
     // Convert indexed framebuffer to RGBA, applying alpha for fog of war
-    size_t pixelCount = FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT;
+    size_t pixelCount = FBW * FBH;
     for (size_t i = 0; i < pixelCount; i++) {
         uint8_t idx = g_renderer.framebuffer[i];
         uint8_t alpha = g_renderer.alphaBuffer[i];
@@ -226,101 +233,104 @@ void Renderer_Present(void) {
     }
 
     // Upload to texture
-    MTLRegion region = MTLRegionMake2D(0, 0, FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT);
+    MTLRegion region = MTLRegionMake2D(0, 0, FBW, FBH);
     [g_renderer.framebufferTexture replaceRegion:region
                                      mipmapLevel:0
                                        withBytes:g_renderer.rgbaBuffer
-                                     bytesPerRow:FRAMEBUFFER_WIDTH * sizeof(uint32_t)];
+                                     bytesPerRow:FBW * sizeof(uint32_t)];
 
     // Get drawable
     id<CAMetalDrawable> drawable = g_renderer.view.currentDrawable;
-    MTLRenderPassDescriptor* passDesc = g_renderer.view.currentRenderPassDescriptor;
+    auto* passDesc = g_renderer.view.currentRenderPassDescriptor;
 
     if (!drawable || !passDesc) {
         return;
     }
 
     // Create command buffer and encoder
-    id<MTLCommandBuffer> commandBuffer = [g_renderer.commandQueue commandBuffer];
-    id<MTLRenderCommandEncoder> encoder = [commandBuffer renderCommandEncoderWithDescriptor:passDesc];
+    auto* cmdBuf = [g_renderer.commandQueue commandBuffer];
+    auto* encoder = [cmdBuf renderCommandEncoderWithDescriptor:passDesc];
 
     [encoder setRenderPipelineState:g_renderer.pipelineState];
     [encoder setFragmentTexture:g_renderer.framebufferTexture atIndex:0];
 
     // Draw fullscreen triangle (3 vertices)
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangle
+               vertexStart:0
+               vertexCount:3];
 
     [encoder endEncoding];
-    [commandBuffer presentDrawable:drawable];
-    [commandBuffer commit];
+    [cmdBuf presentDrawable:drawable];
+    [cmdBuf commit];
 }
 
 void Renderer_Clear(uint8_t colorIndex) {
     if (g_renderer.framebuffer) {
-        memset(g_renderer.framebuffer, colorIndex, FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT);
+        memset(g_renderer.framebuffer, colorIndex, FBW * FBH);
     }
     // Also clear alpha to fully opaque so menus/UI render correctly
     if (g_renderer.alphaBuffer) {
-        memset(g_renderer.alphaBuffer, 255, FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT);
+        memset(g_renderer.alphaBuffer, 255, FBW * FBH);
     }
 }
 
-void Renderer_FillRect(int x, int y, int width, int height, uint8_t colorIndex) {
+void Renderer_FillRect(int x, int y, int width, int height,
+                       uint8_t colorIndex) {
     if (!g_renderer.framebuffer) return;
 
     // Clip to framebuffer bounds
     if (x < 0) { width += x; x = 0; }
     if (y < 0) { height += y; y = 0; }
-    if (x + width > FRAMEBUFFER_WIDTH) { width = FRAMEBUFFER_WIDTH - x; }
-    if (y + height > FRAMEBUFFER_HEIGHT) { height = FRAMEBUFFER_HEIGHT - y; }
+    if (x + width > FBW) { width = FBW - x; }
+    if (y + height > FBH) { height = FBH - y; }
 
     if (width <= 0 || height <= 0) return;
 
     for (int row = 0; row < height; row++) {
-        uint8_t* dest = g_renderer.framebuffer + (y + row) * FRAMEBUFFER_WIDTH + x;
+        uint8_t* dest = g_renderer.framebuffer + (y + row) * FBW + x;
         memset(dest, colorIndex, width);
     }
 }
 
 void Renderer_PutPixel(int x, int y, uint8_t colorIndex) {
     if (!g_renderer.framebuffer) return;
-    if (x < 0 || x >= FRAMEBUFFER_WIDTH || y < 0 || y >= FRAMEBUFFER_HEIGHT) return;
+    if (x < 0 || x >= FBW || y < 0 || y >= FBH) return;
 
-    g_renderer.framebuffer[y * FRAMEBUFFER_WIDTH + x] = colorIndex;
+    g_renderer.framebuffer[y * FBW + x] = colorIndex;
 }
 
 uint8_t Renderer_GetPixel(int x, int y) {
     if (!g_renderer.framebuffer) return 0;
-    if (x < 0 || x >= FRAMEBUFFER_WIDTH || y < 0 || y >= FRAMEBUFFER_HEIGHT) return 0;
+    if (x < 0 || x >= FBW || y < 0 || y >= FBH) return 0;
 
-    return g_renderer.framebuffer[y * FRAMEBUFFER_WIDTH + x];
+    return g_renderer.framebuffer[y * FBW + x];
 }
 
 // Clipping rectangle (default: full screen)
 static int g_clipX = 0;
 static int g_clipY = 0;
-static int g_clipWidth = FRAMEBUFFER_WIDTH;
-static int g_clipHeight = FRAMEBUFFER_HEIGHT;
+static int g_clipWidth = FBW;
+static int g_clipHeight = FBH;
 
 void Renderer_SetClipRect(int x, int y, int width, int height) {
     g_clipX = (x < 0) ? 0 : x;
     g_clipY = (y < 0) ? 0 : y;
-    g_clipWidth = (x + width > FRAMEBUFFER_WIDTH) ? FRAMEBUFFER_WIDTH - g_clipX : width;
-    g_clipHeight = (y + height > FRAMEBUFFER_HEIGHT) ? FRAMEBUFFER_HEIGHT - g_clipY : height;
+    g_clipWidth = (x + width > FBW) ? FBW - g_clipX : width;
+    g_clipHeight = (y + height > FBH) ? FBH - g_clipY : height;
 }
 
 void Renderer_ResetClip(void) {
     g_clipX = 0;
     g_clipY = 0;
-    g_clipWidth = FRAMEBUFFER_WIDTH;
-    g_clipHeight = FRAMEBUFFER_HEIGHT;
+    g_clipWidth = FBW;
+    g_clipHeight = FBH;
 }
 
 // Helper: clip-aware pixel plot
 static inline void ClippedPixel(int x, int y, uint8_t color) {
     if (x >= g_clipX && x < g_clipX + g_clipWidth &&
         y >= g_clipY && y < g_clipY + g_clipHeight) {
-        g_renderer.framebuffer[y * FRAMEBUFFER_WIDTH + x] = color;
+        g_renderer.framebuffer[y * FBW + x] = color;
     }
 }
 
@@ -335,7 +345,7 @@ void Renderer_HLine(int x1, int x2, int y, uint8_t colorIndex) {
 
     if (x1 > x2) return;
 
-    uint8_t* dest = g_renderer.framebuffer + y * FRAMEBUFFER_WIDTH + x1;
+    uint8_t* dest = g_renderer.framebuffer + y * FBW + x1;
     memset(dest, colorIndex, x2 - x1 + 1);
 }
 
@@ -350,10 +360,10 @@ void Renderer_VLine(int x, int y1, int y2, uint8_t colorIndex) {
 
     if (y1 > y2) return;
 
-    uint8_t* dest = g_renderer.framebuffer + y1 * FRAMEBUFFER_WIDTH + x;
+    uint8_t* dest = g_renderer.framebuffer + y1 * FBW + x;
     for (int y = y1; y <= y2; y++) {
         *dest = colorIndex;
-        dest += FRAMEBUFFER_WIDTH;
+        dest += FBW;
     }
 }
 
@@ -384,7 +394,8 @@ void Renderer_DrawLine(int x1, int y1, int x2, int y2, uint8_t colorIndex) {
     }
 }
 
-void Renderer_DrawRect(int x, int y, int width, int height, uint8_t colorIndex) {
+void Renderer_DrawRect(int x, int y, int width, int height,
+                       uint8_t colorIndex) {
     if (width <= 0 || height <= 0) return;
 
     Renderer_HLine(x, x + width - 1, y, colorIndex);                 // Top
@@ -462,7 +473,7 @@ void Renderer_Blit(const uint8_t* srcData, int srcWidth, int srcHeight,
             uint8_t pixel = srcData[sy * srcWidth + sx];
             if (trans && pixel == 0) continue;  // Transparent
 
-            g_renderer.framebuffer[dy * FRAMEBUFFER_WIDTH + dx] = pixel;
+            g_renderer.framebuffer[dy * FBW + dx] = pixel;
         }
     }
 }
@@ -489,7 +500,7 @@ void Renderer_BlitRegion(const uint8_t* srcData, int srcWidth, int srcHeight,
             uint8_t pixel = srcData[sy * srcWidth + sx];
             if (trans && pixel == 0) continue;
 
-            g_renderer.framebuffer[dy * FRAMEBUFFER_WIDTH + dx] = pixel;
+            g_renderer.framebuffer[dy * FBW + dx] = pixel;
         }
     }
 }
@@ -521,7 +532,7 @@ void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
             uint8_t pixel = srcData[srcY * srcWidth + srcX];
             if (trans && pixel == 0) continue;
 
-            g_renderer.framebuffer[screenY * FRAMEBUFFER_WIDTH + screenX] = pixel;
+            g_renderer.framebuffer[screenY * FBW + screenX] = pixel;
         }
     }
 }
@@ -538,7 +549,7 @@ void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap) {
     if (y2 > g_clipY + g_clipHeight) y2 = g_clipY + g_clipHeight;
 
     for (int py = y1; py < y2; py++) {
-        uint8_t* row = g_renderer.framebuffer + py * FRAMEBUFFER_WIDTH + x1;
+        uint8_t* row = g_renderer.framebuffer + py * FBW + x1;
         for (int px = x1; px < x2; px++) {
             *row = remap[*row];
             row++;
@@ -558,7 +569,7 @@ void Renderer_DimRect(int x, int y, int width, int height, int amount) {
     if (y2 > g_clipY + g_clipHeight) y2 = g_clipY + g_clipHeight;
 
     // Dim by reading the current palette RGB, darkening, and finding nearest
-    // For performance, we do a simpler approach: blend toward black by modifying
+    // For performance, we blend toward black by modifying
     // the RGB values directly in the RGBA conversion
     // But since we're palette-based, we'll darken by shifting palette indices
     // toward darker entries in the same color family
@@ -570,7 +581,7 @@ void Renderer_DimRect(int x, int y, int width, int height, int amount) {
     int shift = (amount == 1) ? 8 : 16;
 
     for (int py = y1; py < y2; py++) {
-        uint8_t* row = g_renderer.framebuffer + py * FRAMEBUFFER_WIDTH + x1;
+        uint8_t* row = g_renderer.framebuffer + py * FBW + x1;
         for (int px = x1; px < x2; px++) {
             uint8_t idx = *row;
             // Skip pure black (0) and very dark colors
@@ -593,21 +604,21 @@ void Renderer_SetAlpha(int x, int y, int width, int height, uint8_t alpha) {
     int y1 = (y < 0) ? 0 : y;
     int x2 = x + width;
     int y2 = y + height;
-    if (x2 > FRAMEBUFFER_WIDTH) x2 = FRAMEBUFFER_WIDTH;
-    if (y2 > FRAMEBUFFER_HEIGHT) y2 = FRAMEBUFFER_HEIGHT;
+    if (x2 > FBW) x2 = FBW;
+    if (y2 > FBH) y2 = FBH;
 
     if (x1 >= x2 || y1 >= y2) return;
 
     int rowWidth = x2 - x1;
     for (int py = y1; py < y2; py++) {
-        uint8_t* row = g_renderer.alphaBuffer + py * FRAMEBUFFER_WIDTH + x1;
+        uint8_t* row = g_renderer.alphaBuffer + py * FBW + x1;
         memset(row, alpha, rowWidth);
     }
 }
 
 void Renderer_ClearAlpha(void) {
     if (g_renderer.alphaBuffer) {
-        memset(g_renderer.alphaBuffer, 255, FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT);
+        memset(g_renderer.alphaBuffer, 255, FBW * FBH);
     }
 }
 
@@ -673,7 +684,8 @@ static const uint8_t g_font8x8[128][8] = {
     ['/'] = {0x06,0x0C,0x18,0x30,0x60,0xC0,0x80,0x00},
 };
 
-int Renderer_DrawText(const char* text, int x, int y, uint8_t fgColor, uint8_t bgColor) {
+int Renderer_DrawText(const char* text, int x, int y,
+                      uint8_t fgColor, uint8_t bgColor) {
     if (!g_renderer.framebuffer || !text) return 0;
 
     int startX = x;
@@ -694,9 +706,9 @@ int Renderer_DrawText(const char* text, int x, int y, uint8_t fgColor, uint8_t b
                 if (px < g_clipX || px >= g_clipX + g_clipWidth) continue;
 
                 if (bits & (0x80 >> col)) {
-                    g_renderer.framebuffer[py * FRAMEBUFFER_WIDTH + px] = fgColor;
+                    g_renderer.framebuffer[py * FBW + px] = fgColor;
                 } else if (bgColor != 0) {
-                    g_renderer.framebuffer[py * FRAMEBUFFER_WIDTH + px] = bgColor;
+                    g_renderer.framebuffer[py * FBW + px] = bgColor;
                 }
             }
         }
@@ -712,7 +724,9 @@ void Renderer_BlitSprite(const uint8_t* pixels, int width, int height,
                          int destX, int destY, int offsetX, int offsetY,
                          BOOL trans) {
     // Apply offset (hotspot adjustment)
-    Renderer_Blit(pixels, width, height, destX - offsetX, destY - offsetY, trans);
+    int dx = destX - offsetX;
+    int dy = destY - offsetY;
+    Renderer_Blit(pixels, width, height, dx, dy, trans);
 }
 
 // Forward declaration for palette loading

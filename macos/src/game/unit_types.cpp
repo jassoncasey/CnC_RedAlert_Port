@@ -32,8 +32,10 @@ const UnitTypeData UnitTypes[] = {
         UnitType::V2_LAUNCHER, 0, "V2RL",
         AnimType::FRAG1, RemapType::NORMAL,
         0x0000, 0x0000, 0x0000, 0x0000, 0x0000,  // offsets
-        true, false, true, false, false, false,  // crate, nominal, crusher, harvester, stealthy, insignificant
-        false, false, false, false, true, false, false, false,  // turret, radar, fire_anim, lock, gigundo, anim, jammer, gapper
+        // crate, nominal, crusher, harvester, stealthy, insignificant
+        true, false, true, false, false, false,
+        // turret, radar, fire_anim, lock, gigundo, anim, jammer, gapper
+        false, false, false, false, true, false, false, false,
         32, 0, MissionType::HUNT,
         // Combat stats
         150, 700, 8, 5, ArmorType::LIGHT, SpeedType::TRACK,

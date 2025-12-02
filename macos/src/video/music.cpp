@@ -23,26 +23,34 @@ static inline float ClampFloat(float val, float minVal, float maxVal) {
 // Music Track Database
 //===========================================================================
 
+// T=theme, F=file, N=name, B=bpm, A=action, AL=allied, SO=soviet
+#define TT ThemeType
+#define T true
+#define F false
 static const MusicTrackInfo g_musicTracks[] = {
-    { ThemeType::BIGFOOT,         "BIGF226M.AUD",   "Big Foot",           226, true,  true,  true  },
-    { ThemeType::CRUSH,           "CRUS226M.AUD",   "Crush",              226, true,  true,  true  },
-    { ThemeType::FACE_THE_ENEMY_1,"FAC1226M.AUD",   "Face the Enemy 1",   226, true,  true,  true  },
-    { ThemeType::FACE_THE_ENEMY_2,"FAC2226M.AUD",   "Face the Enemy 2",   226, true,  true,  true  },
-    { ThemeType::HELL_MARCH,      "HELL226M.AUD",   "Hell March",         226, true,  true,  true  },
-    { ThemeType::RUN_FOR_YOUR_LIFE,"RUN1226M.AUD",  "Run for Your Life",  226, true,  true,  true  },
-    { ThemeType::SMASH,           "SMSH226M.AUD",   "Smash",              226, true,  true,  true  },
-    { ThemeType::TRENCHES,        "TREN226M.AUD",   "Trenches",           226, true,  true,  true  },
-    { ThemeType::WORKMEN,         "WORK226M.AUD",   "Workmen",            226, true,  true,  true  },
-    { ThemeType::AWAIT,           "AWAIT.AUD",      "Await",              180, false, true,  true  },
-    { ThemeType::DENSE,           "DENSE_R.AUD",    "Dense",              180, false, true,  true  },
-    { ThemeType::FOGGER,          "FOGGER.AUD",     "Fogger",             180, false, true,  true  },
-    { ThemeType::MUDHAND,         "MUDHAND.AUD",    "Mud Hand",           180, true,  true,  true  },
-    { ThemeType::RADIO,           "RADIO.AUD",      "Radio",              180, true,  true,  true  },
-    { ThemeType::TWIN_GUNS,       "TWIN.AUD",       "Twin Guns",          180, true,  true,  true  },
-    { ThemeType::VECTOR,          "VECTOR1A.AUD",   "Vector",             180, true,  true,  true  },
+    {TT::BIGFOOT,         "BIGF226M.AUD", "Big Foot",         226,T,T,T},
+    {TT::CRUSH,           "CRUS226M.AUD", "Crush",            226,T,T,T},
+    {TT::FACE_THE_ENEMY_1,"FAC1226M.AUD", "Face the Enemy 1", 226,T,T,T},
+    {TT::FACE_THE_ENEMY_2,"FAC2226M.AUD", "Face the Enemy 2", 226,T,T,T},
+    {TT::HELL_MARCH,      "HELL226M.AUD", "Hell March",       226,T,T,T},
+    {TT::RUN_FOR_YOUR_LIFE,"RUN1226M.AUD","Run for Your Life",226,T,T,T},
+    {TT::SMASH,           "SMSH226M.AUD", "Smash",            226,T,T,T},
+    {TT::TRENCHES,        "TREN226M.AUD", "Trenches",         226,T,T,T},
+    {TT::WORKMEN,         "WORK226M.AUD", "Workmen",          226,T,T,T},
+    {TT::AWAIT,           "AWAIT.AUD",    "Await",            180,F,T,T},
+    {TT::DENSE,           "DENSE_R.AUD",  "Dense",            180,F,T,T},
+    {TT::FOGGER,          "FOGGER.AUD",   "Fogger",           180,F,T,T},
+    {TT::MUDHAND,         "MUDHAND.AUD",  "Mud Hand",         180,T,T,T},
+    {TT::RADIO,           "RADIO.AUD",    "Radio",            180,T,T,T},
+    {TT::TWIN_GUNS,       "TWIN.AUD",     "Twin Guns",        180,T,T,T},
+    {TT::VECTOR,          "VECTOR1A.AUD", "Vector",           180,T,T,T},
 };
+#undef TT
+#undef T
+#undef F
 
-static const int g_musicTrackCount = sizeof(g_musicTracks) / sizeof(g_musicTracks[0]);
+static const int g_musicTrackCount =
+    sizeof(g_musicTracks) / sizeof(g_musicTracks[0]);
 
 const MusicTrackInfo* Music_GetTrackInfo(ThemeType theme) {
     for (int i = 0; i < g_musicTrackCount; i++) {
@@ -84,7 +92,8 @@ static bool g_fading = false;
 static bool g_stopAfterFade = false;
 
 // Audio callback for streaming music
-static int MusicAudioCallback(int16_t* buffer, int sampleCount, void* userdata) {
+static int MusicAudioCallback(int16_t* buffer, int sampleCount,
+                              void* userdata) {
     (void)userdata;
     return g_musicStreamer.FillBuffer(buffer, sampleCount);
 }
@@ -193,7 +202,8 @@ MusicState Music_GetState() {
 }
 
 bool Music_IsPlaying() {
-    return g_musicState == MusicState::PLAYING || g_musicState == MusicState::FADING_IN;
+    return g_musicState == MusicState::PLAYING ||
+           g_musicState == MusicState::FADING_IN;
 }
 
 bool Music_IsPaused() {
@@ -250,7 +260,8 @@ void Music_Update(int elapsedMs) {
             }
         } else {
             float t = (float)g_fadeElapsed / (float)g_fadeDuration;
-            g_musicVolume = g_fadeStartVolume + (g_fadeTargetVolume - g_fadeStartVolume) * t;
+            float delta = g_fadeTargetVolume - g_fadeStartVolume;
+            g_musicVolume = g_fadeStartVolume + delta * t;
         }
 
         g_musicStreamer.SetVolume(g_musicVolume);
@@ -575,9 +586,13 @@ int MusicStreamer::FillBuffer(int16_t* buffer, int sampleCount) {
         int decoded = 0;
 
         if (compressionType_ == 99) {
-            decoded = DecodeIMA(buffer + samplesWritten, sampleCount - samplesWritten);
+            int16_t* dst = buffer + samplesWritten;
+            int remain = sampleCount - samplesWritten;
+            decoded = DecodeIMA(dst, remain);
         } else if (compressionType_ == 1) {
-            decoded = DecodeWestwood(buffer + samplesWritten, sampleCount - samplesWritten);
+            int16_t* dst = buffer + samplesWritten;
+            int remain = sampleCount - samplesWritten;
+            decoded = DecodeWestwood(dst, remain);
         }
 
         if (decoded == 0) {
@@ -608,8 +623,9 @@ int MusicStreamer::FillBuffer(int16_t* buffer, int sampleCount) {
 int MusicStreamer::DecodeIMA(int16_t* output, int maxSamples) {
     int samples = 0;
 
-    // Original working implementation - decode chunks with IMA ADPCM
-    while (samples < maxSamples && decodePtr_ + sizeof(AUDChunkHeader) <= decodeEnd_) {
+    // Decode chunks with IMA ADPCM
+    size_t hdrSize = sizeof(AUDChunkHeader);
+    while (samples < maxSamples && decodePtr_ + hdrSize <= decodeEnd_) {
         const AUDChunkHeader* chunk = (const AUDChunkHeader*)decodePtr_;
         decodePtr_ += sizeof(AUDChunkHeader);
 
@@ -621,8 +637,8 @@ int MusicStreamer::DecodeIMA(int16_t* output, int maxSamples) {
         for (uint16_t i = 0; i < chunk->compSize && samples < maxSamples; i++) {
             uint8_t byte = *decodePtr_++;
 
-            for (int nibbleIdx = 0; nibbleIdx < 2 && samples < maxSamples; nibbleIdx++) {
-                uint8_t nibble = (nibbleIdx == 0) ? (byte & 0x0F) : ((byte >> 4) & 0x0F);
+            for (int ni = 0; ni < 2 && samples < maxSamples; ni++) {
+                uint8_t nibble = (ni == 0) ? (byte & 0x0F) : (byte >> 4);
 
                 int step = g_imaStepTable[adpcmStepIndex_];
                 int diff = step >> 3;
@@ -661,8 +677,8 @@ int MusicStreamer::DecodeWestwood(int16_t* output, int maxSamples) {
     while (samples < maxSamples && decodePtr_ < decodeEnd_) {
         uint8_t byte = *decodePtr_++;
 
-        for (int nibbleIdx = 0; nibbleIdx < 2 && samples < maxSamples; nibbleIdx++) {
-            uint8_t nibble = (nibbleIdx == 0) ? (byte & 0x0F) : ((byte >> 4) & 0x0F);
+        for (int ni = 0; ni < 2 && samples < maxSamples; ni++) {
+            uint8_t nibble = (ni == 0) ? (byte & 0x0F) : (byte >> 4);
 
             int diff = (nibble & 0x07) * stepSize[step & 3];
             if (nibble & 0x08) diff = -diff;

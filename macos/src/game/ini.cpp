@@ -26,13 +26,16 @@ std::string INIClass::NormalizeName(const char* name) {
 
 std::string INIClass::Trim(const std::string& str) {
     size_t start = 0;
-    while (start < str.size() && std::isspace(static_cast<unsigned char>(str[start]))) {
+    auto isSpace = [](char c) {
+        return std::isspace(static_cast<unsigned char>(c));
+    };
+    while (start < str.size() && isSpace(str[start])) {
         start++;
     }
     if (start == str.size()) return "";
 
     size_t end = str.size() - 1;
-    while (end > start && std::isspace(static_cast<unsigned char>(str[end]))) {
+    while (end > start && isSpace(str[end])) {
         end--;
     }
     return str.substr(start, end - start + 1);
@@ -89,7 +92,8 @@ bool INIClass::LoadFromBuffer(const char* data, size_t size) {
     while (lineStart < size) {
         // Find end of line
         size_t lineEnd = lineStart;
-        while (lineEnd < size && data[lineEnd] != '\n' && data[lineEnd] != '\r') {
+        while (lineEnd < size && data[lineEnd] != '\n' &&
+               data[lineEnd] != '\r') {
             lineEnd++;
         }
 
@@ -110,7 +114,8 @@ bool INIClass::LoadFromBuffer(const char* data, size_t size) {
             size_t endBracket = line.find(']');
             if (endBracket != std::string::npos) {
                 currentSection = Trim(line.substr(1, endBracket - 1));
-                std::string normalizedSection = NormalizeName(currentSection.c_str());
+                std::string normalizedSection =
+                    NormalizeName(currentSection.c_str());
 
                 // Check if section already exists
                 auto it = sections_.find(normalizedSection);
@@ -119,7 +124,7 @@ bool INIClass::LoadFromBuffer(const char* data, size_t size) {
                 } else {
                     // Create new section
                     sections_[normalizedSection] = Section{};
-                    sectionOrder_.push_back(currentSection);  // Keep original case
+                    sectionOrder_.push_back(currentSection);
                     currentSec = &sections_[normalizedSection];
                 }
             }
@@ -143,7 +148,9 @@ bool INIClass::LoadFromBuffer(const char* data, size_t size) {
         std::string normalizedKey = NormalizeName(key.c_str());
 
         // Check if entry already exists
-        if (currentSec->entries.find(normalizedKey) == currentSec->entries.end()) {
+        auto found = currentSec->entries.find(normalizedKey);
+        bool isNewKey = found == currentSec->entries.end();
+        if (isNewKey) {
             currentSec->entryOrder.push_back(key);  // Keep original case
         }
         currentSec->entries[normalizedKey] = value;
@@ -201,10 +208,12 @@ bool INIClass::Clear(const char* section, const char* entry) {
     if (entry == nullptr) {
         // Remove entire section
         sections_.erase(secIt);
-        sectionOrder_.erase(
-            std::remove_if(sectionOrder_.begin(), sectionOrder_.end(),
-                          [&](const std::string& s) { return StrCaseEqual(s, section); }),
-            sectionOrder_.end());
+        auto pred = [&](const std::string& s) {
+            return StrCaseEqual(s, section);
+        };
+        auto it = std::remove_if(sectionOrder_.begin(),
+                                 sectionOrder_.end(), pred);
+        sectionOrder_.erase(it, sectionOrder_.end());
         return true;
     }
 
@@ -215,10 +224,12 @@ bool INIClass::Clear(const char* section, const char* entry) {
     if (entryIt == sec.entries.end()) return false;
 
     sec.entries.erase(entryIt);
-    sec.entryOrder.erase(
-        std::remove_if(sec.entryOrder.begin(), sec.entryOrder.end(),
-                      [&](const std::string& e) { return StrCaseEqual(e, entry); }),
-        sec.entryOrder.end());
+    auto pred = [&](const std::string& e) {
+        return StrCaseEqual(e, entry);
+    };
+    auto it = std::remove_if(sec.entryOrder.begin(),
+                             sec.entryOrder.end(), pred);
+    sec.entryOrder.erase(it, sec.entryOrder.end());
     return true;
 }
 
@@ -290,7 +301,8 @@ std::string INIClass::GetString(const char* section, const char* entry,
     return it->second;
 }
 
-int INIClass::GetInt(const char* section, const char* entry, int defvalue) const {
+int INIClass::GetInt(const char* section, const char* entry,
+                     int defvalue) const {
     std::string value = GetString(section, entry, "");
     if (value.empty()) return defvalue;
 
@@ -302,14 +314,17 @@ int INIClass::GetInt(const char* section, const char* entry, int defvalue) const
     }
 }
 
-int INIClass::GetHex(const char* section, const char* entry, int defvalue) const {
+int INIClass::GetHex(const char* section, const char* entry,
+                     int defvalue) const {
     std::string value = GetString(section, entry, "");
     if (value.empty()) return defvalue;
 
     try {
         // Strip 0x or $ prefix if present
         size_t start = 0;
-        if (value.size() > 2 && (value[0] == '0' && (value[1] == 'x' || value[1] == 'X'))) {
+        bool hasHexPrefix = value.size() > 2 && value[0] == '0' &&
+            (value[1] == 'x' || value[1] == 'X');
+        if (hasHexPrefix) {
             start = 2;
         } else if (value.size() > 1 && value[0] == '$') {
             start = 1;
@@ -320,7 +335,8 @@ int INIClass::GetHex(const char* section, const char* entry, int defvalue) const
     }
 }
 
-bool INIClass::GetBool(const char* section, const char* entry, bool defvalue) const {
+bool INIClass::GetBool(const char* section, const char* entry,
+                       bool defvalue) const {
     std::string value = GetString(section, entry, "");
     if (value.empty()) return defvalue;
 
@@ -340,7 +356,8 @@ bool INIClass::GetBool(const char* section, const char* entry, bool defvalue) co
     return defvalue;
 }
 
-float INIClass::GetFixed(const char* section, const char* entry, float defvalue) const {
+float INIClass::GetFixed(const char* section, const char* entry,
+                         float defvalue) const {
     std::string value = GetString(section, entry, "");
     if (value.empty()) return defvalue;
 
@@ -380,7 +397,8 @@ const INIClass::Section* INIClass::FindSection(const std::string& name) const {
     return nullptr;
 }
 
-bool INIClass::PutString(const char* section, const char* entry, const char* value) {
+bool INIClass::PutString(const char* section, const char* entry,
+                         const char* value) {
     if (section == nullptr || entry == nullptr) return false;
 
     Section* sec = FindOrCreateSection(section);
@@ -405,7 +423,8 @@ bool INIClass::PutInt(const char* section, const char* entry, int value) {
 
 bool INIClass::PutHex(const char* section, const char* entry, int value) {
     char buffer[32];
-    std::snprintf(buffer, sizeof(buffer), "0x%X", static_cast<unsigned int>(value));
+    unsigned int uval = static_cast<unsigned int>(value);
+    std::snprintf(buffer, sizeof(buffer), "0x%X", uval);
     return PutString(section, entry, buffer);
 }
 

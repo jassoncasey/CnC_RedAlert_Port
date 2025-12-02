@@ -20,107 +20,111 @@ constexpr int16_t DMG_TINY = 8;      // 1/32 per tick
 constexpr int16_t DMG_SMALL = 16;    // 1/16 per tick
 constexpr int16_t DMG_MEDIUM = 32;   // 1/8 per tick
 
-// Animation type data table
+// Animation type data table - macros for brevity
+#define AT AnimType
+#define LA AnimLayerType::AIR
+#define LG AnimLayerType::GROUND
+#define LS AnimLayerType::SURFACE
+
 static AnimTypeClass s_animTypes[] = {
-    // Explosions
-    // AnimType, name, graphic, frames, delay, loops, layer
-    { AnimType::FBALL1,       "FBALL1",     "FBALL1",     22, 1, 1, AnimLayerType::AIR },
-    { AnimType::FBALL_FADE,   "FB2",        "FB2",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::FRAG1,        "FRAG1",      "FRAG1",      14, 1, 1, AnimLayerType::AIR },
-    { AnimType::VEH_HIT1,     "VEH-HIT1",   "VEH-HIT1",   8,  2, 1, AnimLayerType::AIR },
-    { AnimType::VEH_HIT2,     "VEH-HIT2",   "VEH-HIT2",   11, 1, 1, AnimLayerType::AIR },
-    { AnimType::VEH_HIT3,     "VEH-HIT3",   "VEH-HIT3",   6,  2, 1, AnimLayerType::AIR },
-    { AnimType::ART_EXP1,     "ART-EXP1",   "ART-EXP1",   19, 1, 1, AnimLayerType::AIR },
+    // Explosions - type, name, graphic, frames, delay, loops, layer
+    { AT::FBALL1,       "FBALL1",   "FBALL1",   22, 1, 1, LA },
+    { AT::FBALL_FADE,   "FB2",      "FB2",       6, 2, 1, LA },
+    { AT::FRAG1,        "FRAG1",    "FRAG1",    14, 1, 1, LA },
+    { AT::VEH_HIT1,     "VEH-HIT1", "VEH-HIT1",  8, 2, 1, LA },
+    { AT::VEH_HIT2,     "VEH-HIT2", "VEH-HIT2", 11, 1, 1, LA },
+    { AT::VEH_HIT3,     "VEH-HIT3", "VEH-HIT3",  6, 2, 1, LA },
+    { AT::ART_EXP1,     "ART-EXP1", "ART-EXP1", 19, 1, 1, LA },
 
     // Napalm/Fire
-    { AnimType::NAPALM1,      "NAPALM1",    "NAPALM1",    14, 2, 1, AnimLayerType::AIR },
-    { AnimType::NAPALM2,      "NAPALM2",    "NAPALM2",    14, 2, 1, AnimLayerType::AIR },
-    { AnimType::NAPALM3,      "NAPALM3",    "NAPALM3",    14, 2, 1, AnimLayerType::AIR },
-    { AnimType::FIRE_SMALL,   "FIRE1",      "FIRE1",      15, 2, 2, AnimLayerType::AIR },
-    { AnimType::FIRE_MED,     "FIRE2",      "FIRE2",      15, 2, 3, AnimLayerType::AIR },
-    { AnimType::FIRE_MED2,    "FIRE3",      "FIRE3",      15, 2, 3, AnimLayerType::AIR },
-    { AnimType::FIRE_TINY,    "FIRE4",      "FIRE4",      7,  3, 2, AnimLayerType::AIR },
-    { AnimType::BURN_SMALL,   "BURN-S",     "BURN-S",     30, 2, 1, AnimLayerType::SURFACE },
-    { AnimType::BURN_MED,     "BURN-M",     "BURN-M",     30, 2, 1, AnimLayerType::SURFACE },
-    { AnimType::BURN_BIG,     "BURN-L",     "BURN-L",     62, 2, 1, AnimLayerType::SURFACE },
-    { AnimType::ON_FIRE_SMALL,"SMOKEY",     "SMOKEY",     8,  3, 0, AnimLayerType::AIR },
-    { AnimType::ON_FIRE_MED,  "BURNS",      "BURNS",      8,  3, 0, AnimLayerType::AIR },
-    { AnimType::ON_FIRE_BIG,  "BURNL",      "BURNL",      8,  3, 0, AnimLayerType::AIR },
+    { AT::NAPALM1,      "NAPALM1",    "NAPALM1",    14, 2, 1, LA },
+    { AT::NAPALM2,      "NAPALM2",    "NAPALM2",    14, 2, 1, LA },
+    { AT::NAPALM3,      "NAPALM3",    "NAPALM3",    14, 2, 1, LA },
+    { AT::FIRE_SMALL,   "FIRE1",      "FIRE1",      15, 2, 2, LA },
+    { AT::FIRE_MED,     "FIRE2",      "FIRE2",      15, 2, 3, LA },
+    { AT::FIRE_MED2,    "FIRE3",      "FIRE3",      15, 2, 3, LA },
+    { AT::FIRE_TINY,    "FIRE4",      "FIRE4",      7,  3, 2, LA },
+    { AT::BURN_SMALL,   "BURN-S",     "BURN-S",     30, 2, 1, LS },
+    { AT::BURN_MED,     "BURN-M",     "BURN-M",     30, 2, 1, LS },
+    { AT::BURN_BIG,     "BURN-L",     "BURN-L",     62, 2, 1, LS },
+    { AT::ON_FIRE_SMALL,"SMOKEY",     "SMOKEY",     8,  3, 0, LA },
+    { AT::ON_FIRE_MED,  "BURNS",      "BURNS",      8,  3, 0, LA },
+    { AT::ON_FIRE_BIG,  "BURNL",      "BURNL",      8,  3, 0, LA },
 
     // Smoke/Vapor
-    { AnimType::SMOKE_PUFF,   "SMOKEY",     "SMOKEY",     8,  2, 1, AnimLayerType::AIR },
-    { AnimType::SMOKE_M,      "SMOKE_M",    "SMOKE_M",    91, 2, 1, AnimLayerType::AIR },
-    { AnimType::LZ_SMOKE,     "LZSMOKE",    "LZSMOKE",    91, 3, 1, AnimLayerType::GROUND },
+    { AT::SMOKE_PUFF,   "SMOKEY",     "SMOKEY",     8,  2, 1, LA },
+    { AT::SMOKE_M,      "SMOKE_M",    "SMOKE_M",    91, 2, 1, LA },
+    { AT::LZ_SMOKE,     "LZSMOKE",    "LZSMOKE",    91, 3, 1, LG },
 
     // Weapon effects
-    { AnimType::PIFF,         "PIFF",       "PIFF",       5,  1, 1, AnimLayerType::AIR },
-    { AnimType::PIFFPIFF,     "PIFFPIFF",   "PIFFPIFF",   8,  1, 1, AnimLayerType::AIR },
-    { AnimType::MUZZLE_FLASH, "GUNFIRE",    "GUNFIRE",    10, 1, 1, AnimLayerType::AIR },
+    { AT::PIFF,         "PIFF",       "PIFF",       5,  1, 1, LA },
+    { AT::PIFFPIFF,     "PIFFPIFF",   "PIFFPIFF",   8,  1, 1, LA },
+    { AT::MUZZLE_FLASH, "GUNFIRE",    "GUNFIRE",    10, 1, 1, LA },
 
     // SAM site animations (8 directions)
-    { AnimType::SAM_N,        "SAM-N",      "SAM",        4,  2, 1, AnimLayerType::AIR },
-    { AnimType::SAM_NE,       "SAM-NE",     "SAM",        4,  2, 1, AnimLayerType::AIR },
-    { AnimType::SAM_E,        "SAM-E",      "SAM",        4,  2, 1, AnimLayerType::AIR },
-    { AnimType::SAM_SE,       "SAM-SE",     "SAM",        4,  2, 1, AnimLayerType::AIR },
-    { AnimType::SAM_S,        "SAM-S",      "SAM",        4,  2, 1, AnimLayerType::AIR },
-    { AnimType::SAM_SW,       "SAM-SW",     "SAM",        4,  2, 1, AnimLayerType::AIR },
-    { AnimType::SAM_W,        "SAM-W",      "SAM",        4,  2, 1, AnimLayerType::AIR },
-    { AnimType::SAM_NW,       "SAM-NW",     "SAM",        4,  2, 1, AnimLayerType::AIR },
+    { AT::SAM_N,        "SAM-N",      "SAM",        4,  2, 1, LA },
+    { AT::SAM_NE,       "SAM-NE",     "SAM",        4,  2, 1, LA },
+    { AT::SAM_E,        "SAM-E",      "SAM",        4,  2, 1, LA },
+    { AT::SAM_SE,       "SAM-SE",     "SAM",        4,  2, 1, LA },
+    { AT::SAM_S,        "SAM-S",      "SAM",        4,  2, 1, LA },
+    { AT::SAM_SW,       "SAM-SW",     "SAM",        4,  2, 1, LA },
+    { AT::SAM_W,        "SAM-W",      "SAM",        4,  2, 1, LA },
+    { AT::SAM_NW,       "SAM-NW",     "SAM",        4,  2, 1, LA },
 
     // Gun turret animations (8 directions)
-    { AnimType::GUN_N,        "GUN-N",      "GUN",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::GUN_NE,       "GUN-NE",     "GUN",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::GUN_E,        "GUN-E",      "GUN",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::GUN_SE,       "GUN-SE",     "GUN",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::GUN_S,        "GUN-S",      "GUN",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::GUN_SW,       "GUN-SW",     "GUN",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::GUN_W,        "GUN-W",      "GUN",        6,  2, 1, AnimLayerType::AIR },
-    { AnimType::GUN_NW,       "GUN-NW",     "GUN",        6,  2, 1, AnimLayerType::AIR },
+    { AT::GUN_N,        "GUN-N",      "GUN",        6,  2, 1, LA },
+    { AT::GUN_NE,       "GUN-NE",     "GUN",        6,  2, 1, LA },
+    { AT::GUN_E,        "GUN-E",      "GUN",        6,  2, 1, LA },
+    { AT::GUN_SE,       "GUN-SE",     "GUN",        6,  2, 1, LA },
+    { AT::GUN_S,        "GUN-S",      "GUN",        6,  2, 1, LA },
+    { AT::GUN_SW,       "GUN-SW",     "GUN",        6,  2, 1, LA },
+    { AT::GUN_W,        "GUN-W",      "GUN",        6,  2, 1, LA },
+    { AT::GUN_NW,       "GUN-NW",     "GUN",        6,  2, 1, LA },
 
     // Crate effects
-    { AnimType::CRATE_DEVIATOR,"DEVIATOR",  "DEVIATOR",   8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_DOLLAR, "DOLLAR",     "DOLLAR",     8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_EARTH,  "EARTH",      "EARTH",      8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_EMPULSE,"EMPULSE",    "EMPULSE",    12, 2, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_INVUN,  "INVUN",      "INVUN",      8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_MINE,   "MINE",       "MINE",       8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_RAPID,  "RAPID",      "RAPID",      8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_STEALTH,"STEALTH2",   "STEALTH2",   8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_MISSILE,"MISSILE2",   "MISSILE2",   8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_ARMOR,  "ARMOR",      "ARMOR",      8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_SPEED,  "SPEED",      "SPEED",      8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_FPOWER, "FPOWER",     "FPOWER",     8,  3, 1, AnimLayerType::AIR },
-    { AnimType::CRATE_TQUAKE, "TQUAKE",     "TQUAKE",     8,  3, 1, AnimLayerType::AIR },
+    { AT::CRATE_DEVIATOR,"DEVIATOR",  "DEVIATOR",   8,  3, 1, LA },
+    { AT::CRATE_DOLLAR, "DOLLAR",     "DOLLAR",     8,  3, 1, LA },
+    { AT::CRATE_EARTH,  "EARTH",      "EARTH",      8,  3, 1, LA },
+    { AT::CRATE_EMPULSE,"EMPULSE",    "EMPULSE",    12, 2, 1, LA },
+    { AT::CRATE_INVUN,  "INVUN",      "INVUN",      8,  3, 1, LA },
+    { AT::CRATE_MINE,   "MINE",       "MINE",       8,  3, 1, LA },
+    { AT::CRATE_RAPID,  "RAPID",      "RAPID",      8,  3, 1, LA },
+    { AT::CRATE_STEALTH,"STEALTH2",   "STEALTH2",   8,  3, 1, LA },
+    { AT::CRATE_MISSILE,"MISSILE2",   "MISSILE2",   8,  3, 1, LA },
+    { AT::CRATE_ARMOR,  "ARMOR",      "ARMOR",      8,  3, 1, LA },
+    { AT::CRATE_SPEED,  "SPEED",      "SPEED",      8,  3, 1, LA },
+    { AT::CRATE_FPOWER, "FPOWER",     "FPOWER",     8,  3, 1, LA },
+    { AT::CRATE_TQUAKE, "TQUAKE",     "TQUAKE",     8,  3, 1, LA },
 
     // Water effects
-    { AnimType::WATER_EXP1,   "H2O_EXP1",   "H2O_EXP1",   10, 2, 1, AnimLayerType::AIR },
-    { AnimType::WATER_EXP2,   "H2O_EXP2",   "H2O_EXP2",   10, 2, 1, AnimLayerType::AIR },
-    { AnimType::WATER_EXP3,   "H2O_EXP3",   "H2O_EXP3",   10, 2, 1, AnimLayerType::AIR },
+    { AT::WATER_EXP1,   "H2O_EXP1",   "H2O_EXP1",   10, 2, 1, LA },
+    { AT::WATER_EXP2,   "H2O_EXP2",   "H2O_EXP2",   10, 2, 1, LA },
+    { AT::WATER_EXP3,   "H2O_EXP3",   "H2O_EXP3",   10, 2, 1, LA },
 
     // Infantry/Units
-    { AnimType::ELECT_DIE,    "ELECTRO",    "ELECTRO",    10, 1, 1, AnimLayerType::AIR },
-    { AnimType::DOG_ELECT_DIE,"ELECTDOG",   "ELECTDOG",   10, 1, 1, AnimLayerType::AIR },
-    { AnimType::CORPSE1,      "CORPSE1",    "CORPSE1",    1,  1, 1, AnimLayerType::GROUND },
-    { AnimType::CORPSE2,      "CORPSE2",    "CORPSE2",    1,  1, 1, AnimLayerType::GROUND },
-    { AnimType::CORPSE3,      "CORPSE3",    "CORPSE3",    1,  1, 1, AnimLayerType::GROUND },
-    { AnimType::PARACHUTE,    "PARACH",     "PARACH",     7,  4, 0, AnimLayerType::AIR },
-    { AnimType::PARA_BOMB,    "PARABOMB",   "PARABOMB",   8,  4, 0, AnimLayerType::AIR },
+    { AT::ELECT_DIE,    "ELECTRO",    "ELECTRO",    10, 1, 1, LA },
+    { AT::DOG_ELECT_DIE,"ELECTDOG",   "ELECTDOG",   10, 1, 1, LA },
+    { AT::CORPSE1,      "CORPSE1",    "CORPSE1",    1,  1, 1, LG },
+    { AT::CORPSE2,      "CORPSE2",    "CORPSE2",    1,  1, 1, LG },
+    { AT::CORPSE3,      "CORPSE3",    "CORPSE3",    1,  1, 1, LG },
+    { AT::PARACHUTE,    "PARACH",     "PARACH",     7,  4, 0, LA },
+    { AT::PARA_BOMB,    "PARABOMB",   "PARABOMB",   8,  4, 0, LA },
 
     // Miscellaneous
-    { AnimType::MOVE_FLASH,   "MOVEFLSH",   "MOVEFLSH",   3,  1, 1, AnimLayerType::AIR },
-    { AnimType::SPUTDOOR,     "SPUTDOOR",   "SPUTDOOR",   6,  2, 1, AnimLayerType::SURFACE },
-    { AnimType::ATOM_BLAST,   "ATOMSFX",    "ATOMSFX",    19, 1, 1, AnimLayerType::AIR },
-    { AnimType::OILFIELD_BURN,"OILFIRE",    "OILFIRE",    15, 2, 0, AnimLayerType::AIR },
-    { AnimType::CHRONO_BOX,   "CHRONBOX",   "CHRONBOX",   16, 2, 1, AnimLayerType::AIR },
-    { AnimType::GPS_BOX,      "GPSBOX",     "GPSBOX",     16, 2, 1, AnimLayerType::AIR },
-    { AnimType::INVUL_BOX,    "INVULBOX",   "INVULBOX",   16, 2, 1, AnimLayerType::AIR },
-    { AnimType::PARA_BOX,     "PARABOX",    "PARABOX",    16, 2, 1, AnimLayerType::AIR },
-    { AnimType::SONAR_BOX,    "SONARBOX",   "SONARBOX",   16, 2, 1, AnimLayerType::AIR },
-    { AnimType::TWINKLE1,     "TWINKLE1",   "TWINKLE1",   4,  2, 1, AnimLayerType::AIR },
-    { AnimType::TWINKLE2,     "TWINKLE2",   "TWINKLE2",   4,  2, 1, AnimLayerType::AIR },
-    { AnimType::TWINKLE3,     "TWINKLE3",   "TWINKLE3",   4,  2, 1, AnimLayerType::AIR },
-    { AnimType::FLAK,         "FLAK",       "FLAK",       7,  1, 1, AnimLayerType::AIR },
-    { AnimType::MINE_EXP1,    "MINEXP1",    "MINEXP1",    12, 1, 1, AnimLayerType::AIR },
+    { AT::MOVE_FLASH,   "MOVEFLSH",   "MOVEFLSH",   3,  1, 1, LA },
+    { AT::SPUTDOOR,     "SPUTDOOR",   "SPUTDOOR",   6,  2, 1, LS },
+    { AT::ATOM_BLAST,   "ATOMSFX",    "ATOMSFX",    19, 1, 1, LA },
+    { AT::OILFIELD_BURN,"OILFIRE",    "OILFIRE",    15, 2, 0, LA },
+    { AT::CHRONO_BOX,   "CHRONBOX",   "CHRONBOX",   16, 2, 1, LA },
+    { AT::GPS_BOX,      "GPSBOX",     "GPSBOX",     16, 2, 1, LA },
+    { AT::INVUL_BOX,    "INVULBOX",   "INVULBOX",   16, 2, 1, LA },
+    { AT::PARA_BOX,     "PARABOX",    "PARABOX",    16, 2, 1, LA },
+    { AT::SONAR_BOX,    "SONARBOX",   "SONARBOX",   16, 2, 1, LA },
+    { AT::TWINKLE1,     "TWINKLE1",   "TWINKLE1",   4,  2, 1, LA },
+    { AT::TWINKLE2,     "TWINKLE2",   "TWINKLE2",   4,  2, 1, LA },
+    { AT::TWINKLE3,     "TWINKLE3",   "TWINKLE3",   4,  2, 1, LA },
+    { AT::FLAK,         "FLAK",       "FLAK",       7,  1, 1, LA },
+    { AT::MINE_EXP1,    "MINEXP1",    "MINEXP1",    12, 1, 1, LA },
 };
 
 // Ensure we have all types defined
@@ -156,7 +160,7 @@ AnimTypeClass::AnimTypeClass(
     defaultLoops_(defaultLoops),
     damage_(DMG_NONE),
     sound_(AnimSoundType::SOUND_NONE),
-    chainTo_(AnimType::NONE),
+    chainTo_(AT::NONE),
     isScorcher_(false),
     isCraterForming_(false),
     isSticky_(false),
@@ -177,72 +181,75 @@ const AnimTypeClass* AnimTypeClass::Find(AnimType type) {
 void AnimTypeClass::Init() {
     // Set up additional properties for specific animation types
 
+    // Helper macro for sound assignments
+    #define ATSND(t) s_animTypes[static_cast<int>(AT::t)]
+
     // Explosions with sounds
-    s_animTypes[static_cast<int>(AnimType::FBALL1)].sound_ = AnimSoundType::SOUND_KABOOM25;
-    s_animTypes[static_cast<int>(AnimType::FBALL1)].isCraterForming_ = true;
-    s_animTypes[static_cast<int>(AnimType::FBALL1)].isScorcher_ = true;
+    ATSND(FBALL1).sound_ = AnimSoundType::SOUND_KABOOM25;
+    ATSND(FBALL1).isCraterForming_ = true;
+    ATSND(FBALL1).isScorcher_ = true;
 
-    s_animTypes[static_cast<int>(AnimType::FRAG1)].sound_ = AnimSoundType::SOUND_KABOOM22;
+    ATSND(FRAG1).sound_ = AnimSoundType::SOUND_KABOOM22;
 
-    s_animTypes[static_cast<int>(AnimType::ART_EXP1)].sound_ = AnimSoundType::SOUND_KABOOM1;
-    s_animTypes[static_cast<int>(AnimType::ART_EXP1)].isCraterForming_ = true;
+    ATSND(ART_EXP1).sound_ = AnimSoundType::SOUND_KABOOM1;
+    ATSND(ART_EXP1).isCraterForming_ = true;
 
     // Napalm with sounds and fire effects
-    s_animTypes[static_cast<int>(AnimType::NAPALM1)].sound_ = AnimSoundType::SOUND_FIRE_EXPLODE;
-    s_animTypes[static_cast<int>(AnimType::NAPALM1)].isScorcher_ = true;
-    s_animTypes[static_cast<int>(AnimType::NAPALM2)].sound_ = AnimSoundType::SOUND_FIRE_EXPLODE;
-    s_animTypes[static_cast<int>(AnimType::NAPALM2)].isScorcher_ = true;
-    s_animTypes[static_cast<int>(AnimType::NAPALM3)].sound_ = AnimSoundType::SOUND_FIRE_EXPLODE;
-    s_animTypes[static_cast<int>(AnimType::NAPALM3)].isScorcher_ = true;
+    ATSND(NAPALM1).sound_ = AnimSoundType::SOUND_FIRE_EXPLODE;
+    ATSND(NAPALM1).isScorcher_ = true;
+    ATSND(NAPALM2).sound_ = AnimSoundType::SOUND_FIRE_EXPLODE;
+    ATSND(NAPALM2).isScorcher_ = true;
+    ATSND(NAPALM3).sound_ = AnimSoundType::SOUND_FIRE_EXPLODE;
+    ATSND(NAPALM3).isScorcher_ = true;
 
     // Fire animations with damage
-    s_animTypes[static_cast<int>(AnimType::FIRE_SMALL)].damage_ = DMG_TINY;
-    s_animTypes[static_cast<int>(AnimType::FIRE_MED)].damage_ = DMG_SMALL;
-    s_animTypes[static_cast<int>(AnimType::FIRE_MED2)].damage_ = DMG_SMALL;
+    ATSND(FIRE_SMALL).damage_ = DMG_TINY;
+    ATSND(FIRE_MED).damage_ = DMG_SMALL;
+    ATSND(FIRE_MED2).damage_ = DMG_SMALL;
 
     // Building fire with damage (loops infinitely)
-    s_animTypes[static_cast<int>(AnimType::ON_FIRE_SMALL)].damage_ = DMG_TINY;
-    s_animTypes[static_cast<int>(AnimType::ON_FIRE_MED)].damage_ = DMG_SMALL;
-    s_animTypes[static_cast<int>(AnimType::ON_FIRE_BIG)].damage_ = DMG_MEDIUM;
+    ATSND(ON_FIRE_SMALL).damage_ = DMG_TINY;
+    ATSND(ON_FIRE_MED).damage_ = DMG_SMALL;
+    ATSND(ON_FIRE_BIG).damage_ = DMG_MEDIUM;
 
     // Burn animations with damage
-    s_animTypes[static_cast<int>(AnimType::BURN_SMALL)].damage_ = DMG_TINY;
-    s_animTypes[static_cast<int>(AnimType::BURN_MED)].damage_ = DMG_SMALL;
-    s_animTypes[static_cast<int>(AnimType::BURN_BIG)].damage_ = DMG_SMALL;
+    ATSND(BURN_SMALL).damage_ = DMG_TINY;
+    ATSND(BURN_MED).damage_ = DMG_SMALL;
+    ATSND(BURN_BIG).damage_ = DMG_SMALL;
 
     // Sticky animations (attach to units)
-    s_animTypes[static_cast<int>(AnimType::PARACHUTE)].isSticky_ = true;
-    s_animTypes[static_cast<int>(AnimType::ON_FIRE_SMALL)].isSticky_ = true;
-    s_animTypes[static_cast<int>(AnimType::ON_FIRE_MED)].isSticky_ = true;
-    s_animTypes[static_cast<int>(AnimType::ON_FIRE_BIG)].isSticky_ = true;
+    ATSND(PARACHUTE).isSticky_ = true;
+    ATSND(ON_FIRE_SMALL).isSticky_ = true;
+    ATSND(ON_FIRE_MED).isSticky_ = true;
+    ATSND(ON_FIRE_BIG).isSticky_ = true;
 
     // Atom blast special
-    s_animTypes[static_cast<int>(AnimType::ATOM_BLAST)].isCraterForming_ = true;
-    s_animTypes[static_cast<int>(AnimType::ATOM_BLAST)].isScorcher_ = true;
-    s_animTypes[static_cast<int>(AnimType::ATOM_BLAST)].size_ = 128;
+    ATSND(ATOM_BLAST).isCraterForming_ = true;
+    ATSND(ATOM_BLAST).isScorcher_ = true;
+    ATSND(ATOM_BLAST).size_ = 128;
 
     // Mine explosion
-    s_animTypes[static_cast<int>(AnimType::MINE_EXP1)].sound_ = AnimSoundType::SOUND_MINEBLOW;
-    s_animTypes[static_cast<int>(AnimType::MINE_EXP1)].isCraterForming_ = true;
+    ATSND(MINE_EXP1).sound_ = AnimSoundType::SOUND_MINEBLOW;
+    ATSND(MINE_EXP1).isCraterForming_ = true;
 
     // Translucent effects
-    s_animTypes[static_cast<int>(AnimType::MUZZLE_FLASH)].isTranslucent_ = true;
-    s_animTypes[static_cast<int>(AnimType::SMOKE_PUFF)].isTranslucent_ = true;
-    s_animTypes[static_cast<int>(AnimType::SMOKE_M)].isTranslucent_ = true;
+    ATSND(MUZZLE_FLASH).isTranslucent_ = true;
+    ATSND(SMOKE_PUFF).isTranslucent_ = true;
+    ATSND(SMOKE_M).isTranslucent_ = true;
 
     // Electrocution chains to fire
-    s_animTypes[static_cast<int>(AnimType::ELECT_DIE)].chainTo_ = AnimType::FIRE_MED;
-    s_animTypes[static_cast<int>(AnimType::DOG_ELECT_DIE)].chainTo_ = AnimType::FIRE_SMALL;
+    ATSND(ELECT_DIE).chainTo_ = AT::FIRE_MED;
+    ATSND(DOG_ELECT_DIE).chainTo_ = AT::FIRE_SMALL;
 
     // Water explosions
-    s_animTypes[static_cast<int>(AnimType::WATER_EXP1)].sound_ = AnimSoundType::SOUND_SPLASH;
-    s_animTypes[static_cast<int>(AnimType::WATER_EXP2)].sound_ = AnimSoundType::SOUND_SPLASH;
-    s_animTypes[static_cast<int>(AnimType::WATER_EXP3)].sound_ = AnimSoundType::SOUND_SPLASH;
+    ATSND(WATER_EXP1).sound_ = AnimSoundType::SOUND_SPLASH;
+    ATSND(WATER_EXP2).sound_ = AnimSoundType::SOUND_SPLASH;
+    ATSND(WATER_EXP3).sound_ = AnimSoundType::SOUND_SPLASH;
 
     // Corpses are ground layer and static
-    s_animTypes[static_cast<int>(AnimType::CORPSE1)].layer_ = AnimLayerType::GROUND;
-    s_animTypes[static_cast<int>(AnimType::CORPSE2)].layer_ = AnimLayerType::GROUND;
-    s_animTypes[static_cast<int>(AnimType::CORPSE3)].layer_ = AnimLayerType::GROUND;
+    ATSND(CORPSE1).layer_ = LG;
+    ATSND(CORPSE2).layer_ = LG;
+    ATSND(CORPSE3).layer_ = LG;
 }
 
 //===========================================================================
@@ -258,7 +265,7 @@ bool AnimClass::poolInitialized_ = false;
 //===========================================================================
 
 AnimClass::AnimClass() :
-    type_(AnimType::NONE),
+    type_(AT::NONE),
     typeClass_(nullptr),
     x_(0),
     y_(0),
@@ -389,7 +396,7 @@ void AnimClass::AI() {
     // Advance frame
     if (!Advance_Frame()) {
         // Animation ended
-        if (typeClass_->chainTo_ != AnimType::NONE) {
+        if (typeClass_->chainTo_ != AT::NONE) {
             // Chain to next animation
             type_ = typeClass_->chainTo_;
             typeClass_ = AnimTypeClass::Find(type_);
@@ -423,15 +430,15 @@ void AnimClass::Render(int screenX, int screenY) {
     // Choose color based on animation type category
     uint8_t r = 255, g = 128, b = 0;  // Default orange (explosion)
 
-    if (type_ >= AnimType::FIRE_SMALL && type_ <= AnimType::ON_FIRE_BIG) {
+    if (type_ >= AT::FIRE_SMALL && type_ <= AT::ON_FIRE_BIG) {
         r = 255; g = 64; b = 0;  // Red-orange (fire)
-    } else if (type_ >= AnimType::SMOKE_PUFF && type_ <= AnimType::LZ_SMOKE) {
+    } else if (type_ >= AT::SMOKE_PUFF && type_ <= AT::LZ_SMOKE) {
         r = 128; g = 128; b = 128;  // Gray (smoke)
-    } else if (type_ >= AnimType::WATER_EXP1 && type_ <= AnimType::WATER_EXP3) {
+    } else if (type_ >= AT::WATER_EXP1 && type_ <= AT::WATER_EXP3) {
         r = 64; g = 128; b = 255;  // Blue (water)
-    } else if (type_ >= AnimType::CRATE_DEVIATOR && type_ <= AnimType::CRATE_TQUAKE) {
+    } else if (type_ >= AT::CRATE_DEVIATOR && type_ <= AT::CRATE_TQUAKE) {
         r = 255; g = 255; b = 0;  // Yellow (crate effects)
-    } else if (type_ == AnimType::ELECT_DIE || type_ == AnimType::DOG_ELECT_DIE) {
+    } else if (type_ == AT::ELECT_DIE || type_ == AT::DOG_ELECT_DIE) {
         r = 128; g = 128; b = 255;  // Light blue (electric)
     }
 
@@ -454,8 +461,7 @@ void AnimClass::Render(int screenX, int screenY) {
     int drawHalf = drawSize / 2;
 
     // TODO: Actual rendering through Metal/graphics system
-    // For now this is a placeholder - the actual drawing would be:
-    // Graphics_Draw_Rect(drawX - drawHalf, drawY - drawHalf, drawSize, drawSize, r, g, b, alpha);
+    // Graphics_Draw_Rect(x-h, y-h, size, size, r, g, b, alpha);
 
     (void)drawX;
     (void)drawY;
@@ -497,7 +503,7 @@ int AnimClass::Get_Frame_Count() const {
 }
 
 AnimLayerType AnimClass::Get_Layer() const {
-    return typeClass_ ? typeClass_->layer_ : AnimLayerType::AIR;
+    return typeClass_ ? typeClass_->layer_ : LA;
 }
 
 void AnimClass::Set_Frame(int frame) {
@@ -527,7 +533,7 @@ void AnimClass::Middle() {
     }
 
     // Special handling for atom blast
-    if (type_ == AnimType::ATOM_BLAST) {
+    if (type_ == AT::ATOM_BLAST) {
         // TODO: Do_Atom_Damage(ownerHouse_, x_, y_);
         // Screen shake, palette flash, etc.
     }
@@ -542,7 +548,7 @@ void AnimClass::Apply_Damage() {
     // Apply whole damage points
     while (damageAccum_ >= 256) {
         damageAccum_ -= 256;
-        // TODO: attachedTo_->Take_Damage(1, 0, WARHEAD_FIRE, nullptr, ownerHouse_);
+        // TODO: attachedTo_->Take_Damage(1, 0, WARHEAD_FIRE, 0, house);
     }
 }
 
@@ -562,19 +568,22 @@ bool AnimClass::Advance_Frame() {
     currentFrame_++;
 
     // Check for end of animation
-    int endFrame = (typeClass_->loopEnd_ >= 0) ? typeClass_->loopEnd_ : typeClass_->frameCount_;
+    int loopEnd = typeClass_->loopEnd_;
+    int endFrame = (loopEnd >= 0) ? loopEnd : typeClass_->frameCount_;
+    int loopStart = typeClass_->loopStart_;
+    int startFrame = (loopStart >= 0) ? loopStart : 0;
 
     if (currentFrame_ >= endFrame) {
         // Check for looping
         if (loopsRemaining_ == 0) {
             // Infinite loop
-            currentFrame_ = (typeClass_->loopStart_ >= 0) ? typeClass_->loopStart_ : 0;
+            currentFrame_ = startFrame;
             middleCalled_ = false;
             return true;
         } else if (loopsRemaining_ > 1) {
             // More loops remaining
             loopsRemaining_--;
-            currentFrame_ = (typeClass_->loopStart_ >= 0) ? typeClass_->loopStart_ : 0;
+            currentFrame_ = startFrame;
             middleCalled_ = false;
             return true;
         } else {
@@ -617,7 +626,7 @@ void AnimClass::Free(AnimClass* anim) {
     if (!anim) return;
 
     anim->Stop();
-    anim->type_ = AnimType::NONE;
+    anim->type_ = AT::NONE;
     anim->typeClass_ = nullptr;
     anim->isActive_ = false;
 
@@ -631,7 +640,7 @@ void AnimClass::Free_All() {
     poolHead_ = nullptr;
     for (int i = ANIM_MAX - 1; i >= 0; i--) {
         pool_[i].Stop();
-        pool_[i].type_ = AnimType::NONE;
+        pool_[i].type_ = AT::NONE;
         pool_[i].typeClass_ = nullptr;
         pool_[i].isActive_ = false;
         pool_[i].poolNext_ = poolHead_;
@@ -706,7 +715,8 @@ AnimClass* Create(AnimType type, int x, int y, int delay, int loops) {
     return anim;
 }
 
-AnimClass* Create_Attached(AnimType type, void* target, int targetX, int targetY, int delay) {
+AnimClass* Create_Attached(AnimType type, void* target, int targetX,
+                           int targetY, int delay) {
     if (!target) return nullptr;
 
     AnimClass* anim = Create(type, targetX, targetY, delay, 1);
@@ -741,8 +751,9 @@ void Detach_All(void* target) {
     if (!target) return;
 
     for (int i = 0; i < ANIM_MAX; i++) {
-        if (AnimClass::pool_[i].isActive_ && AnimClass::pool_[i].Get_Attached() == target) {
-            AnimClass::pool_[i].Detach();
+        AnimClass& a = AnimClass::pool_[i];
+        if (a.isActive_ && a.Get_Attached() == target) {
+            a.Detach();
         }
     }
 }
@@ -755,30 +766,30 @@ AnimType Get_Explosion_Anim(int warheadType) {
     // Map warhead types to explosion animations
     switch (warheadType) {
         case 0:  // Small arms
-            return AnimType::PIFF;
+            return AT::PIFF;
         case 1:  // High explosive
-            return AnimType::FBALL1;
+            return AT::FBALL1;
         case 2:  // Armor piercing
-            return AnimType::VEH_HIT2;
+            return AT::VEH_HIT2;
         case 3:  // Fire
-            return AnimType::NAPALM2;
+            return AT::NAPALM2;
         case 4:  // Special (nuke)
-            return AnimType::ATOM_BLAST;
+            return AT::ATOM_BLAST;
         default:
-            return AnimType::FRAG1;
+            return AT::FRAG1;
     }
 }
 
 AnimType Get_Fire_Anim(int damagePercent) {
     // Return appropriate fire animation based on damage level
     if (damagePercent >= 75) {
-        return AnimType::ON_FIRE_BIG;
+        return AT::ON_FIRE_BIG;
     } else if (damagePercent >= 50) {
-        return AnimType::ON_FIRE_MED;
+        return AT::ON_FIRE_MED;
     } else if (damagePercent >= 25) {
-        return AnimType::ON_FIRE_SMALL;
+        return AT::ON_FIRE_SMALL;
     }
-    return AnimType::NONE;
+    return AT::NONE;
 }
 
 } // namespace Anims

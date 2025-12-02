@@ -12,14 +12,14 @@
 #include <cstdio>
 
 // Main archive handles
-static MixFileHandle g_mainMix = nullptr;      // MAIN_ALLIED.MIX (vehicles, buildings)
-static MixFileHandle g_redalertMix = nullptr;  // REDALERT.MIX (infantry, palettes)
-static MixFileHandle g_conquerMix = nullptr;   // CONQUER.MIX (vehicles, buildings)
-static MixFileHandle g_hiresMix = nullptr;     // HIRES.MIX (infantry sprites)
-static MixFileHandle g_soundsMix = nullptr;    // SOUNDS.MIX (sound effects)
-static MixFileHandle g_localMix = nullptr;     // LOCAL.MIX (INI files, palettes)
-static MixFileHandle g_snowMix = nullptr;      // SNOW.MIX (snow tileset)
-static MixFileHandle g_temperatMix = nullptr;  // TEMPERAT.MIX (temperate tileset)
+static MixFileHandle g_mainMix = nullptr;      // MAIN_ALLIED.MIX
+static MixFileHandle g_redalertMix = nullptr;  // REDALERT.MIX
+static MixFileHandle g_conquerMix = nullptr;   // CONQUER.MIX
+static MixFileHandle g_hiresMix = nullptr;     // HIRES.MIX
+static MixFileHandle g_soundsMix = nullptr;    // SOUNDS.MIX
+static MixFileHandle g_localMix = nullptr;     // LOCAL.MIX
+static MixFileHandle g_snowMix = nullptr;      // SNOW.MIX
+static MixFileHandle g_temperatMix = nullptr;  // TEMPERAT.MIX
 
 // Memory-backed nested MIX data (kept alive for duration)
 static void* g_conquerData = nullptr;
@@ -45,22 +45,23 @@ static MixFileHandle g_scoresMix = nullptr;
 static void* g_scoresData = nullptr;
 
 // Archive search paths for MAIN_ALLIED.MIX
+#define ASSET_ROOT "/Users/jasson/workspace/CnC_Red_Alert/assets"
 static const char* g_mainPaths[] = {
-    "../assets/MAIN_ALLIED.MIX",                              // Dev: from build/
-    "../../assets/MAIN_ALLIED.MIX",                           // Dev: from macos/
-    "/Users/jasson/workspace/CnC_Red_Alert/assets/MAIN_ALLIED.MIX",  // Absolute path
-    "./assets/MAIN_ALLIED.MIX",                               // Current dir
-    "/Volumes/CD1/MAIN.MIX",                                  // Mounted game CD
+    "../assets/MAIN_ALLIED.MIX",
+    "../../assets/MAIN_ALLIED.MIX",
+    ASSET_ROOT "/MAIN_ALLIED.MIX",
+    "./assets/MAIN_ALLIED.MIX",
+    "/Volumes/CD1/MAIN.MIX",
     "/Volumes/CD2/MAIN.MIX",
     nullptr
 };
 
 // Archive search paths for REDALERT.MIX
 static const char* g_redalertPaths[] = {
-    "../assets/REDALERT.MIX",                                 // Dev: from build/
-    "../../assets/REDALERT.MIX",                              // Dev: from macos/
-    "/Users/jasson/workspace/CnC_Red_Alert/assets/REDALERT.MIX",     // Absolute path
-    "./assets/REDALERT.MIX",                                  // Current dir
+    "../assets/REDALERT.MIX",
+    "../../assets/REDALERT.MIX",
+    ASSET_ROOT "/REDALERT.MIX",
+    "./assets/REDALERT.MIX",
     nullptr
 };
 
@@ -116,7 +117,8 @@ static const char* g_scoresPaths[] = {
     nullptr
 };
 
-static MixFileHandle OpenNestedMix(MixFileHandle parent, const char* name, void** outData) {
+static MixFileHandle OpenNestedMix(MixFileHandle parent, const char* name,
+                                   void** outData) {
     if (!parent) return nullptr;
 
     uint32_t size = 0;
@@ -176,17 +178,22 @@ BOOL Assets_Init(void) {
         }
     }
 
-    // Open content MIX files - prefer standalone from quick install package
-    g_conquerMix = OpenMixFile(g_conquerPaths, "CONQUER.MIX", g_mainMix, &g_conquerData);
-    g_hiresMix = OpenMixFile(g_hiresPaths, "HIRES.MIX", g_redalertMix, &g_hiresData);
-    g_soundsMix = OpenMixFile(g_soundsPaths, "SOUNDS.MIX", g_mainMix, &g_soundsData);
-    g_localMix = OpenMixFile(g_localPaths, "LOCAL.MIX", g_redalertMix, &g_localData);
+    // Open content MIX files - prefer standalone from quick install
+    g_conquerMix = OpenMixFile(g_conquerPaths, "CONQUER.MIX",
+                               g_mainMix, &g_conquerData);
+    g_hiresMix = OpenMixFile(g_hiresPaths, "HIRES.MIX",
+                             g_redalertMix, &g_hiresData);
+    g_soundsMix = OpenMixFile(g_soundsPaths, "SOUNDS.MIX",
+                              g_mainMix, &g_soundsData);
+    g_localMix = OpenMixFile(g_localPaths, "LOCAL.MIX",
+                             g_redalertMix, &g_localData);
     g_snowMix = OpenMixFile(g_snowPaths, nullptr, nullptr, nullptr);
     g_temperatMix = OpenMixFile(g_temperatPaths, nullptr, nullptr, nullptr);
 
     // Check if we have required archives
     if (!g_conquerMix && !g_hiresMix) {
-        printf("AssetLoader: No content archives found! Please extract ra-quickinstall.zip to assets/\n");
+        printf("AssetLoader: No content archives found! "
+               "Extract ra-quickinstall.zip to assets/\n");
         return FALSE;
     }
 
@@ -269,8 +276,10 @@ static ShpFileHandle LoadSHPFromFile(const char* name) {
 ShpFileHandle Assets_LoadSHP(const char* name) {
     if (!name) return nullptr;
 
-    // First try MIX archives: CONQUER.MIX (vehicles/buildings), HIRES.MIX (infantry)
-    MixFileHandle searchOrder[] = { g_conquerMix, g_hiresMix, g_mainMix, g_redalertMix, nullptr };
+    // Try MIX archives: CONQUER.MIX, HIRES.MIX, then top-level
+    MixFileHandle searchOrder[] = {
+        g_conquerMix, g_hiresMix, g_mainMix, g_redalertMix, nullptr
+    };
 
     for (int i = 0; searchOrder[i]; i++) {
         if (Mix_FileExists(searchOrder[i], name)) {
@@ -292,7 +301,8 @@ ShpFileHandle Assets_LoadSHP(const char* name) {
     char lower[256];
     int len = 0;
     while (name[len] && len < 255) {
-        lower[len] = (name[len] >= 'A' && name[len] <= 'Z') ? name[len] + 32 : name[len];
+        char c = name[len];
+        lower[len] = (c >= 'A' && c <= 'Z') ? c + 32 : c;
         len++;
     }
     lower[len] = '\0';
@@ -303,7 +313,9 @@ AudData* Assets_LoadAUD(const char* name) {
     if (!name) return nullptr;
 
     // Search in SOUNDS.MIX first, then top-level archives
-    MixFileHandle searchOrder[] = { g_soundsMix, g_mainMix, g_redalertMix, nullptr };
+    MixFileHandle searchOrder[] = {
+        g_soundsMix, g_mainMix, g_redalertMix, nullptr
+    };
 
     for (int i = 0; searchOrder[i]; i++) {
         if (Mix_FileExists(searchOrder[i], name)) {
@@ -324,7 +336,9 @@ BOOL Assets_LoadPalette(const char* name, uint8_t* palette) {
     if (!name || !palette) return FALSE;
 
     // Search in LOCAL.MIX first (contains palettes), then top-level
-    MixFileHandle searchOrder[] = { g_localMix, g_mainMix, g_redalertMix, nullptr };
+    MixFileHandle searchOrder[] = {
+        g_localMix, g_mainMix, g_redalertMix, nullptr
+    };
 
     for (int i = 0; searchOrder[i]; i++) {
         if (Mix_FileExists(searchOrder[i], name)) {
@@ -359,7 +373,8 @@ void Assets_SetPalette(const uint8_t* palette) {
     g_paletteLoaded = true;
 }
 
-void Assets_SHPToRGBA(const ShpFrame* frame, uint32_t* output, uint8_t transparent) {
+void Assets_SHPToRGBA(const ShpFrame* frame, uint32_t* output,
+                      uint8_t transparent) {
     if (!frame || !frame->pixels || !output || !g_paletteLoaded) return;
 
     int size = frame->width * frame->height;
@@ -371,7 +386,8 @@ void Assets_SHPToRGBA(const ShpFrame* frame, uint32_t* output, uint8_t transpare
             uint8_t r = g_palette[idx * 3 + 0];
             uint8_t g = g_palette[idx * 3 + 1];
             uint8_t b = g_palette[idx * 3 + 2];
-            output[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;  // ABGR for Metal
+            // ABGR for Metal
+            output[i] = (0xFF << 24) | (b << 16) | (g << 8) | r;
         }
     }
 }
@@ -381,7 +397,10 @@ void* Assets_LoadRaw(const char* name, uint32_t* outSize) {
     *outSize = 0;
 
     // Search all archives (tileset archives first for terrain files)
-    MixFileHandle searchOrder[] = { g_snowMix, g_temperatMix, g_localMix, g_conquerMix, g_hiresMix, g_soundsMix, g_mainMix, g_redalertMix, nullptr };
+    MixFileHandle searchOrder[] = {
+        g_snowMix, g_temperatMix, g_localMix, g_conquerMix,
+        g_hiresMix, g_soundsMix, g_mainMix, g_redalertMix, nullptr
+    };
 
     for (int i = 0; searchOrder[i]; i++) {
         if (Mix_FileExists(searchOrder[i], name)) {
@@ -398,7 +417,9 @@ static void EnsureMoviesOpen(void) {
 
     // Try to find MOVIES2.MIX inside MAIN.MIX from CD
     MixFileHandle mainCd = nullptr;
-    const char* cdPaths[] = { "/Volumes/CD1/MAIN.MIX", "/Volumes/CD2/MAIN.MIX", nullptr };
+    const char* cdPaths[] = {
+        "/Volumes/CD1/MAIN.MIX", "/Volumes/CD2/MAIN.MIX", nullptr
+    };
 
     for (int i = 0; cdPaths[i]; i++) {
         mainCd = Mix_Open(cdPaths[i]);
@@ -416,7 +437,9 @@ static void EnsureMoviesOpen(void) {
     if (!mainCd) return;
 
     // Look for MOVIES2.MIX or MOVIES1.MIX inside
-    const char* moviesNames[] = { "MOVIES2.MIX", "MOVIES1.MIX", "MOVIES.MIX", nullptr };
+    const char* moviesNames[] = {
+        "MOVIES2.MIX", "MOVIES1.MIX", "MOVIES.MIX", nullptr
+    };
     for (int i = 0; moviesNames[i]; i++) {
         if (Mix_FileExists(mainCd, moviesNames[i])) {
             uint32_t size = 0;
@@ -426,7 +449,8 @@ static void EnsureMoviesOpen(void) {
                 if (g_moviesMix) {
                     g_moviesData = data;
                     printf("Movies: Opened %s (%u MB, %d files)\n",
-                           moviesNames[i], size / (1024*1024), Mix_GetFileCount(g_moviesMix));
+                           moviesNames[i], size / (1024*1024),
+                           Mix_GetFileCount(g_moviesMix));
                     break;
                 } else {
                     free(data);
@@ -480,7 +504,9 @@ static void EnsureScoresOpen(void) {
 
     // Try to find SCORES.MIX inside MAIN.MIX from CD
     MixFileHandle mainCd = nullptr;
-    const char* cdPaths[] = { "/Volumes/CD1/MAIN.MIX", "/Volumes/CD2/MAIN.MIX", nullptr };
+    const char* cdPaths[] = {
+        "/Volumes/CD1/MAIN.MIX", "/Volumes/CD2/MAIN.MIX", nullptr
+    };
 
     for (int i = 0; cdPaths[i]; i++) {
         mainCd = Mix_Open(cdPaths[i]);
@@ -498,7 +524,7 @@ static void EnsureScoresOpen(void) {
             g_scoresMix = Mix_OpenMemory(data, size, TRUE);
             if (g_scoresMix) {
                 g_scoresData = data;
-                printf("Music: Opened SCORES.MIX from parent (%u KB, %d files)\n",
+                printf("Music: Opened SCORES.MIX (%u KB, %d files)\n",
                        size / 1024, Mix_GetFileCount(g_scoresMix));
             } else {
                 free(data);

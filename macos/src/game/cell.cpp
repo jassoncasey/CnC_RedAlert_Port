@@ -108,8 +108,11 @@ void CellClass::RecalcLandType() {
         }
 
         // Ore/gems
-        if ((overlay_ >= OverlayType::GOLD1 && overlay_ <= OverlayType::GOLD4) ||
-            (overlay_ >= OverlayType::GEMS1 && overlay_ <= OverlayType::GEMS4)) {
+        bool isOre = overlay_ >= OverlayType::GOLD1 &&
+                     overlay_ <= OverlayType::GOLD4;
+        bool isGem = overlay_ >= OverlayType::GEMS1 &&
+                     overlay_ <= OverlayType::GEMS4;
+        if (isOre || isGem) {
             land_ = LandType::TIBERIUM;
             return;
         }
@@ -224,13 +227,16 @@ bool CellClass::HasGems() const {
 }
 
 int CellClass::OreValue() const {
+    int ov = static_cast<int>(overlay_);
     if (HasOre()) {
         // Value based on overlay stage (1-4)
-        int stage = static_cast<int>(overlay_) - static_cast<int>(OverlayType::GOLD1) + 1;
+        int base = static_cast<int>(OverlayType::GOLD1);
+        int stage = ov - base + 1;
         return stage * 25;  // 25 credits per stage
     }
     if (HasGems()) {
-        int stage = static_cast<int>(overlay_) - static_cast<int>(OverlayType::GEMS1) + 1;
+        int base = static_cast<int>(OverlayType::GEMS1);
+        int stage = ov - base + 1;
         return stage * 50;  // 50 credits per stage
     }
     return 0;
@@ -243,22 +249,25 @@ int CellClass::ReduceOre(int amount) {
     int reduced = (amount < value) ? amount : value;
 
     // Reduce overlay stage
+    int ov = static_cast<int>(overlay_);
     int stage;
     if (HasOre()) {
-        stage = static_cast<int>(overlay_) - static_cast<int>(OverlayType::GOLD1);
+        int base = static_cast<int>(OverlayType::GOLD1);
+        stage = ov - base;
         stage -= (reduced / 25);
         if (stage < 0) {
             ClearOverlay();
         } else {
-            overlay_ = static_cast<OverlayType>(static_cast<int>(OverlayType::GOLD1) + stage);
+            overlay_ = static_cast<OverlayType>(base + stage);
         }
     } else {
-        stage = static_cast<int>(overlay_) - static_cast<int>(OverlayType::GEMS1);
+        int base = static_cast<int>(OverlayType::GEMS1);
+        stage = ov - base;
         stage -= (reduced / 50);
         if (stage < 0) {
             ClearOverlay();
         } else {
-            overlay_ = static_cast<OverlayType>(static_cast<int>(OverlayType::GEMS1) + stage);
+            overlay_ = static_cast<OverlayType>(base + stage);
         }
     }
 

@@ -101,7 +101,9 @@ public:
     void Sub(const BigInt320& other) {
         uint64_t borrow = 0;
         for (int i = 0; i < WORDS; i++) {
-            uint64_t diff = (uint64_t)data[i] - (uint64_t)other.data[i] - borrow;
+            uint64_t a = (uint64_t)data[i];
+            uint64_t b = (uint64_t)other.data[i];
+            uint64_t diff = a - b - borrow;
             data[i] = (uint32_t)diff;
             borrow = (diff >> 63) & 1;
         }
@@ -158,7 +160,8 @@ public:
 
 // Modular multiplication: result = (a * b) mod m
 // Uses shift-and-subtract division for modular reduction
-static void ModMul(BigInt320& result, const BigInt320& a, const BigInt320& b, const BigInt320& m) {
+static void ModMul(BigInt320& result, const BigInt320& a,
+                   const BigInt320& b, const BigInt320& m) {
     // Use double-width intermediate for multiplication
     uint32_t product[BigInt320::WORDS * 2];
     memset(product, 0, sizeof(product));
@@ -167,7 +170,9 @@ static void ModMul(BigInt320& result, const BigInt320& a, const BigInt320& b, co
     for (int i = 0; i < BigInt320::WORDS; i++) {
         uint64_t carry = 0;
         for (int j = 0; j < BigInt320::WORDS; j++) {
-            uint64_t prod = (uint64_t)a.data[i] * (uint64_t)b.data[j] + product[i + j] + carry;
+            uint64_t ai = (uint64_t)a.data[i];
+            uint64_t bj = (uint64_t)b.data[j];
+            uint64_t prod = ai * bj + product[i + j] + carry;
             product[i + j] = (uint32_t)prod;
             carry = prod >> 32;
         }
@@ -218,14 +223,18 @@ static void ModMul(BigInt320& result, const BigInt320& a, const BigInt320& b, co
             for (int i = 0; i < BigInt320::WORDS; i++) {
                 mShifted[i] |= ((uint64_t)m.data[i] << bitShift);
                 if (i + 1 <= BigInt320::WORDS) {
-                    mShifted[i + 1] |= (bitShift > 0) ? ((uint64_t)m.data[i] >> (32 - bitShift)) : 0;
+                    uint64_t hi = (bitShift > 0)
+                        ? ((uint64_t)m.data[i] >> (32 - bitShift)) : 0;
+                    mShifted[i + 1] |= hi;
                 }
             }
 
             // Compare product[wordShift..] with mShifted
             canSubtract = true;
             for (int i = BigInt320::WORDS; i >= 0; i--) {
-                uint32_t pVal = (wordShift + i < BigInt320::WORDS * 2) ? product[wordShift + i] : 0;
+                int pIdx = wordShift + i;
+                int maxI = BigInt320::WORDS * 2;
+                uint32_t pVal = (pIdx < maxI) ? product[pIdx] : 0;
                 uint32_t mVal = (uint32_t)mShifted[i];
                 if (pVal < mVal) {
                     canSubtract = false;
@@ -242,12 +251,15 @@ static void ModMul(BigInt320& result, const BigInt320& a, const BigInt320& b, co
                 for (int i = 0; i <= BigInt320::WORDS; i++) {
                     int idx = wordShift + i;
                     if (idx >= BigInt320::WORDS * 2) break;
-                    uint64_t diff = (uint64_t)product[idx] - (uint32_t)mShifted[i] - borrow;
+                    uint64_t pv = (uint64_t)product[idx];
+                    uint64_t mv = (uint32_t)mShifted[i];
+                    uint64_t diff = pv - mv - borrow;
                     product[idx] = (uint32_t)diff;
                     borrow = (diff >> 63) & 1;
                 }
                 // Propagate borrow
-                for (int i = wordShift + BigInt320::WORDS + 1; i < BigInt320::WORDS * 2 && borrow; i++) {
+                int start = wordShift + BigInt320::WORDS + 1;
+                for (int i = start; i < BigInt320::WORDS * 2 && borrow; i++) {
                     uint64_t diff = (uint64_t)product[i] - borrow;
                     product[i] = (uint32_t)diff;
                     borrow = (diff >> 63) & 1;
@@ -269,7 +281,7 @@ static void ModMul(BigInt320& result, const BigInt320& a, const BigInt320& b, co
             }
         }
 
-        // Safety: if we couldn't subtract, decrease bit count to avoid infinite loop
+        // Safety: avoid infinite loop if no subtract
         if (!canSubtract && productBits >= modBits) {
             productBits--;
         }
@@ -287,7 +299,8 @@ static void ModMul(BigInt320& result, const BigInt320& a, const BigInt320& b, co
 }
 
 // Modular exponentiation: result = base^exp mod m
-static void ModExp(BigInt320& result, const BigInt320& base, const BigInt320& exp, const BigInt320& m) {
+static void ModExp(BigInt320& result, const BigInt320& base,
+                   const BigInt320& exp, const BigInt320& m) {
     BigInt320 b = base;
     result = BigInt320(1);
 

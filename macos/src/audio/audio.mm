@@ -97,7 +97,8 @@ static OSStatus AudioRenderCallback(
         }
 
         const AudioSample* sample = channel->sample;
-        Float32 channelVol = ((Float32)channel->volume / 255.0f) * masterVol * soundVol;
+        Float32 chVol = (Float32)channel->volume / 255.0f;
+        Float32 channelVol = chVol * masterVol * soundVol;
 
         // Calculate left/right volumes from pan
         // pan: -128 = full left, 0 = center, 127 = full right
@@ -122,7 +123,8 @@ static OSStatus AudioRenderCallback(
             // Check for end of sample
             if (srcBytePos >= sample->dataSize) {
                 if (channel->loop) {
-                    srcSampleIdx = srcSampleIdx % (sample->dataSize / bytesPerSourceFrame);
+                    uint32_t maxIdx = sample->dataSize / bytesPerSourceFrame;
+                    srcSampleIdx = srcSampleIdx % maxIdx;
                     srcBytePos = srcSampleIdx * bytesPerSourceFrame;
                 } else {
                     channel->playing = FALSE;
@@ -167,7 +169,8 @@ static OSStatus AudioRenderCallback(
             uint32_t totalSamples = sample->dataSize / bytesPerSourceFrame;
             if (channel->position / 256 >= totalSamples) {
                 if (channel->loop) {
-                    channel->position = channel->position % (totalSamples * 256);
+                    uint32_t maxPos = totalSamples * 256;
+                    channel->position = channel->position % maxPos;
                 } else {
                     channel->playing = FALSE;
                 }
@@ -183,7 +186,8 @@ static OSStatus AudioRenderCallback(
         int samplesToGet = (int)(inNumberFrames / 2) + 1;
         if (samplesToGet > 2048) samplesToGet = 2048;
 
-        int samplesGot = g_musicCallback(g_musicBuffer, samplesToGet, g_musicUserdata);
+        int samplesGot = g_musicCallback(g_musicBuffer, samplesToGet,
+                                         g_musicUserdata);
 
         if (samplesGot > 0) {
             float musicVol = g_musicVolume * masterVol;
@@ -197,11 +201,12 @@ static OSStatus AudioRenderCallback(
 
                 // Get two adjacent samples for interpolation
                 int16_t s0 = (srcIdx < samplesGot) ? g_musicBuffer[srcIdx] : 0;
-                int16_t s1 = (srcIdx + 1 < samplesGot) ? g_musicBuffer[srcIdx + 1] : s0;
+                bool hasNext = (srcIdx + 1 < samplesGot);
+                int16_t s1 = hasNext ? g_musicBuffer[srcIdx + 1] : s0;
 
                 // Linear interpolation between samples
-                float interpolated = (1.0f - frac) * (float)s0 + frac * (float)s1;
-                Float32 sample = interpolated / 32768.0f * musicVol;
+                float interp = (1.0f - frac) * (float)s0 + frac * (float)s1;
+                Float32 sample = interp / 32768.0f * musicVol;
 
                 // Music is mono - send to both channels
                 leftBuffer[i] += sample;
@@ -218,7 +223,8 @@ static OSStatus AudioRenderCallback(
         int samplesToGet = (int)(inNumberFrames * resampleRatio) + 1;
         if (samplesToGet > 4096) samplesToGet = 4096;
 
-        int samplesGot = g_videoCallback(g_videoBuffer, samplesToGet, g_videoUserdata);
+        int samplesGot = g_videoCallback(g_videoBuffer, samplesToGet,
+                                         g_videoUserdata);
 
         if (samplesGot > 0) {
             float videoVol = g_videoVolume * masterVol;
@@ -232,11 +238,15 @@ static OSStatus AudioRenderCallback(
                 float frac = srcPos - (float)srcIdx;
 
                 // Hold last sample on underrun instead of jumping to 0
-                int16_t s0 = (srcIdx < samplesGot) ? g_videoBuffer[srcIdx] : lastSample;
-                int16_t s1 = (srcIdx + 1 < samplesGot) ? g_videoBuffer[srcIdx + 1] : s0;
+                bool hasCur = srcIdx < samplesGot;
+                bool hasNxt = srcIdx + 1 < samplesGot;
+                int16_t s0 = hasCur ? g_videoBuffer[srcIdx] : lastSample;
+                int16_t s1 = hasNxt ? g_videoBuffer[srcIdx + 1] : s0;
                 if (srcIdx < samplesGot) lastSample = s0;
 
-                float interpolated = (1.0f - frac) * (float)s0 + frac * (float)s1;
+                float f0 = (float)s0;
+                float f1 = (float)s1;
+                float interpolated = (1.0f - frac) * f0 + frac * f1;
                 Float32 sample = interpolated / 32768.0f * videoVol;
 
                 // Video audio is mono - send to both channels
@@ -290,7 +300,8 @@ BOOL Audio_Init(void) {
     AudioStreamBasicDescription format = {
         .mSampleRate = kOutputSampleRate,
         .mFormatID = kAudioFormatLinearPCM,
-        .mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsNonInterleaved,
+        .mFormatFlags = kAudioFormatFlagIsFloat |
+                        kAudioFormatFlagIsNonInterleaved,
         .mBytesPerPacket = sizeof(Float32),
         .mFramesPerPacket = 1,
         .mBytesPerFrame = sizeof(Float32),
@@ -350,7 +361,8 @@ BOOL Audio_Init(void) {
     }
 
     g_initialized = TRUE;
-    NSLog(@"Audio: Initialized (%.0f Hz, %u channels)", kOutputSampleRate, kOutputChannels);
+    NSLog(@"Audio: Initialized (%.0f Hz, %u ch)",
+          kOutputSampleRate, kOutputChannels);
     return TRUE;
 }
 
@@ -374,7 +386,8 @@ void Audio_Update(void) {
     // Nothing needed - mixing happens in callback
 }
 
-SoundHandle Audio_Play(const AudioSample* sample, uint8_t volume, int8_t pan, BOOL loop) {
+SoundHandle Audio_Play(const AudioSample* sample, uint8_t volume,
+                       int8_t pan, BOOL loop) {
     if (!g_initialized || !sample || !sample->data) {
         return 0;
     }
@@ -567,7 +580,8 @@ float Audio_GetMusicVolume(void) {
 // Video Audio Streaming
 //===========================================================================
 
-void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata, int sampleRate) {
+void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata,
+                            int sampleRate) {
     std::lock_guard<std::mutex> lock(g_audioMutex);
     g_videoCallback = callback;
     g_videoUserdata = userdata;

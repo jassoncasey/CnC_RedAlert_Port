@@ -38,7 +38,8 @@ uint16_t VQAPlayer::SwapBE16(uint16_t val) {
 // LCW Decompression (Format80) - Based on OpenRA implementation
 //===========================================================================
 
-int VQAPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize) {
+int VQAPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst,
+                             int srcSize, int dstSize) {
     const uint8_t* srcEnd = src + srcSize;
     int destIndex = 0;
 
@@ -90,8 +91,8 @@ int VQAPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst, int srcSize, int 
                 destIndex += count;
             } else {
                 // Case 3 or 5: Copy from absolute position
-                // Case 3: 11CCCCCC PPPPPPPP PPPPPPPP - copy (C + 3) from absolute P
-                // Case 5: 11111111 LLLLLLLL LLLLLLLL PPPPPPPP PPPPPPPP - copy L from absolute P
+                // Case 3: 11CCCCCC PP PP - copy (C+3) from abs P
+                // Case 5: 11111111 LL LL PP PP - copy L from abs P
                 int count;
                 if (count3 == 0x3F) {
                     // Case 5: Long copy
@@ -124,7 +125,8 @@ int VQAPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst, int srcSize, int 
 // RLE Decompression for Vector Pointers
 //===========================================================================
 
-int VQAPlayer::DecompressRLE(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize) {
+int VQAPlayer::DecompressRLE(const uint8_t* src, uint8_t* dst,
+                             int srcSize, int dstSize) {
     const uint8_t* srcEnd = src + srcSize;
     uint8_t* dstStart = dst;
     uint8_t* dstEnd = dst + dstSize;
@@ -314,10 +316,15 @@ bool VQAPlayer::ParseHeader() {
     const IFFChunk* form = (const IFFChunk*)ptr;
     uint32_t formId = SwapBE32(form->id);
     if (formId != VQA_ID_FORM) {
-        printf("VQA: ParseHeader - bad FORM header: 0x%08X (expected 0x%08X)\n", formId, VQA_ID_FORM);
-        printf("VQA: First 16 bytes: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
-               data_[0], data_[1], data_[2], data_[3], data_[4], data_[5], data_[6], data_[7],
-               data_[8], data_[9], data_[10], data_[11], data_[12], data_[13], data_[14], data_[15]);
+        printf("VQA: bad FORM: 0x%08X (want 0x%08X)\n",
+               formId, VQA_ID_FORM);
+        printf("VQA: First 16 bytes: "
+               "%02X %02X %02X %02X %02X %02X %02X %02X "
+               "%02X %02X %02X %02X %02X %02X %02X %02X\n",
+               data_[0], data_[1], data_[2], data_[3],
+               data_[4], data_[5], data_[6], data_[7],
+               data_[8], data_[9], data_[10], data_[11],
+               data_[12], data_[13], data_[14], data_[15]);
         return false;
     }
     ptr += 8;
@@ -325,7 +332,8 @@ bool VQAPlayer::ParseHeader() {
     // Check WVQA type
     uint32_t type = SwapBE32(*(uint32_t*)ptr);
     if (type != VQA_ID_WVQA) {
-        printf("VQA: ParseHeader - bad WVQA type: 0x%08X (expected 0x%08X)\n", type, VQA_ID_WVQA);
+        printf("VQA: bad WVQA: 0x%08X (want 0x%08X)\n",
+               type, VQA_ID_WVQA);
         return false;
     }
     ptr += 4;
@@ -379,7 +387,8 @@ bool VQAPlayer::ParseHeader() {
     // Allocate codebook (max size: entries * blockW * blockH)
     int blockSize = header_.blockWidth * header_.blockHeight;
     if (blockSize == 0) blockSize = 8;  // Default 4x2
-    codebookSize_ = (header_.cbEntries > 0 ? header_.cbEntries : 0x10000) * blockSize;
+    int cbEntries = header_.cbEntries > 0 ? header_.cbEntries : 0x10000;
+    codebookSize_ = cbEntries * blockSize;
     codebook_ = new uint8_t[codebookSize_];
     memset(codebook_, 0, codebookSize_);
 
@@ -394,7 +403,7 @@ bool VQAPlayer::ParseHeader() {
         audioBuffer_ = new int16_t[audioBufferSize_];
     }
 
-    // Allocate CBP accumulation buffer (same size as codebook for partial updates)
+    // Allocate CBP accumulation buffer (codebook size for partial updates)
     cbpBufferSize_ = codebookSize_;
     cbpBuffer_ = new uint8_t[cbpBufferSize_];
     memset(cbpBuffer_, 0, cbpBufferSize_);
@@ -415,7 +424,7 @@ bool VQAPlayer::ParseFrameIndex() {
 
     frameOffsets_ = new uint32_t[header_.frames];
 
-    // Note: Frame offsets in FINF are stored differently in different VQA versions
+    // Note: FINF offsets stored differently in different VQA versions
     // For now, we'll scan for VQFR/VQFK chunks instead
 
     return true;
@@ -518,12 +527,11 @@ bool VQAPlayer::DecodeFrame(int frameNum) {
     paletteChanged_ = false;
     audioSamplesReady_ = 0;
 
-    // Note: ADPCM state (audioPredictor_, audioStepIndex_) persists across frames
-    // because the entire video's audio is one continuous ADPCM stream.
-    // This matches OpenRA's behavior which decodes all audio with continuous state.
+    // Note: ADPCM state persists across frames as video audio is
+    // one continuous ADPCM stream (matches OpenRA behavior).
 
-    // Apply any accumulated partial codebook at the START of the frame
-    // This is key: CBP chunks from previous frames are applied before processing this frame
+    // Apply accumulated partial codebook at START of frame
+    // (CBP chunks from prior frames applied before this frame)
     ApplyAccumulatedCodebook();
 
     // Scan through file to find frame
@@ -545,9 +553,12 @@ bool VQAPlayer::DecodeFrame(int frameNum) {
         // Audio at currentFrameIndex=0 belongs to frame 1, etc.
         // So: audio belongs to frame (currentFrameIndex + 1)
         // We need to decode ALL audio chunks for the target frame
-        if (chunkId == VQA_ID_SND0 || chunkId == VQA_ID_SND1 || chunkId == VQA_ID_SND2) {
+        bool isAudio = (chunkId == VQA_ID_SND0 ||
+                        chunkId == VQA_ID_SND1 ||
+                        chunkId == VQA_ID_SND2);
+        if (isAudio) {
             if (currentFrameIndex + 1 == frameNum) {
-                // This audio chunk belongs to the target frame - decode and accumulate
+                // Audio for target frame - decode and accumulate
                 DecodeAudio(ptr, chunkSize, chunkId);
             }
         }
@@ -624,7 +635,8 @@ bool VQAPlayer::DecodeFrame(int frameNum) {
     return false;
 }
 
-bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size, bool compressed, bool partial) {
+bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size,
+                               bool compressed, bool partial) {
     if (!data || size == 0) return false;
 
     int blockSize = header_.blockWidth * header_.blockHeight;
@@ -632,7 +644,7 @@ bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size, bool compress
 
     if (partial) {
         // Partial codebook update (CBP0/CBPZ) - accumulate chunks
-        // These chunks are collected across multiple frames and applied together
+        // Chunks collected across frames and applied together
         // when all parts are received (determined by header_.groupSize)
 
         // Append to CBP accumulation buffer
@@ -641,21 +653,21 @@ bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size, bool compress
             cbpOffset_ += size;
         }
         cbpCount_++;
-        cbpIsCompressed_ = compressed;  // Track if the final accumulated data needs decompression
+        cbpIsCompressed_ = compressed;  // Track for final decompress
 
         return true;
     }
 
-    // Full codebook (CBF0/CBFZ) - decompress and replace entire codebook immediately
+    // Full codebook (CBF0/CBFZ) - decompress and replace immediately
     // Also reset CBP accumulation state since we have a new full codebook
     cbpOffset_ = 0;
     cbpCount_ = 0;
 
     if (compressed) {
-        int decompSize = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
-        if (decompSize > 0 && decompSize <= codebookSize_) {
-            memcpy(codebook_, decompBuffer_, decompSize);
-            codebookEntries_ = decompSize / blockSize;
+        int ds = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
+        if (ds > 0 && ds <= codebookSize_) {
+            memcpy(codebook_, decompBuffer_, ds);
+            codebookEntries_ = ds / blockSize;
         } else {
             return false;
         }
@@ -670,7 +682,7 @@ bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size, bool compress
 
 void VQAPlayer::ApplyAccumulatedCodebook() {
     // Apply accumulated CBP chunks if we have collected enough parts
-    // header_.groupSize tells us how many CBP chunks make a complete codebook update
+    // groupSize tells how many CBP chunks make a complete codebook
 
     int partsNeeded = header_.groupSize;
     if (partsNeeded == 0) partsNeeded = 8;  // Default if not specified
@@ -681,10 +693,11 @@ void VQAPlayer::ApplyAccumulatedCodebook() {
 
         if (cbpIsCompressed_) {
             // Decompress the accumulated CBPZ data
-            int decompSize = DecompressLCW(cbpBuffer_, decompBuffer_, cbpOffset_, decompBufferSize_);
-            if (decompSize > 0 && decompSize <= codebookSize_) {
-                memcpy(codebook_, decompBuffer_, decompSize);
-                codebookEntries_ = decompSize / blockSize;
+            int ds = DecompressLCW(cbpBuffer_, decompBuffer_,
+                                   cbpOffset_, decompBufferSize_);
+            if (ds > 0 && ds <= codebookSize_) {
+                memcpy(codebook_, decompBuffer_, ds);
+                codebookEntries_ = ds / blockSize;
             }
         } else {
             // CBP0 - uncompressed, just copy
@@ -699,7 +712,8 @@ void VQAPlayer::ApplyAccumulatedCodebook() {
     }
 }
 
-bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size, uint32_t chunkId) {
+bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size,
+                               uint32_t chunkId) {
     if (!data || size == 0) return false;
 
     const uint8_t* pointerData = data;
@@ -707,17 +721,19 @@ bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size, uint32_t chun
 
     // Decompress if needed
     if (chunkId == VQA_ID_VPTZ || chunkId == VQA_ID_VPRZ) {
-        int decompSize = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
-        if (decompSize <= 0) return false;
+        int ds = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
+        if (ds <= 0) return false;
         pointerData = decompBuffer_;
-        pointerSize = decompSize;
+        pointerSize = ds;
     }
 
     // Further RLE decompress VPTR/VPRZ
     if (chunkId == VQA_ID_VPTR || chunkId == VQA_ID_VPRZ) {
         // VPTR uses additional RLE compression
-        uint8_t* rleBuffer = decompBuffer_ + decompBufferSize_ / 2;
-        int rleSize = DecompressRLE(pointerData, rleBuffer, pointerSize, decompBufferSize_ / 2);
+        int halfSize = decompBufferSize_ / 2;
+        uint8_t* rleBuffer = decompBuffer_ + halfSize;
+        int rleSize = DecompressRLE(pointerData, rleBuffer,
+                                    pointerSize, halfSize);
         if (rleSize <= 0) return false;
         pointerData = rleBuffer;
         pointerSize = rleSize;
@@ -737,14 +753,15 @@ bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size, uint32_t chun
     return true;
 }
 
-bool VQAPlayer::DecodePalette(const uint8_t* data, uint32_t size, bool compressed) {
+bool VQAPlayer::DecodePalette(const uint8_t* data, uint32_t size,
+                              bool compressed) {
     if (!data || size == 0) return false;
 
     const uint8_t* palData = data;
 
     if (compressed) {
-        int decompSize = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
-        if (decompSize < 768) {
+        int ds = DecompressLCW(data, decompBuffer_, size, decompBufferSize_);
+        if (ds < 768) {
             return false;
         }
         palData = decompBuffer_;
@@ -771,7 +788,8 @@ bool VQAPlayer::DecodePalette(const uint8_t* data, uint32_t size, bool compresse
     return true;
 }
 
-bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId) {
+bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size,
+                            uint32_t chunkId) {
     if (!data || size == 0 || !audioBuffer_) return false;
 
     // FIXME: VQA audio still has minor static/distortion artifacts.
@@ -779,9 +797,9 @@ bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId
     // 1. Buffer underruns during real-time streaming (video decodes per-frame,
     //    audio consumes continuously at 44100 Hz)
     // 2. ADPCM decoder differences from original Westwood implementation
-    // 3. Linear interpolation resampling (22050->44100) may introduce artifacts
+    // 3. Resampling (22050->44100) may introduce artifacts
     // 4. Timing jitter between video frame decode and audio consumption
-    // Consider: pre-buffering more audio, or decoding all audio upfront like OpenRA
+    // Consider: pre-buffer more audio, or decode all upfront like OpenRA
 
     // IMA ADPCM step table
     static const int stepTable[89] = {
@@ -822,8 +840,8 @@ bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId
         for (uint32_t i = 0; i < size && sampleIdx < audioBufferSize_; i++) {
             uint8_t byte = data[i];
 
-            for (int nibbleIdx = 0; nibbleIdx < 2 && sampleIdx < audioBufferSize_; nibbleIdx++) {
-                uint8_t nibble = (nibbleIdx == 0) ? (byte & 0x0F) : ((byte >> 4) & 0x0F);
+            for (int ni = 0; ni < 2 && sampleIdx < audioBufferSize_; ni++) {
+                uint8_t nibble = ni == 0 ? byte & 0x0F : (byte >> 4) & 0x0F;
 
                 int step = stepTable[stepIndex];
                 int diff = step >> 3;
@@ -877,7 +895,8 @@ void VQAPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
     const uint8_t* lowBytes = pointers;
     const uint8_t* highBytes = pointers + totalBlocks;
 
-    for (int blockIdx = 0; blockIdx < totalBlocks && blockIdx < pointerCount; blockIdx++) {
+    int maxBlocks = std::min(totalBlocks, pointerCount);
+    for (int blockIdx = 0; blockIdx < maxBlocks; blockIdx++) {
         int bx = blockIdx % blocksX;
         int by = blockIdx / blocksX;
         int px = bx * blockWidth;
@@ -900,10 +919,12 @@ void VQAPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
             if (cbIndex < codebookEntries_ && cbIndex >= 0) {
                 const uint8_t* block = codebook_ + cbIndex * blockSize;
 
-                for (int y = 0; y < blockHeight && py + y < header_.height; y++) {
+                int yMax = std::min(blockHeight, header_.height - py);
+                int xMax = std::min(blockWidth, header_.width - px);
+                for (int y = 0; y < yMax; y++) {
                     uint8_t* dst = frameBuffer_ + (py + y) * header_.width + px;
                     const uint8_t* src = block + y * blockWidth;
-                    for (int x = 0; x < blockWidth && px + x < header_.width; x++) {
+                    for (int x = 0; x < xMax; x++) {
                         dst[x] = src[x];
                     }
                 }
@@ -947,7 +968,8 @@ bool VQA_Play(const char* filename) {
     return true;
 }
 
-bool VQA_PlayWithCallback(const char* filename, VQAFrameCallback callback, void* userData) {
+bool VQA_PlayWithCallback(const char* filename, VQAFrameCallback callback,
+                          void* userData) {
     if (!callback) return false;
 
     VQAPlayer player;

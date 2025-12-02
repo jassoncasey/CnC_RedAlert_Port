@@ -100,7 +100,7 @@ typedef struct {
 typedef struct {
     char name[24];          // Team name (from INI key)
     int house;              // House/owner (0=Spain, 2=USSR, etc.)
-    int flags;              // Packed flags (roundabout, suicide, autocreate, etc.)
+    int flags;              // Packed team behavior flags
     int recruitPriority;    // Priority for recruiting
     int initNum;            // Initial number to create
     int maxAllowed;         // Maximum allowed
@@ -181,13 +181,11 @@ typedef struct {
     int baseHouse;          // House that owns the base (-1 if not set)
     int baseCount;          // Number of base structures (for AI rebuild)
 
-    // Win/Lose conditions
-    // Win: 0=destroy all, 1=destroy buildings, 2=survive time, 3=capture building
-    // Lose: 0=lose all, 1=lose buildings, 2=time expires, 3=lose specific unit
+    // Win/Lose conditions (0=destroy all, 1=buildings, etc)
     int winCondition;
     int loseCondition;
     int timeLimit;      // In frames (0=unlimited)
-    int targetCell;     // Target cell for capture/protect conditions (-1 if none)
+    int targetCell;     // Target cell for capture/protect (-1=none)
 
     // Terrain data from [MapPack] - per cell
     uint8_t* terrainType;   // Template type index (MAP_CELL_TOTAL bytes)

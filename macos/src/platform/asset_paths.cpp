@@ -41,7 +41,7 @@ static const char* GetBundleAssetsPath(void) {
         return "";
     }
 
-    // Navigate from .app/Contents/MacOS/RedAlert to .app/Contents/Resources/assets
+    // Navigate from .app/Contents/MacOS to .../Resources/assets
     // Find last /Contents/MacOS and replace with /Contents/Resources/assets
     char* contentsPos = strstr(realPath, "/Contents/MacOS");
     if (contentsPos) {
@@ -63,7 +63,7 @@ static const char* GetBundleAssetsPath(void) {
 // Note: Bundle path is checked first dynamically
 static const char* SEARCH_PATHS[] = {
     "~/Library/Application Support/RedAlert/assets",  // User installation
-    "./assets",                                        // Portable/adjacent to app
+    "./assets",                         // Portable/adjacent to app
     "../assets",                                       // Development builds
     "/Volumes/CD1/INSTALL",                           // Mounted Allied ISO
     "/Volumes/CD2/INSTALL",                           // Mounted Soviet ISO
@@ -139,7 +139,8 @@ bool Assets_FindPath(char* outPath, size_t outSize) {
 
     // First, check for bundled assets (self-contained distribution)
     const char* bundlePath = GetBundleAssetsPath();
-    if (bundlePath[0] != '\0' && DirectoryHasAsset(bundlePath, REQUIRED_ASSETS[0])) {
+    bool hasBundle = bundlePath[0] != '\0';
+    if (hasBundle && DirectoryHasAsset(bundlePath, REQUIRED_ASSETS[0])) {
         strncpy(g_assetPath, bundlePath, sizeof(g_assetPath) - 1);
         g_assetPathValid = true;
         strncpy(outPath, bundlePath, outSize - 1);
@@ -227,7 +228,9 @@ void Assets_PrintSearchPaths(void) {
         ExpandPath(SEARCH_PATHS[i], expandedPath, sizeof(expandedPath));
 
         bool exists = FileExists(expandedPath);
-        bool hasAssets = exists && DirectoryHasAsset(expandedPath, REQUIRED_ASSETS[0]);
+        bool hasAssets = exists;
+        hasAssets = hasAssets && DirectoryHasAsset(expandedPath,
+                                                    REQUIRED_ASSETS[0]);
 
         printf("  %d. %s", i + 1, expandedPath);
         if (hasAssets) {

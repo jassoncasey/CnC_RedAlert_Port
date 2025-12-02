@@ -33,7 +33,8 @@ int Terrain_GetLoadedCount(void);
 // Render terrain from MapPack data
 // templateID: Template ID from MapPack data (e.g., 255=clear, 1=water)
 // tileIndex: Tile index within template (from MapPack icon data)
-BOOL Terrain_RenderByID(int templateID, int tileIndex, int screenX, int screenY);
+BOOL Terrain_RenderByID(int templateID, int tileIndex,
+                        int screenX, int screenY);
 
 // Set the map theater (loads appropriate templates)
 // theater: 0=temperate, 1=snow, 2=interior, 3=desert

@@ -85,7 +85,8 @@ static int g_aiHarvesterCount = 0;
 static int g_buildDelay = 300;      // 20 seconds between buildings
 static int g_productionDelay = 150; // 10 seconds between units
 static int g_attackDelay = 900;     // 60 seconds between attacks
-static int g_incomeRate = 50;       // Credits per tick (simulated harvester income)
+// Credits per tick (simulated harvester income)
+static int g_incomeRate = 50;
 
 //===========================================================================
 // Helper Functions
@@ -107,7 +108,9 @@ static bool FindAIConYard(int* outCellX, int* outCellY) {
 }
 
 // Find valid placement near construction yard
-static bool FindBuildingPlacement(int conYardX, int conYardY, int width, int height, int* outX, int* outY) {
+static bool FindBuildingPlacement(int conYardX, int conYardY,
+                                  int width, int height,
+                                  int* outX, int* outY) {
     // Search in expanding rings around construction yard
     for (int radius = 3; radius < 15; radius++) {
         for (int dy = -radius; dy <= radius; dy++) {
@@ -147,7 +150,9 @@ static bool FindUnitSpawnPosition(int nearX, int nearY, int* outX, int* outY) {
                 int cy = nearY + dy;
                 MapCell* cell = Map_GetCell(cx, cy);
                 if (!cell) continue;
-                if (cell->terrain == TERRAIN_CLEAR && cell->unitId < 0 && cell->buildingId < 0) {
+                bool clear = cell->terrain == TERRAIN_CLEAR;
+                bool empty = cell->unitId < 0 && cell->buildingId < 0;
+                if (clear && empty) {
                     int worldX, worldY;
                     Map_CellToWorld(cx, cy, &worldX, &worldY);
                     *outX = worldX;
@@ -272,7 +277,9 @@ static void AI_TryBuildStructure(void) {
     GetBuildingSize(toBuild, &width, &height);
 
     int placeX, placeY;
-    if (!FindBuildingPlacement(conYardX, conYardY, width, height, &placeX, &placeY)) {
+    bool placed = FindBuildingPlacement(conYardX, conYardY,
+                                         width, height, &placeX, &placeY);
+    if (!placed) {
         return; // No valid placement
     }
 
@@ -356,8 +363,11 @@ static void AI_TryProduceUnit(void) {
         if (!bld || !bld->active) continue;
         if (bld->team != TEAM_ENEMY) continue;
 
-        if ((toBuild >= UNIT_RIFLE && toBuild <= UNIT_ENGINEER && bld->type == BUILDING_BARRACKS) ||
-            (toBuild >= UNIT_TANK_LIGHT && bld->type == BUILDING_FACTORY)) {
+        bool isInf = toBuild >= UNIT_RIFLE && toBuild <= UNIT_ENGINEER;
+        bool isVeh = toBuild >= UNIT_TANK_LIGHT;
+        bool barracks = bld->type == BUILDING_BARRACKS;
+        bool factory = bld->type == BUILDING_FACTORY;
+        if ((isInf && barracks) || (isVeh && factory)) {
             spawnNearX = bld->cellX;
             spawnNearY = bld->cellY + bld->height;
             foundBuilding = true;
@@ -399,7 +409,9 @@ static bool FindPlayerBase(int* outX, int* outY) {
         if (bld->team != TEAM_PLAYER) continue;
 
         int worldX, worldY;
-        Map_CellToWorld(bld->cellX + bld->width / 2, bld->cellY + bld->height / 2, &worldX, &worldY);
+        int cx = bld->cellX + bld->width / 2;
+        int cy = bld->cellY + bld->height / 2;
+        Map_CellToWorld(cx, cy, &worldX, &worldY);
         *outX = worldX;
         *outY = worldY;
         return true;

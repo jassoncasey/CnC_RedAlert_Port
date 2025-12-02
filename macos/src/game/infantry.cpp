@@ -234,8 +234,10 @@ void InfantryClass::StandUp() {
     SetDoType(DoType::GET_UP);
 }
 
-ResultType InfantryClass::TakeDamage(int& damage, int distance, WarheadType warhead,
-                                      TechnoClass* source, bool forced) {
+ResultType InfantryClass::TakeDamage(int& damage, int distance,
+                                      WarheadType warhead,
+                                      TechnoClass* source,
+                                      bool forced) {
     // Prone infantry take less damage from HE
     if (isProne_ && warhead == WarheadType::HE) {
         damage = damage * 2 / 3;

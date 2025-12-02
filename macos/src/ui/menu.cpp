@@ -144,7 +144,8 @@ static void DrawMenuBackground(void) {
 // 3D Beveled Button Drawing
 //===========================================================================
 
-static void DrawBeveledButton(int x, int y, int w, int h, bool pressed, bool hover, bool enabled) {
+static void DrawBeveledButton(int x, int y, int w, int h,
+                              bool pressed, bool hover, bool enabled) {
     // Button face
     uint8_t faceColor;
     if (!enabled) {
@@ -205,53 +206,75 @@ void Menu_Init(void) {
 
     // Create main menu
     g_mainMenu = Menu_Create("RED ALERT");
-    Menu_SetColors(g_mainMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
+    Menu_SetColors(g_mainMenu, PAL_BLACK, BTN_TEXT,
+                   BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
 
-    int centerX = 320;
-    int btnWidth = 180;
-    int btnHeight = 24;
-    int startY = 120;
-    int spacing = 32;
+    int btnW = 180;
+    int btnH = 24;
+    int btnX = 320 - btnW/2;  // Centered
+    int y = 120;
+    int sp = 32;
 
     // Title labels are handled specially in render
 
-    Menu_AddButton(g_mainMenu, BTN_NEW_GAME, "START NEW GAME", centerX - btnWidth/2, startY, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_AddButton(g_mainMenu, BTN_LOAD_GAME, "LOAD MISSION", centerX - btnWidth/2, startY + spacing, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_SetItemEnabled(g_mainMenu, BTN_LOAD_GAME, FALSE); // Not implemented
-    Menu_AddButton(g_mainMenu, BTN_MULTIPLAYER, "MULTIPLAYER GAME", centerX - btnWidth/2, startY + spacing*2, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_SetItemEnabled(g_mainMenu, BTN_MULTIPLAYER, FALSE); // Not implemented
+    Menu_AddButton(g_mainMenu, BTN_NEW_GAME, "START NEW GAME",
+                   btnX, y, btnW, btnH, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_LOAD_GAME, "LOAD MISSION",
+                   btnX, y + sp, btnW, btnH, OnMainMenuButton);
+    Menu_SetItemEnabled(g_mainMenu, BTN_LOAD_GAME, FALSE);
+    Menu_AddButton(g_mainMenu, BTN_MULTIPLAYER, "MULTIPLAYER GAME",
+                   btnX, y + sp*2, btnW, btnH, OnMainMenuButton);
+    Menu_SetItemEnabled(g_mainMenu, BTN_MULTIPLAYER, FALSE);
 
-    Menu_AddButton(g_mainMenu, BTN_OPTIONS, "OPTIONS", centerX - btnWidth/2, startY + spacing*3, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_AddButton(g_mainMenu, BTN_CREDITS, "INTRO & CREDITS", centerX - btnWidth/2, startY + spacing*4, btnWidth, btnHeight, OnMainMenuButton);
-    Menu_AddButton(g_mainMenu, BTN_EXIT, "EXIT GAME", centerX - btnWidth/2, startY + spacing*5 + 16, btnWidth, btnHeight, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_OPTIONS, "OPTIONS",
+                   btnX, y + sp*3, btnW, btnH, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_CREDITS, "INTRO & CREDITS",
+                   btnX, y + sp*4, btnW, btnH, OnMainMenuButton);
+    Menu_AddButton(g_mainMenu, BTN_EXIT, "EXIT GAME",
+                   btnX, y + sp*5 + 16, btnW, btnH, OnMainMenuButton);
 
     // Create options menu
     g_optionsMenu = Menu_Create("OPTIONS");
-    Menu_SetColors(g_optionsMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
+    Menu_SetColors(g_optionsMenu, PAL_BLACK, BTN_TEXT,
+                   BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
 
-    Menu_AddSlider(g_optionsMenu, SLD_SOUND_VOL, "SOUND VOLUME", centerX - 100, 140, 200, 0, 255, 255, OnOptionsButton);
-    Menu_AddSlider(g_optionsMenu, SLD_MUSIC_VOL, "MUSIC VOLUME", centerX - 100, 200, 200, 0, 255, 200, OnOptionsButton);
-    Menu_AddToggle(g_optionsMenu, TGL_FULLSCREEN, "FULLSCREEN", centerX - 80, 260, FALSE, OnOptionsButton);
+    Menu_AddSlider(g_optionsMenu, SLD_SOUND_VOL, "SOUND VOLUME",
+                   220, 140, 200, 0, 255, 255, OnOptionsButton);
+    Menu_AddSlider(g_optionsMenu, SLD_MUSIC_VOL, "MUSIC VOLUME",
+                   220, 200, 200, 0, 255, 200, OnOptionsButton);
+    Menu_AddToggle(g_optionsMenu, TGL_FULLSCREEN, "FULLSCREEN",
+                   240, 260, FALSE, OnOptionsButton);
 
-    Menu_AddButton(g_optionsMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 320, btnWidth, btnHeight, OnOptionsButton);
+    Menu_AddButton(g_optionsMenu, BTN_BACK, "BACK",
+                   btnX, 320, btnW, btnH, OnOptionsButton);
 
     // Create campaign selection menu
     g_campaignMenu = Menu_Create("SELECT CAMPAIGN");
-    Menu_SetColors(g_campaignMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
+    Menu_SetColors(g_campaignMenu, PAL_BLACK, BTN_TEXT,
+                   BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
 
-    Menu_AddButton(g_campaignMenu, BTN_ALLIED_CAMPAIGN, "ALLIED CAMPAIGN", centerX - btnWidth/2, 140, btnWidth, btnHeight, OnCampaignButton);
-    Menu_AddButton(g_campaignMenu, BTN_SOVIET_CAMPAIGN, "SOVIET CAMPAIGN", centerX - btnWidth/2, 140 + spacing, btnWidth, btnHeight, OnCampaignButton);
-    Menu_AddButton(g_campaignMenu, BTN_SKIRMISH, "SKIRMISH BATTLE", centerX - btnWidth/2, 140 + spacing*2, btnWidth, btnHeight, OnCampaignButton);
-    Menu_AddButton(g_campaignMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 140 + spacing*4, btnWidth, btnHeight, OnCampaignButton);
+    Menu_AddButton(g_campaignMenu, BTN_ALLIED_CAMPAIGN, "ALLIED CAMPAIGN",
+                   btnX, 140, btnW, btnH, OnCampaignButton);
+    Menu_AddButton(g_campaignMenu, BTN_SOVIET_CAMPAIGN, "SOVIET CAMPAIGN",
+                   btnX, 140 + sp, btnW, btnH, OnCampaignButton);
+    Menu_AddButton(g_campaignMenu, BTN_SKIRMISH, "SKIRMISH BATTLE",
+                   btnX, 140 + sp*2, btnW, btnH, OnCampaignButton);
+    Menu_AddButton(g_campaignMenu, BTN_BACK, "BACK",
+                   btnX, 140 + sp*4, btnW, btnH, OnCampaignButton);
 
     // Create difficulty selection menu
     g_difficultyMenu = Menu_Create("SELECT DIFFICULTY");
-    Menu_SetColors(g_difficultyMenu, PAL_BLACK, BTN_TEXT, BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
+    Menu_SetColors(g_difficultyMenu, PAL_BLACK, BTN_TEXT,
+                   BTN_TEXT_HOVER, BTN_TEXT_DISABLED);
 
-    Menu_AddButton(g_difficultyMenu, BTN_EASY, "EASY", centerX - btnWidth/2, 140, btnWidth, btnHeight, OnDifficultyButton);
-    Menu_AddButton(g_difficultyMenu, BTN_NORMAL, "NORMAL", centerX - btnWidth/2, 140 + spacing, btnWidth, btnHeight, OnDifficultyButton);
-    Menu_AddButton(g_difficultyMenu, BTN_HARD, "HARD", centerX - btnWidth/2, 140 + spacing*2, btnWidth, btnHeight, OnDifficultyButton);
-    Menu_AddButton(g_difficultyMenu, BTN_BACK, "BACK", centerX - btnWidth/2, 140 + spacing*4, btnWidth, btnHeight, OnDifficultyButton);
+    Menu_AddButton(g_difficultyMenu, BTN_EASY, "EASY",
+                   btnX, 140, btnW, btnH, OnDifficultyButton);
+    Menu_AddButton(g_difficultyMenu, BTN_NORMAL, "NORMAL",
+                   btnX, 140 + sp, btnW, btnH, OnDifficultyButton);
+    Menu_AddButton(g_difficultyMenu, BTN_HARD, "HARD",
+                   btnX, 140 + sp*2, btnW, btnH, OnDifficultyButton);
+    Menu_AddButton(g_difficultyMenu, BTN_BACK, "BACK",
+                   btnX, 140 + sp*4, btnW, btnH, OnDifficultyButton);
 }
 
 void Menu_Shutdown(void) {
@@ -306,7 +329,8 @@ static int Menu_FindFreeSlot(Menu* menu) {
     return menu->itemCount++;
 }
 
-int Menu_AddButton(Menu* menu, int id, const char* text, int x, int y, int width, int height, MenuCallback callback) {
+int Menu_AddButton(Menu* menu, int id, const char* text,
+                   int x, int y, int w, int h, MenuCallback cb) {
     int idx = Menu_FindFreeSlot(menu);
     if (idx < 0) return -1;
 
@@ -316,12 +340,12 @@ int Menu_AddButton(Menu* menu, int id, const char* text, int x, int y, int width
     item->text = text;
     item->x = x;
     item->y = y;
-    item->width = width;
-    item->height = height;
+    item->width = w;
+    item->height = h;
     item->enabled = TRUE;
     item->visible = TRUE;
     item->state = MENU_STATE_NORMAL;
-    item->callback = callback;
+    item->callback = cb;
 
     return idx;
 }
@@ -355,8 +379,9 @@ int Menu_AddSeparator(Menu* menu, int y) {
     return idx;
 }
 
-int Menu_AddSlider(Menu* menu, int id, const char* text, int x, int y, int width,
-                   int minVal, int maxVal, int currentVal, MenuCallback callback) {
+int Menu_AddSlider(Menu* menu, int id, const char* text,
+                   int x, int y, int width, int minVal, int maxVal,
+                   int curVal, MenuCallback cb) {
     int idx = Menu_FindFreeSlot(menu);
     if (idx < 0) return -1;
 
@@ -370,15 +395,16 @@ int Menu_AddSlider(Menu* menu, int id, const char* text, int x, int y, int width
     item->height = 20;
     item->minValue = minVal;
     item->maxValue = maxVal;
-    item->value = currentVal;
+    item->value = curVal;
     item->enabled = TRUE;
     item->visible = TRUE;
-    item->callback = callback;
+    item->callback = cb;
 
     return idx;
 }
 
-int Menu_AddToggle(Menu* menu, int id, const char* text, int x, int y, BOOL currentVal, MenuCallback callback) {
+int Menu_AddToggle(Menu* menu, int id, const char* text,
+                   int x, int y, BOOL curVal, MenuCallback cb) {
     int idx = Menu_FindFreeSlot(menu);
     if (idx < 0) return -1;
 
@@ -390,15 +416,16 @@ int Menu_AddToggle(Menu* menu, int id, const char* text, int x, int y, BOOL curr
     item->y = y;
     item->width = 200;
     item->height = 25;
-    item->value = currentVal ? 1 : 0;
+    item->value = curVal ? 1 : 0;
     item->enabled = TRUE;
     item->visible = TRUE;
-    item->callback = callback;
+    item->callback = cb;
 
     return idx;
 }
 
-void Menu_SetColors(Menu* menu, uint8_t bg, uint8_t text, uint8_t highlight, uint8_t disabled) {
+void Menu_SetColors(Menu* menu, uint8_t bg, uint8_t text,
+                    uint8_t highlight, uint8_t disabled) {
     menu->bgColor = bg;
     menu->textColor = text;
     menu->highlightColor = highlight;
@@ -489,7 +516,7 @@ void Menu_Update(Menu* menu) {
 void Menu_Render(Menu* menu) {
     if (!menu) return;
 
-    // Set menu palette - terrain palettes (SNOW.PAL etc) don't have correct UI colors
+    // Set menu palette - terrain palettes don't have correct UI colors
     Palette menuPal;
     StubAssets_CreatePalette(&menuPal);
     Renderer_SetPalette(&menuPal);
@@ -515,7 +542,8 @@ void Menu_Render(Menu* menu) {
         MenuItem* item = &menu->items[i];
         if (!item->visible) continue;
 
-        bool isHovered = (item->state == MENU_STATE_HOVER || i == menu->selectedIndex);
+        bool isHovered = (item->state == MENU_STATE_HOVER ||
+                          i == menu->selectedIndex);
         bool isPressed = (item->state == MENU_STATE_PRESSED);
 
         uint8_t textColor = menu->textColor;
@@ -559,48 +587,58 @@ void Menu_Render(Menu* menu) {
                 int trackH = 12;
 
                 // Sunken border
-                Renderer_HLine(item->x, item->x + item->width, trackY, BTN_SHADOW);
-                Renderer_VLine(item->x, trackY, trackY + trackH, BTN_SHADOW);
-                Renderer_HLine(item->x, item->x + item->width, trackY + trackH, BTN_HIGHLIGHT);
-                Renderer_VLine(item->x + item->width, trackY, trackY + trackH, BTN_HIGHLIGHT);
+                int x1 = item->x;
+                int x2 = item->x + item->width;
+                Renderer_HLine(x1, x2, trackY, BTN_SHADOW);
+                Renderer_VLine(x1, trackY, trackY + trackH, BTN_SHADOW);
+                Renderer_HLine(x1, x2, trackY + trackH, BTN_HIGHLIGHT);
+                Renderer_VLine(x2, trackY, trackY + trackH, BTN_HIGHLIGHT);
 
                 // Track fill (dark)
-                Renderer_FillRect(item->x + 1, trackY + 1, item->width - 1, trackH - 1, 1);
+                Renderer_FillRect(x1 + 1, trackY + 1,
+                                  item->width - 1, trackH - 1, 1);
 
                 // Value bar (green)
-                int fillWidth = (item->value - item->minValue) * (item->width - 2) / (item->maxValue - item->minValue);
-                if (fillWidth > 0) {
-                    Renderer_FillRect(item->x + 1, trackY + 1, fillWidth, trackH - 1, PAL_GREEN);
+                int range = item->maxValue - item->minValue;
+                int fillW = (item->value - item->minValue) *
+                            (item->width - 2) / range;
+                if (fillW > 0) {
+                    Renderer_FillRect(x1 + 1, trackY + 1,
+                                      fillW, trackH - 1, PAL_GREEN);
                 }
 
                 // Value text
                 char valText[16];
                 snprintf(valText, sizeof(valText), "%d", item->value);
-                Renderer_DrawText(valText, item->x + item->width + 10, trackY + 2, textColor, 0);
+                Renderer_DrawText(valText, x2 + 10, trackY + 2,
+                                  textColor, 0);
                 break;
             }
 
             case MENU_ITEM_TOGGLE: {
                 // Checkbox (sunken box)
-                int boxSize = 14;
+                int boxSz = 14;
                 int boxY = item->y + 4;
+                int bx = item->x;
 
                 // Sunken border
-                Renderer_HLine(item->x, item->x + boxSize, boxY, BTN_SHADOW);
-                Renderer_VLine(item->x, boxY, boxY + boxSize, BTN_SHADOW);
-                Renderer_HLine(item->x, item->x + boxSize, boxY + boxSize, BTN_HIGHLIGHT);
-                Renderer_VLine(item->x + boxSize, boxY, boxY + boxSize, BTN_HIGHLIGHT);
+                Renderer_HLine(bx, bx + boxSz, boxY, BTN_SHADOW);
+                Renderer_VLine(bx, boxY, boxY + boxSz, BTN_SHADOW);
+                Renderer_HLine(bx, bx + boxSz, boxY + boxSz, BTN_HIGHLIGHT);
+                Renderer_VLine(bx + boxSz, boxY, boxY + boxSz, BTN_HIGHLIGHT);
 
                 // Box fill
-                Renderer_FillRect(item->x + 1, boxY + 1, boxSize - 1, boxSize - 1, 1);
+                Renderer_FillRect(bx + 1, boxY + 1, boxSz - 1, boxSz - 1, 1);
 
                 // Checkmark
                 if (item->value) {
-                    Renderer_FillRect(item->x + 3, boxY + 3, boxSize - 5, boxSize - 5, PAL_GREEN);
+                    Renderer_FillRect(bx + 3, boxY + 3,
+                                      boxSz - 5, boxSz - 5, PAL_GREEN);
                 }
 
                 // Label
-                Renderer_DrawText(item->text, item->x + boxSize + 10, item->y + 6, textColor, 0);
+                Renderer_DrawText(item->text, bx + boxSz + 10,
+                                  item->y + 6, textColor, 0);
                 break;
             }
         }
@@ -645,7 +683,8 @@ void Menu_HandleKey(Menu* menu, int vkCode) {
                     int step = (item->maxValue - item->minValue) / 10;
                     if (step < 1) step = 1;
                     item->value -= step;
-                    if (item->value < item->minValue) item->value = item->minValue;
+                    if (item->value < item->minValue)
+                        item->value = item->minValue;
                     if (item->callback) item->callback(item->id, item->value);
                 }
             }
@@ -658,7 +697,8 @@ void Menu_HandleKey(Menu* menu, int vkCode) {
                     int step = (item->maxValue - item->minValue) / 10;
                     if (step < 1) step = 1;
                     item->value += step;
-                    if (item->value > item->maxValue) item->value = item->maxValue;
+                    if (item->value > item->maxValue)
+                        item->value = item->maxValue;
                     if (item->callback) item->callback(item->id, item->value);
                 }
             }
@@ -681,7 +721,8 @@ void Menu_HandleKey(Menu* menu, int vkCode) {
     }
 }
 
-void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY, BOOL leftDown, BOOL leftClicked) {
+void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY,
+                      BOOL leftDown, BOOL leftClicked) {
     if (!menu || !menu->active) return;
 
     int prevHovered = menu->hoveredIndex;
@@ -701,7 +742,8 @@ void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY, BOOL leftDown, BOOL le
             hitH = 35; // Include label
         } else if (item->type == MENU_ITEM_TOGGLE) {
             hitW = 200;
-        } else if (item->type == MENU_ITEM_LABEL || item->type == MENU_ITEM_SEPARATOR) {
+        } else if (item->type == MENU_ITEM_LABEL ||
+                   item->type == MENU_ITEM_SEPARATOR) {
             continue; // Not interactive
         }
 
@@ -730,7 +772,8 @@ void Menu_HandleMouse(Menu* menu, int mouseX, int mouseY, BOOL leftDown, BOOL le
                     int relX = mouseX - item->x;
                     if (relX < 0) relX = 0;
                     if (relX > item->width) relX = item->width;
-                    item->value = item->minValue + (relX * (item->maxValue - item->minValue)) / item->width;
+                    int range = item->maxValue - item->minValue;
+                    item->value = item->minValue + (relX * range) / item->width;
                     if (item->callback) item->callback(item->id, item->value);
                 }
             }
@@ -829,7 +872,8 @@ static void OnDifficultyButton(int itemId, int value) {
             g_selectedDifficulty = DIFFICULTY_EASY;
             Menu_SetCurrentScreen(MENU_SCREEN_NONE);
             if (g_startCampaignCallback) {
-                g_startCampaignCallback((int)g_selectedCampaign, (int)g_selectedDifficulty);
+                g_startCampaignCallback((int)g_selectedCampaign,
+                                        (int)g_selectedDifficulty);
             } else if (g_newGameCallback) {
                 g_newGameCallback();
             }
@@ -839,7 +883,8 @@ static void OnDifficultyButton(int itemId, int value) {
             g_selectedDifficulty = DIFFICULTY_NORMAL;
             Menu_SetCurrentScreen(MENU_SCREEN_NONE);
             if (g_startCampaignCallback) {
-                g_startCampaignCallback((int)g_selectedCampaign, (int)g_selectedDifficulty);
+                g_startCampaignCallback((int)g_selectedCampaign,
+                                        (int)g_selectedDifficulty);
             } else if (g_newGameCallback) {
                 g_newGameCallback();
             }
@@ -849,7 +894,8 @@ static void OnDifficultyButton(int itemId, int value) {
             g_selectedDifficulty = DIFFICULTY_HARD;
             Menu_SetCurrentScreen(MENU_SCREEN_NONE);
             if (g_startCampaignCallback) {
-                g_startCampaignCallback((int)g_selectedCampaign, (int)g_selectedDifficulty);
+                g_startCampaignCallback((int)g_selectedCampaign,
+                                        (int)g_selectedDifficulty);
             } else if (g_newGameCallback) {
                 g_newGameCallback();
             }
@@ -942,7 +988,8 @@ const char* Menu_GetBriefingText(void) {
 }
 
 // Word-wrap text rendering helper
-static int RenderWrappedText(const char* text, int x, int y, int maxWidth, uint8_t color) {
+static int RenderWrappedText(const char* text, int x, int y,
+                             int maxWidth, uint8_t color) {
     if (!text || !*text) return y;
 
     const int charWidth = 8;
@@ -1008,7 +1055,7 @@ static int RenderWrappedText(const char* text, int x, int y, int maxWidth, uint8
 }
 
 void Menu_RenderBriefing(void) {
-    // Use stub palette for menu UI - terrain palettes (SNOW.PAL etc) don't have correct UI colors
+    // Use stub palette for menu UI - terrain palettes don't have UI colors
     // Create a local palette each frame so we don't affect gameplay
     Palette menuPal;
     StubAssets_CreatePalette(&menuPal);
@@ -1060,7 +1107,8 @@ void Menu_RenderBriefing(void) {
 
     // Render briefing text with word-wrap
     if (g_briefingText[0]) {
-        RenderWrappedText(g_briefingText, boxX + 10, boxY + 10, boxW - 20, PAL_WHITE);
+        RenderWrappedText(g_briefingText, boxX + 10, boxY + 10,
+                          boxW - 20, PAL_WHITE);
     }
 
     // Action buttons at bottom
@@ -1074,7 +1122,8 @@ void Menu_RenderBriefing(void) {
     Renderer_DrawText("COMMENCE", centerX - 32, btnY + 8, PAL_GOLD, 0);
 
     // Instructions
-    Renderer_DrawText("PRESS ENTER OR CLICK TO BEGIN MISSION", 150, 385, PAL_GREY, 0);
+    Renderer_DrawText("PRESS ENTER OR CLICK TO BEGIN MISSION",
+                      150, 385, PAL_GREY, 0);
 
     // === DEBUG: Removed - calibration was successful ===
 }
@@ -1159,7 +1208,8 @@ static std::mutex g_videoAudioMutex;
 static int16_t g_lastVideoSample = 0;
 
 // Video audio callback for audio system
-static int VideoAudioStreamCallback(int16_t* buffer, int sampleCount, void* userdata) {
+static int VideoAudioStreamCallback(int16_t* buffer, int sampleCount,
+                                    void* userdata) {
     (void)userdata;
     std::lock_guard<std::mutex> lock(g_videoAudioMutex);
 
@@ -1169,9 +1219,11 @@ static int VideoAudioStreamCallback(int16_t* buffer, int sampleCount, void* user
     int toRead = (sampleCount < available) ? sampleCount : available;
 
     for (int i = 0; i < toRead; i++) {
-        buffer[i] = g_videoAudioBuffer[(g_videoAudioReadPos + i) % VIDEO_AUDIO_BUFFER_SIZE];
+        int idx = (g_videoAudioReadPos + i) % VIDEO_AUDIO_BUFFER_SIZE;
+        buffer[i] = g_videoAudioBuffer[idx];
     }
-    g_videoAudioReadPos = (g_videoAudioReadPos + toRead) % VIDEO_AUDIO_BUFFER_SIZE;
+    g_videoAudioReadPos = (g_videoAudioReadPos + toRead) %
+                           VIDEO_AUDIO_BUFFER_SIZE;
 
     // Remember last sample for smooth transition
     if (toRead > 0) {
@@ -1201,7 +1253,8 @@ static void QueueVideoAudio(const int16_t* samples, int count) {
     }
 }
 
-void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete, BOOL skippable) {
+void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete,
+                    BOOL skippable) {
     // Clean up any previous video
     Menu_StopVideo();
 
@@ -1287,8 +1340,11 @@ void Menu_UpdateVideo(void) {
     // Check for skip input
     if (g_videoSkippable) {
         // Any key or mouse click skips
-        if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
-            Input_WasKeyPressed(VK_SPACE) || (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
+        bool esc = Input_WasKeyPressed(VK_ESCAPE);
+        bool enter = Input_WasKeyPressed(VK_RETURN);
+        bool space = Input_WasKeyPressed(VK_SPACE);
+        bool click = (Input_GetMouseButtons() & INPUT_MOUSE_LEFT) != 0;
+        if (esc || enter || space || click) {
             Menu_StopVideo();
             return;
         }
@@ -1391,10 +1447,7 @@ void Menu_StopVideo(void) {
     Palette restored;
     StubAssets_CreatePalette(&restored);
     Renderer_SetPalette(&restored);
-    printf("Menu_StopVideo: Restored stub palette [15]=%d,%d,%d [122]=%d,%d,%d [223]=%d,%d,%d\n",
-           restored.colors[15][0], restored.colors[15][1], restored.colors[15][2],
-           restored.colors[122][0], restored.colors[122][1], restored.colors[122][2],
-           restored.colors[223][0], restored.colors[223][1], restored.colors[223][2]);
+    printf("Menu_StopVideo: Restored stub palette\n");
 
     // Clear framebuffer to remove video residue
     Renderer_ResetClip();

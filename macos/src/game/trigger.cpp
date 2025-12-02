@@ -143,7 +143,8 @@ void TActionClass::Reset() {
     data.value = 0;
 }
 
-bool TActionClass::Execute(HousesType house, ObjectClass* object, int triggerId, int16_t cell) {
+bool TActionClass::Execute(HousesType house, ObjectClass* object,
+                           int triggerId, int16_t cell) {
     (void)object;
     (void)triggerId;
     (void)cell;
@@ -194,7 +195,9 @@ bool TActionClass::Execute(HousesType house, ObjectClass* object, int triggerId,
             // Destroy all instances of a team type
             if (teamIndex >= 0) {
                 for (int i = 0; i < TEAM_MAX; i++) {
-                    if (Teams[i].isActive_ && Teams[i].typeClass_ == &TeamTypes[teamIndex]) {
+                    bool active = Teams[i].isActive_;
+                    bool match = Teams[i].typeClass_ == &TeamTypes[teamIndex];
+                    if (active && match) {
                         Teams[i].Disband();
                     }
                 }
@@ -429,7 +432,8 @@ HousesType TriggerClass::House() const {
     return typeClass_ ? typeClass_->house_ : HousesType::NONE;
 }
 
-bool TriggerClass::Spring(TEventType event, ObjectClass* object, int16_t cell, bool forced) {
+bool TriggerClass::Spring(TEventType event, ObjectClass* object,
+                          int16_t cell, bool forced) {
     if (!isActive_ || !typeClass_) return false;
 
     bool event1Matched = false;
@@ -492,15 +496,19 @@ bool TriggerClass::Spring(TEventType event, ObjectClass* object, int16_t cell, b
         if (event1Matched) {
             result = typeClass_->action1_.Execute(house, object, id_, cell);
         }
-        if (event2Matched && typeClass_->actionControl_ != MultiStyleType::ONLY) {
-            result = typeClass_->action2_.Execute(house, object, id_, cell) || result;
+        bool notOnly = typeClass_->actionControl_ != MultiStyleType::ONLY;
+        if (event2Matched && notOnly) {
+            TActionClass& a2 = typeClass_->action2_;
+            result = a2.Execute(house, object, id_, cell) || result;
         }
     } else {
         // Normal mode: execute action(s)
-        result = typeClass_->action1_.Execute(house, object, id_, cell);
+        TActionClass& a1 = typeClass_->action1_;
+        result = a1.Execute(house, object, id_, cell);
 
         if (typeClass_->actionControl_ == MultiStyleType::AND) {
-            result = typeClass_->action2_.Execute(house, object, id_, cell) && result;
+            TActionClass& a2 = typeClass_->action2_;
+            result = a2.Execute(house, object, id_, cell) && result;
         }
     }
 
@@ -601,7 +609,8 @@ void Destroy_Trigger(TriggerClass* trigger) {
     }
 }
 
-void Process_Triggers(TEventType event, HousesType house, ObjectClass* object, int16_t cell) {
+void Process_Triggers(TEventType event, HousesType house,
+                      ObjectClass* object, int16_t cell) {
     // Process all active triggers for this event
     for (int i = 0; i < TRIGGER_MAX; i++) {
         if (Triggers[i].isActive_) {

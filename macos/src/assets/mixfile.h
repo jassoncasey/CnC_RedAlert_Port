@@ -64,7 +64,8 @@ uint32_t Mix_GetFileSize(MixFileHandle mix, const char* name);
  * @param bufSize Size of buffer
  * @return Bytes read, or 0 on failure
  */
-uint32_t Mix_ReadFile(MixFileHandle mix, const char* name, void* buffer, uint32_t bufSize);
+uint32_t Mix_ReadFile(MixFileHandle mix, const char* name,
+                      void* buffer, uint32_t bufSize);
 
 /**
  * Allocate and read a file from the archive
@@ -89,7 +90,8 @@ BOOL Mix_FileExistsByCRC(MixFileHandle mix, uint32_t crc);
 /**
  * Read file by CRC
  */
-uint32_t Mix_ReadFileByCRC(MixFileHandle mix, uint32_t crc, void* buffer, uint32_t bufSize);
+uint32_t Mix_ReadFileByCRC(MixFileHandle mix, uint32_t crc,
+                           void* buffer, uint32_t bufSize);
 
 #ifdef __cplusplus
 }

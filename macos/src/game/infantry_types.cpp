@@ -329,8 +329,8 @@ const DoInfoStruct EinsteinDoControls[static_cast<int>(DoType::COUNT)] = {
 // Infantry Type Table - Static data for all infantry types
 //===========================================================================
 
-// Note: Combat stats (strength, cost, etc.) would normally be loaded from
-// RULES.INI. These are placeholder values that match the original game defaults.
+// Note: Combat stats (strength, cost, etc.) would normally be loaded
+// from RULES.INI. These are placeholder values matching original game.
 
 const InfantryTypeData InfantryTypes[] = {
     // E1 - Rifle Infantry

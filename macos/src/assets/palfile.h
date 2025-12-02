@@ -63,7 +63,8 @@ void Pal_Remap(const Palette* src, Palette* dst, const uint8_t* remap);
  * @param dst   Destination palette
  * @param blend Blend factor (0 = all pal1, 255 = all pal2)
  */
-void Pal_Blend(const Palette* pal1, const Palette* pal2, Palette* dst, uint8_t blend);
+void Pal_Blend(const Palette* pal1, const Palette* pal2,
+               Palette* dst, uint8_t blend);
 
 /**
  * Fade palette to black

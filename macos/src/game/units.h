@@ -137,7 +137,7 @@ typedef enum {
 
 // Harvester constants
 #define HARVESTER_MAX_CARGO     1000    // Max ore a harvester can carry
-#define HARVESTER_LOAD_RATE     50      // Ore harvested per tick while harvesting
+#define HARVESTER_LOAD_RATE     50      // Ore/tick while harvesting
 #define ORE_VALUE               7       // Credits per unit of ore
 
 // Unit structure
@@ -173,7 +173,7 @@ typedef struct {
     int16_t harvestTimer;   // Ticks remaining in current harvest action
     // Combat behavior fields
     int16_t lastAttacker;   // Unit ID that last attacked this unit (-1 if none)
-    int16_t scatterTimer;   // Ticks remaining before scatter movement allowed again
+    int16_t scatterTimer;   // Ticks until scatter allowed again
 } Unit;
 
 // Building structure

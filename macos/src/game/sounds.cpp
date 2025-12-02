@@ -63,8 +63,8 @@ BOOL Sounds_Init(void) {
                         g_sounds[i]->channels = aud->channels;
                         g_sounds[i]->bitsPerSample = 16;
                         g_soundsLoaded++;
-                        fprintf(stderr, "  Loaded %s (%u samples, %u Hz)\n",
-                               g_soundNames[i], aud->sampleCount, aud->sampleRate);
+                        fprintf(stderr, "  Loaded %s (%u samples)\n",
+                               g_soundNames[i], aud->sampleCount);
                     } else {
                         free(g_sounds[i]);
                         g_sounds[i] = nullptr;

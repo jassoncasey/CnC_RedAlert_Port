@@ -137,7 +137,8 @@ void RadarClass::AI() {
     cursorPulseFrame_ = (cursorPulseFrame_ + 1) % 24;
 }
 
-void RadarClass::Draw(uint32_t* framebuffer, int screenWidth, int screenHeight) {
+void RadarClass::Draw(uint32_t* framebuffer, int screenWidth,
+                      int screenHeight) {
     if (!framebuffer) return;
     if (!doesRadarExist_) return;
 
@@ -152,7 +153,8 @@ void RadarClass::Draw(uint32_t* framebuffer, int screenWidth, int screenHeight) 
         // Draw "RADAR OFF" indicator or animation
         if (isRadarActivating_ || isRadarDeactivating_) {
             // Draw activation animation frame
-            int progress = (animFrame_ * radarDisplayHeight_) / RADAR_ACTIVATED_FRAME;
+            int progress = animFrame_ * radarDisplayHeight_;
+            progress /= RADAR_ACTIVATED_FRAME;
             Draw_Rect(framebuffer, screenWidth,
                       radarScreenX_, radarScreenY_,
                       radarDisplayWidth_, progress,
@@ -262,7 +264,8 @@ void RadarClass::Radar_Pixel(int16_t cell) {
     }
 }
 
-void RadarClass::Plot_Radar_Pixel(int16_t cell, uint32_t* framebuffer, int screenWidth) {
+void RadarClass::Plot_Radar_Pixel(int16_t cell, uint32_t* framebuffer,
+                                  int screenWidth) {
     Render_Cell(cell, framebuffer, screenWidth);
 }
 
@@ -321,8 +324,10 @@ void RadarClass::Set_Radar_Position(int16_t cell) {
     radarCellY_ = cellY - radarCellHeight_ / 2;
 
     // Clamp to map bounds
-    radarCellX_ = std::max(0, std::min(radarCellX_, MAP_CELL_WIDTH - radarCellWidth_));
-    radarCellY_ = std::max(0, std::min(radarCellY_, MAP_CELL_HEIGHT - radarCellHeight_));
+    int maxX = MAP_CELL_WIDTH - radarCellWidth_;
+    int maxY = MAP_CELL_HEIGHT - radarCellHeight_;
+    radarCellX_ = std::max(0, std::min(radarCellX_, maxX));
+    radarCellY_ = std::max(0, std::min(radarCellY_, maxY));
 
     isToRedraw_ = true;
 }
@@ -348,7 +353,8 @@ void RadarClass::UnJam_Cell(int16_t cell, HouseClass* house) {
     // In full implementation, clears jam bit for house
 }
 
-void RadarClass::Set_Tactical_View(int16_t topLeftCell, int viewWidth, int viewHeight) {
+void RadarClass::Set_Tactical_View(int16_t topLeftCell, int viewWidth,
+                                   int viewHeight) {
     tacticalCell_ = topLeftCell;
     tacticalWidth_ = viewWidth;
     tacticalHeight_ = viewHeight;
@@ -458,7 +464,8 @@ uint32_t RadarClass::Get_Building_Color(int16_t cell) const {
 
 uint32_t RadarClass::House_Color(HousesType house) const {
     int idx = static_cast<int>(house);
-    if (idx >= 0 && idx < static_cast<int>(sizeof(HouseColors) / sizeof(HouseColors[0]))) {
+    constexpr int maxIdx = sizeof(HouseColors) / sizeof(HouseColors[0]);
+    if (idx >= 0 && idx < maxIdx) {
         return HouseColors[idx];
     }
     return HouseColors[10];  // Neutral gray
@@ -487,7 +494,8 @@ int16_t RadarClass::Radar_Pixel_To_Cell(int px, int py) const {
     return static_cast<int16_t>(cellY * MAP_CELL_WIDTH + cellX);
 }
 
-void RadarClass::Render_Cell(int16_t cell, uint32_t* framebuffer, int screenWidth) {
+void RadarClass::Render_Cell(int16_t cell, uint32_t* framebuffer,
+                             int screenWidth) {
     if (!Cell_On_Radar(cell)) return;
 
     int px, py;
@@ -499,7 +507,8 @@ void RadarClass::Render_Cell(int16_t cell, uint32_t* framebuffer, int screenWidt
     if (zoomFactor_ == 1) {
         Draw_Pixel(framebuffer, screenWidth, px, py, color);
     } else {
-        Draw_Rect(framebuffer, screenWidth, px, py, zoomFactor_, zoomFactor_, color);
+        int zf = zoomFactor_;
+        Draw_Rect(framebuffer, screenWidth, px, py, zf, zf, color);
     }
 }
 
@@ -537,7 +546,8 @@ void RadarClass::Render_Cursor(uint32_t* framebuffer, int screenWidth) {
     uint32_t cursorColor = (cursorPulseFrame_ < 12) ? 0xFF00FF00 : 0xFF00AA00;
 
     // Draw cursor outline
-    Draw_Rect_Outline(framebuffer, screenWidth, cursorX, cursorY, cursorW, cursorH, cursorColor);
+    Draw_Rect_Outline(framebuffer, screenWidth,
+                      cursorX, cursorY, cursorW, cursorH, cursorColor);
 }
 
 void RadarClass::Draw_Pixel(uint32_t* framebuffer, int screenWidth,
@@ -557,7 +567,8 @@ void RadarClass::Draw_Rect(uint32_t* framebuffer, int screenWidth,
 }
 
 void RadarClass::Draw_Rect_Outline(uint32_t* framebuffer, int screenWidth,
-                                    int x, int y, int w, int h, uint32_t color) {
+                                   int x, int y, int w, int h,
+                                   uint32_t color) {
     // Top and bottom
     for (int px = x; px < x + w; px++) {
         Draw_Pixel(framebuffer, screenWidth, px, y, color);

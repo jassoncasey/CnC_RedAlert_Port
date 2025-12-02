@@ -114,7 +114,9 @@ public:
     // Override for 3D movement
     virtual bool StartDrive(int32_t destination) override;
     virtual bool StopDrive() override;
-    virtual MoveType CanEnterCell(int16_t cell, FacingType facing = FacingType::NORTH) const override;
+    virtual MoveType CanEnterCell(int16_t cell,
+                                     FacingType facing = FacingType::NORTH
+                                     ) const override;
     virtual int TopSpeed() const override;
 
     // Altitude control
@@ -148,8 +150,10 @@ public:
     virtual bool CanFire() const override;
     virtual int WeaponRange(int weapon = 0) const override;
     virtual int RearmTime(int weapon = 0) const override;
-    virtual ResultType TakeDamage(int& damage, int distance, WarheadType warhead,
-                                   TechnoClass* source = nullptr, bool forced = false) override;
+    virtual ResultType TakeDamage(int& damage, int distance,
+                                   WarheadType warhead,
+                                   TechnoClass* source = nullptr,
+                                   bool forced = false) override;
 
     // Reload ammunition
     bool Rearm();

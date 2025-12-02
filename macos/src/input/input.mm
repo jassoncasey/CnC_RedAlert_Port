@@ -106,7 +106,8 @@ static void InitKeyMapping(void) {
     macToVK[kVK_RightControl] = VK_RCONTROL;
     macToVK[kVK_Option]    = VK_MENU;      // Alt
     macToVK[kVK_RightOption] = VK_RMENU;
-    macToVK[kVK_Command]   = VK_LCONTROL;  // Map Cmd to Ctrl for game compatibility
+    // Map Cmd to Ctrl for game compatibility
+    macToVK[kVK_Command]   = VK_LCONTROL;
     macToVK[kVK_CapsLock]  = VK_CAPITAL;
 
     // Arrow keys
@@ -229,12 +230,13 @@ uint16_t Input_MacKeyToVK(uint16_t macKeyCode) {
 }
 
 // Convert NSEvent modifier flags to our format
+// Bits: 17=Shift, 18=Control, 19=Option, 20=Command
 static uint8_t ModifiersFromNS(uint16_t nsModifiers) {
     uint8_t mods = 0;
-    if (nsModifiers & (1 << 17)) mods |= INPUT_MOD_SHIFT;   // NSEventModifierFlagShift
-    if (nsModifiers & (1 << 18)) mods |= INPUT_MOD_CTRL;    // NSEventModifierFlagControl
-    if (nsModifiers & (1 << 19)) mods |= INPUT_MOD_ALT;     // NSEventModifierFlagOption
-    if (nsModifiers & (1 << 20)) mods |= INPUT_MOD_CMD;     // NSEventModifierFlagCommand
+    if (nsModifiers & (1 << 17)) mods |= INPUT_MOD_SHIFT;
+    if (nsModifiers & (1 << 18)) mods |= INPUT_MOD_CTRL;
+    if (nsModifiers & (1 << 19)) mods |= INPUT_MOD_ALT;
+    if (nsModifiers & (1 << 20)) mods |= INPUT_MOD_CMD;
     return mods;
 }
 

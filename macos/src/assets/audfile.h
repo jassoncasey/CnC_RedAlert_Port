@@ -27,14 +27,14 @@ typedef struct {
  * Load and decode AUD file from memory buffer
  * @param data     Pointer to AUD file data
  * @param dataSize Size of the data
- * @return Decoded audio data, or NULL on failure. Caller must free with Aud_Free.
+ * @return Decoded audio data, or NULL on failure. Free with Aud_Free.
  */
 AudData* Aud_Load(const void* data, uint32_t dataSize);
 
 /**
  * Load and decode AUD file from disk
  * @param filename Path to the .AUD file
- * @return Decoded audio data, or NULL on failure. Caller must free with Aud_Free.
+ * @return Decoded audio data, or NULL on failure. Free with Aud_Free.
  */
 AudData* Aud_LoadFile(const char* filename);
 
@@ -51,7 +51,8 @@ void Aud_Free(AudData* aud);
  * @param outRate  [out] Sample rate
  * @return TRUE on success
  */
-BOOL Aud_ConvertTo8Bit(const AudData* aud, uint8_t** outData, uint32_t* outSize, uint32_t* outRate);
+BOOL Aud_ConvertTo8Bit(const AudData* aud, uint8_t** outData,
+                       uint32_t* outSize, uint32_t* outRate);
 
 #ifdef __cplusplus
 }

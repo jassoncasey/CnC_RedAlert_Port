@@ -16,10 +16,13 @@
 // Warhead Helpers
 //===========================================================================
 
+// Helper to convert WarheadType to WarheadTypeEnum
+static inline WarheadTypeEnum ToWhEnum(WarheadType wh) {
+    return static_cast<WarheadTypeEnum>(static_cast<int>(wh));
+}
+
 int GetWarheadModifier(WarheadType warhead, ArmorType armor) {
-    // Convert our enums to the data lookup enums
-    WarheadTypeEnum whType = static_cast<WarheadTypeEnum>(static_cast<int>(warhead));
-    const WarheadTypeData* whData = GetWarheadType(whType);
+    const WarheadTypeData* whData = GetWarheadType(ToWhEnum(warhead));
 
     if (!whData) return 256;  // 100% if no data
 
@@ -41,31 +44,24 @@ int GetWarheadModifier(WarheadType warhead, ArmorType armor) {
 }
 
 int GetWarheadSpread(WarheadType warhead) {
-    WarheadTypeEnum whType = static_cast<WarheadTypeEnum>(static_cast<int>(warhead));
-    const WarheadTypeData* whData = GetWarheadType(whType);
+    const WarheadTypeData* whData = GetWarheadType(ToWhEnum(warhead));
 
     if (!whData) return DEFAULT_SPREAD;
     return whData->spread;
 }
 
 bool CanDestroyWall(WarheadType warhead) {
-    WarheadTypeEnum whType = static_cast<WarheadTypeEnum>(static_cast<int>(warhead));
-    const WarheadTypeData* whData = GetWarheadType(whType);
-
+    const WarheadTypeData* whData = GetWarheadType(ToWhEnum(warhead));
     return whData ? whData->isWallDestroyer : false;
 }
 
 bool CanDestroyWood(WarheadType warhead) {
-    WarheadTypeEnum whType = static_cast<WarheadTypeEnum>(static_cast<int>(warhead));
-    const WarheadTypeData* whData = GetWarheadType(whType);
-
+    const WarheadTypeData* whData = GetWarheadType(ToWhEnum(warhead));
     return whData ? whData->isWoodDestroyer : false;
 }
 
 bool CanDestroyOre(WarheadType warhead) {
-    WarheadTypeEnum whType = static_cast<WarheadTypeEnum>(static_cast<int>(warhead));
-    const WarheadTypeData* whData = GetWarheadType(whType);
-
+    const WarheadTypeData* whData = GetWarheadType(ToWhEnum(warhead));
     return whData ? whData->isTiberiumDestroyer : false;
 }
 
@@ -73,7 +69,8 @@ bool CanDestroyOre(WarheadType warhead) {
 // Core Combat Functions
 //===========================================================================
 
-int Modify_Damage(int damage, WarheadType warhead, ArmorType armor, int distance) {
+int Modify_Damage(int damage, WarheadType warhead, ArmorType armor,
+                  int distance) {
     // No damage if base damage is 0
     if (damage == 0) return 0;
 
@@ -105,7 +102,8 @@ int Modify_Damage(int damage, WarheadType warhead, ArmorType armor, int distance
                 damage = MIN_DAMAGE;
             } else {
                 // Linear falloff
-                damage = damage * (falloffRange - effectiveDistance) / falloffRange;
+                int remaining = falloffRange - effectiveDistance;
+                damage = damage * remaining / falloffRange;
             }
         }
     }
@@ -123,7 +121,8 @@ int Modify_Damage(int damage, WarheadType warhead, ArmorType armor, int distance
     return damage;
 }
 
-void Explosion_Damage(int32_t coord, int damage, TechnoClass* source, WarheadType warhead) {
+void Explosion_Damage(int32_t coord, int damage, TechnoClass* source,
+                      WarheadType warhead) {
     if (damage == 0) return;
 
     // Get center cell
@@ -145,9 +144,9 @@ void Explosion_Damage(int32_t coord, int damage, TechnoClass* source, WarheadTyp
         int cellY = centerY + cellOffsets[i][1];
 
         // Bounds check
-        if (cellX < 0 || cellX >= MAP_CELL_W || cellY < 0 || cellY >= MAP_CELL_H) {
-            continue;
-        }
+        bool outX = cellX < 0 || cellX >= MAP_CELL_W;
+        bool outY = cellY < 0 || cellY >= MAP_CELL_H;
+        if (outX || outY) continue;
 
         CELL cell = XY_Cell(cellX, cellY);
         CellClass& cellRef = Map[cell];
@@ -171,7 +170,8 @@ void Explosion_Damage(int32_t coord, int damage, TechnoClass* source, WarheadTyp
 
             // Apply damage to object
             if (objDamage > 0) {
-                occupier->TakeDamage(objDamage, distance, warhead, source, false);
+                occupier->TakeDamage(objDamage, distance, warhead,
+                                     source, false);
             }
         }
 
@@ -187,7 +187,8 @@ void Explosion_Damage(int32_t coord, int damage, TechnoClass* source, WarheadTyp
 
             int objDamage = Modify_Damage(damage, warhead, armor, distance);
             if (objDamage > 0) {
-                overlapper->TakeDamage(objDamage, distance, warhead, source, false);
+                overlapper->TakeDamage(objDamage, distance, warhead,
+                                       source, false);
             }
         }
 
@@ -243,7 +244,8 @@ AnimType Combat_Anim(int damage, WarheadType warhead) {
 // Weapon Firing
 //===========================================================================
 
-bool Fire_Weapon(TechnoClass* source, WeaponTypeEnum weapon, int32_t targetCoord) {
+bool Fire_Weapon(TechnoClass* source, WeaponTypeEnum weapon,
+                 int32_t targetCoord) {
     if (!source) return false;
 
     const WeaponTypeData* wpnData = GetWeaponType(weapon);
@@ -260,9 +262,11 @@ bool Fire_Weapon(TechnoClass* source, WeaponTypeEnum weapon, int32_t targetCoord
     // Create bullet
     BulletType bulletType = wpnData->bullet;
     int damage = wpnData->damage;
-    WarheadType warhead = static_cast<WarheadType>(static_cast<int>(wpnData->warhead));
+    int whIdx = static_cast<int>(wpnData->warhead);
+    WarheadType warhead = static_cast<WarheadType>(whIdx);
 
-    CreateBullet(bulletType, source, sourceCoord, targetCoord, damage, warhead);
+    CreateBullet(bulletType, source, sourceCoord, targetCoord,
+                 damage, warhead);
 
     // TODO: Play firing sound
     // TODO: Create muzzle flash animation

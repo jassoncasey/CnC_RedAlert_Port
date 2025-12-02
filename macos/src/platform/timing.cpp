@@ -31,7 +31,8 @@ static void InitTiming() {
  */
 static DWORD MachTimeToMillis(uint64_t machTime) {
     // Convert to nanoseconds first
-    uint64_t nanos = (machTime - g_startTime) * g_timebaseInfo.numer / g_timebaseInfo.denom;
+    uint64_t elapsed = machTime - g_startTime;
+    uint64_t nanos = elapsed * g_timebaseInfo.numer / g_timebaseInfo.denom;
     // Then to milliseconds
     return (DWORD)(nanos / 1000000ULL);
 }
@@ -98,6 +99,7 @@ BOOL QueryPerformanceFrequency(LONGLONG* lpFrequency) {
     // mach_absolute_time uses a timebase where:
     //   nanoseconds = ticks * numer / denom
     // So: ticks_per_second = 1e9 * denom / numer
-    *lpFrequency = (LONGLONG)(1000000000ULL * g_timebaseInfo.denom / g_timebaseInfo.numer);
+    uint64_t tps = 1000000000ULL * g_timebaseInfo.denom;
+    *lpFrequency = (LONGLONG)(tps / g_timebaseInfo.numer);
     return TRUE;
 }

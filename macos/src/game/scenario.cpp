@@ -129,11 +129,12 @@ bool ScenarioClass::Read_INI(const char* filename) {
     }
 
     // [Basic] section
-    ini.GetString("Basic", "Name", "Mission", description_, sizeof(description_));
+    int sz = sizeof(description_);
+    ini.GetString("Basic", "Name", "Mission", description_, sz);
 
     // Theater
     char theaterStr[32];
-    ini.GetString("Basic", "Theater", "TEMPERATE", theaterStr, sizeof(theaterStr));
+    ini.GetString("Basic", "Theater", "TEMPERATE", theaterStr, 32);
     theater_ = TheaterFromName(theaterStr);
 
     // Player house
@@ -177,10 +178,14 @@ bool ScenarioClass::Read_INI(const char* filename) {
     }
 
     // Special waypoints
-    waypoints_[WAYPT_HOME] = static_cast<int16_t>(ini.GetInt("Waypoints", "Home", -1));
-    waypoints_[WAYPT_REINF] = static_cast<int16_t>(ini.GetInt("Waypoints", "Reinf", -1));
-    waypoints_[WAYPT_SPECIAL] = static_cast<int16_t>(ini.GetInt("Waypoints", "Special", -1));
-    waypoints_[WAYPT_FLARE] = static_cast<int16_t>(ini.GetInt("Waypoints", "Flare", -1));
+    int home = ini.GetInt("Waypoints", "Home", -1);
+    int reinf = ini.GetInt("Waypoints", "Reinf", -1);
+    int special = ini.GetInt("Waypoints", "Special", -1);
+    int flare = ini.GetInt("Waypoints", "Flare", -1);
+    waypoints_[WAYPT_HOME] = static_cast<int16_t>(home);
+    waypoints_[WAYPT_REINF] = static_cast<int16_t>(reinf);
+    waypoints_[WAYPT_SPECIAL] = static_cast<int16_t>(special);
+    waypoints_[WAYPT_FLARE] = static_cast<int16_t>(flare);
 
     // Store filename
     strncpy(name_, filename, sizeof(name_) - 1);
@@ -232,11 +237,10 @@ void ScenarioClass::Set_Global(int index, bool value) {
 
     // If value changed, trigger global flag events
     if (oldValue != value) {
-        if (value) {
-            Process_Triggers(TEventType::GLOBAL_SET, HousesType::NONE, nullptr, static_cast<int16_t>(index));
-        } else {
-            Process_Triggers(TEventType::GLOBAL_CLEAR, HousesType::NONE, nullptr, static_cast<int16_t>(index));
-        }
+        int16_t idx = static_cast<int16_t>(index);
+        TEventType evt = value ? TEventType::GLOBAL_SET
+                               : TEventType::GLOBAL_CLEAR;
+        Process_Triggers(evt, HousesType::NONE, nullptr, idx);
     }
 }
 
@@ -290,15 +294,18 @@ void ScenarioClass::AI() {
 // Helper Functions
 //===========================================================================
 
-void Set_Scenario_Name(int scenario, TheaterType theater, SideType side, bool isAftermathSC) {
-    const char* filename = Scenario_Filename(scenario, theater, side, isAftermathSC);
-    strncpy(Scen.name_, filename, sizeof(Scen.name_) - 1);
+void Set_Scenario_Name(int scenario, TheaterType theater,
+                       SideType side, bool isAftermathSC) {
+    const char* fn = Scenario_Filename(scenario, theater, side,
+                                       isAftermathSC);
+    strncpy(Scen.name_, fn, sizeof(Scen.name_) - 1);
     Scen.name_[sizeof(Scen.name_) - 1] = '\0';
     Scen.scenario_ = scenario;
     Scen.theater_ = theater;
 }
 
-const char* Scenario_Filename(int scenario, TheaterType theater, SideType side, bool isAftermathSC) {
+const char* Scenario_Filename(int scenario, TheaterType theater,
+                              SideType side, bool isAftermathSC) {
     static char filename[32];
 
     // Format: SCG01EA.INI or SCU01EA.INI

@@ -56,7 +56,9 @@ struct BuildType {
     RTTIType buildableType;            // RTTI_UNIT, RTTI_BUILDING, etc.
     int factoryIndex;                  // Factory index (-1 if not building)
 
-    BuildType() : buildableId(-1), buildableType(RTTIType::NONE), factoryIndex(-1) {}
+    BuildType()
+        : buildableId(-1), buildableType(RTTIType::NONE),
+          factoryIndex(-1) {}
 };
 
 //===========================================================================
@@ -155,7 +157,9 @@ public:
      * Check if can scroll in direction
      */
     bool Can_Scroll_Up() const { return topIndex_ > 0; }
-    bool Can_Scroll_Down() const { return topIndex_ + MAX_VISIBLE < buildableCount_; }
+    bool Can_Scroll_Down() const {
+        return topIndex_ + MAX_VISIBLE < buildableCount_;
+    }
 
     //-----------------------------------------------------------------------
     // Input

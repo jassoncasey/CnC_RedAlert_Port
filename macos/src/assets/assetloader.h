@@ -73,7 +73,8 @@ void Assets_SetPalette(const uint8_t* palette);
  * @param output    Output buffer (width * height * 4 bytes)
  * @param transparent  Palette index to treat as transparent (usually 0)
  */
-void Assets_SHPToRGBA(const ShpFrame* frame, uint32_t* output, uint8_t transparent);
+void Assets_SHPToRGBA(const ShpFrame* frame, uint32_t* output,
+                      uint8_t transparent);
 
 /**
  * Load raw file data from game archives.

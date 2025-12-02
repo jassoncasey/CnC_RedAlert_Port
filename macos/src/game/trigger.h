@@ -257,7 +257,8 @@ struct TActionClass {
     void Reset();
 
     // Execute the action
-    bool Execute(HousesType house, ObjectClass* object, int triggerId, int16_t cell);
+    bool Execute(HousesType house, ObjectClass* object,
+                 int triggerId, int16_t cell);
 };
 
 //===========================================================================
@@ -376,7 +377,8 @@ public:
     //-----------------------------------------------------------------------
     // Execution
     //-----------------------------------------------------------------------
-    bool Spring(TEventType event, ObjectClass* object, int16_t cell, bool forced = false);
+    bool Spring(TEventType event, ObjectClass* object,
+                int16_t cell, bool forced = false);
 
     //-----------------------------------------------------------------------
     // Attachment

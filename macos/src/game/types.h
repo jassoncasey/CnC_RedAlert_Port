@@ -387,7 +387,8 @@ namespace OwnerFlag {
     constexpr uint32_t TURKEY   = 1 << static_cast<int>(HousesType::TURKEY);
 
     // Alliance groups
-    constexpr uint32_t ALLIES = SPAIN | GREECE | ENGLAND | GERMANY | FRANCE | TURKEY;
+    constexpr uint32_t ALLIES =
+        SPAIN | GREECE | ENGLAND | GERMANY | FRANCE | TURKEY;
     constexpr uint32_t SOVIET = USSR | UKRAINE;
     constexpr uint32_t ALL = ALLIES | SOVIET;
 }

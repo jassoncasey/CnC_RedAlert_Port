@@ -35,7 +35,8 @@ enum class AnimLayerType : int {
 // Forward declarations for Anims namespace functions (friends)
 namespace Anims {
     void Update_All();
-    void Render_Layer(AnimLayerType layer, int screenOffsetX, int screenOffsetY);
+    void Render_Layer(AnimLayerType layer, int screenOffsetX,
+                      int screenOffsetY);
     void Detach_All(void* target);
 }
 
@@ -298,7 +299,7 @@ private:
     // Frame state
     int currentFrame_;
     int frameTimer_;        // Ticks until next frame
-    int frameRate_;         // Ticks per frame (copied from type, can be overridden)
+    int frameRate_;         // Ticks per frame (from type)
 
     // Loop state
     int loopsRemaining_;    // Loops left (0 = infinite)
@@ -353,16 +354,20 @@ namespace Anims {
     void Shutdown();
 
     // Create a new animation
-    AnimClass* Create(AnimType type, int x, int y, int delay = 0, int loops = 1);
+    AnimClass* Create(AnimType type, int x, int y,
+                      int delay = 0, int loops = 1);
 
-    // Create attached animation (pass target position, not object)
-    AnimClass* Create_Attached(AnimType type, void* target, int targetX, int targetY, int delay = 0);
+    // Create attached animation
+    AnimClass* Create_Attached(AnimType type, void* target,
+                               int targetX, int targetY,
+                               int delay = 0);
 
     // Update all animations
     void Update_All();
 
     // Render all animations in a specific layer
-    void Render_Layer(AnimLayerType layer, int screenOffsetX, int screenOffsetY);
+    void Render_Layer(AnimLayerType layer, int screenOffsetX,
+                      int screenOffsetY);
 
     // Remove all animations
     void Clear_All();

@@ -41,9 +41,9 @@ const MissionData AlliedMissions[] = {
     // Mission 1: Rescue Einstein
     {
         1, "In the Thick of It",
-        "Commander, Soviet forces have invaded Eastern Europe. Your mission is "
-        "to establish a base and rescue Allied scientists from the Soviet advance. "
-        "Build your base and eliminate all Soviet forces in the area.",
+        "Commander, Soviet forces have invaded Eastern Europe. Your mission "
+        "is to establish a base and rescue Allied scientists from the Soviet "
+        "advance. Build your base and eliminate all Soviet forces in the area.",
         VQType::ALLY01, VQType::ALLY01, VQType::ALLY02, VQType::NONE,
         ThemeType::HELL_MARCH, TheaterType::TEMPERATE,
         false, 2, -1
@@ -51,9 +51,9 @@ const MissionData AlliedMissions[] = {
     // Mission 2: Five to One
     {
         2, "Five to One",
-        "We've located Einstein. He's being held in a Soviet compound to the north. "
-        "Use Tanya to infiltrate the compound and rescue him. Avoid enemy detection "
-        "until you reach the compound.",
+        "We've located Einstein. He's being held in a Soviet compound to the "
+        "north. Use Tanya to infiltrate the compound and rescue him. Avoid "
+        "enemy detection until you reach the compound.",
         VQType::ALLY02, VQType::ALLY02, VQType::ALLY04, VQType::ALLY01,
         ThemeType::RUN_FOR_YOUR_LIFE, TheaterType::SNOW,
         false, 3, -1
@@ -61,9 +61,9 @@ const MissionData AlliedMissions[] = {
     // Mission 3: Dead End
     {
         3, "Dead End",
-        "Soviet forces are building a large military base in this sector. You must "
-        "establish your own base and destroy all Soviet structures. Watch for "
-        "enemy reinforcements from the east.",
+        "Soviet forces are building a large military base in this sector. You "
+        "must establish your own base and destroy all Soviet structures. Watch "
+        "for enemy reinforcements from the east.",
         VQType::ALLY04, VQType::ALLY04, VQType::ALLY05, VQType::ALLY02,
         ThemeType::FACE_THE_ENEMY_1, TheaterType::TEMPERATE,
         false, 4, -1
@@ -71,8 +71,9 @@ const MissionData AlliedMissions[] = {
     // Mission 4: Tanya's Tale
     {
         4, "Tanya's Tale",
-        "Tanya has been captured by the Soviets. Rescue her before she is executed. "
-        "Use stealth and precision to infiltrate the Soviet prison. Time is critical.",
+        "Tanya has been captured by the Soviets. Rescue her before she is "
+        "executed. Use stealth and precision to infiltrate the Soviet prison. "
+        "Time is critical.",
         VQType::ALLY05, VQType::ALLY05, VQType::ALLY06, VQType::ALLY04,
         ThemeType::TRENCHES, TheaterType::SNOW,
         true, 5, 5
@@ -80,9 +81,9 @@ const MissionData AlliedMissions[] = {
     // Mission 5: Khalkis Island
     {
         5, "Khalkis Island",
-        "The Soviets have established a submarine base on Khalkis Island. You must "
-        "destroy all Soviet naval forces and the submarine pens. Naval support "
-        "is available for this mission.",
+        "The Soviets have established a submarine base on Khalkis Island. You "
+        "must destroy all Soviet naval forces and the submarine pens. Naval "
+        "support is available for this mission.",
         VQType::ALLY06, VQType::ALLY06, VQType::ALLY08, VQType::ALLY05,
         ThemeType::BIGFOOT, TheaterType::TEMPERATE,
         false, 6, -1
@@ -90,9 +91,9 @@ const MissionData AlliedMissions[] = {
     // Mission 6: Bridge Over River Grotz
     {
         6, "Bridge Over River Grotz",
-        "A vital supply bridge must be defended from Soviet attack. Hold the bridge "
-        "for 30 minutes while Allied forces evacuate civilians. Do not let the "
-        "bridge be destroyed.",
+        "A vital supply bridge must be defended from Soviet attack. Hold the "
+        "bridge for 30 minutes while Allied forces evacuate civilians. Do not "
+        "let the bridge be destroyed.",
         VQType::ALLY08, VQType::ALLY08, VQType::ALLY09, VQType::ALLY06,
         ThemeType::CRUSH, TheaterType::SNOW,
         false, 7, -1
@@ -111,8 +112,8 @@ const MissionData AlliedMissions[] = {
     {
         8, "Sarin Gas Facility",
         "Intelligence reports a Soviet chemical weapons facility in this area. "
-        "Destroy the facility and all chemical storage tanks. Be careful not to "
-        "damage the tanks before evacuation is complete.",
+        "Destroy the facility and all chemical storage tanks. Be careful not "
+        "to damage the tanks before evacuation is complete.",
         VQType::ALLY10, VQType::ALLY10, VQType::ALLY11, VQType::ALLY09,
         ThemeType::SMASH, TheaterType::SNOW,
         false, 9, -1
@@ -121,7 +122,7 @@ const MissionData AlliedMissions[] = {
     {
         9, "Distant Thunder",
         "Soviet Tesla coil research must be stopped. Infiltrate their research "
-        "facility and capture the lead scientist. The facility is heavily defended.",
+        "facility and capture the lead scientist. It is heavily defended.",
         VQType::ALLY11, VQType::ALLY11, VQType::ALLY12, VQType::ALLY10,
         ThemeType::WORKMEN, TheaterType::TEMPERATE,
         false, 10, -1
@@ -129,9 +130,9 @@ const MissionData AlliedMissions[] = {
     // Mission 10: Brothers in Arms
     {
         10, "Brothers in Arms",
-        "Allied forces are pinned down and need immediate support. Break through "
-        "Soviet lines and link up with friendly forces. Once linked, destroy "
-        "all Soviet forces in the area.",
+        "Allied forces are pinned down and need immediate support. Break "
+        "through Soviet lines and link up with friendly forces. Once linked, "
+        "destroy all Soviet forces in the area.",
         VQType::ALLY12, VQType::ALLY12, VQType::ALLY14, VQType::ALLY11,
         ThemeType::AWAIT, TheaterType::SNOW,
         true, 11, 11
@@ -157,8 +158,8 @@ const MissionData AlliedMissions[] = {
     // Mission 13: Focused Blast
     {
         13, "Focused Blast",
-        "A Soviet Iron Curtain device has been located. This technology must be "
-        "destroyed before it can be deployed. Watch for chronosphere effects.",
+        "A Soviet Iron Curtain device has been located. This technology must "
+        "be destroyed before deployment. Watch for chronosphere effects.",
         VQType::NONE, VQType::NONE, VQType::NONE, VQType::NONE,
         ThemeType::TWIN_GUNS, TheaterType::INTERIOR,
         false, 14, -1
@@ -183,9 +184,9 @@ const MissionData SovietMissions[] = {
     // Mission 1: Lesson in Blood
     {
         1, "Lesson in Blood",
-        "Comrade Commander, the capitalist West threatens our glorious Soviet Union. "
-        "Crush the Allied forces in this region and secure our borders. Show them "
-        "the might of the Red Army!",
+        "Comrade Commander, the capitalist West threatens our glorious Soviet "
+        "Union. Crush the Allied forces in this region and secure our borders. "
+        "Show them the might of the Red Army!",
         VQType::SOVIET01, VQType::SOVIET01, VQType::SOVIET02, VQType::NONE,
         ThemeType::HELL_MARCH, TheaterType::SNOW,
         false, 2, -1
@@ -193,8 +194,9 @@ const MissionData SovietMissions[] = {
     // Mission 2: Testament of Power
     {
         2, "Testament of Power",
-        "Allied spies have infiltrated our research facility. Hunt them down and "
-        "eliminate them before they can escape with our secrets. Leave no witnesses.",
+        "Allied spies have infiltrated our research facility. Hunt them down "
+        "and eliminate them before they can escape with our secrets. Leave no "
+        "witnesses.",
         VQType::SOVIET02, VQType::SOVIET02, VQType::SOVIET03, VQType::SOVIET01,
         ThemeType::RUN_FOR_YOUR_LIFE, TheaterType::TEMPERATE,
         false, 3, -1
@@ -212,9 +214,9 @@ const MissionData SovietMissions[] = {
     // Mission 4: Legacy of Tesla
     {
         4, "Legacy of Tesla",
-        "Our scientists have developed a new weapon - the Tesla Coil. Defend the "
-        "research facility while they complete their work. Do not let the Allies "
-        "destroy our progress.",
+        "Our scientists have developed a new weapon - the Tesla Coil. Defend "
+        "the research facility while they complete their work. Do not let the "
+        "Allies destroy our progress.",
         VQType::SOVIET04, VQType::SOVIET04, VQType::SOVIET05, VQType::SOVIET03,
         ThemeType::TRENCHES, TheaterType::SNOW,
         true, 5, 5
@@ -222,9 +224,9 @@ const MissionData SovietMissions[] = {
     // Mission 5: Protect the Convoys
     {
         5, "Protect the Convoys",
-        "Critical supplies must reach our front lines. Protect the convoy as it "
-        "moves through enemy territory. If the convoy is destroyed, our offensive "
-        "will fail.",
+        "Critical supplies must reach our front lines. Protect the convoy as "
+        "it moves through enemy territory. If the convoy is destroyed, our "
+        "offensive will fail.",
         VQType::SOVIET05, VQType::SOVIET05, VQType::SOVIET06, VQType::SOVIET04,
         ThemeType::BIGFOOT, TheaterType::SNOW,
         false, 6, -1
@@ -242,9 +244,9 @@ const MissionData SovietMissions[] = {
     // Mission 7: Operation Avalanche
     {
         7, "Operation Avalanche",
-        "Allied forces are massing for a counterattack. Strike first and destroy "
-        "their assembly areas. Speed is essential - they must not be allowed to "
-        "organize their attack.",
+        "Allied forces are massing for a counterattack. Strike first and "
+        "destroy their assembly areas. Speed is essential - they must not be "
+        "allowed to organize their attack.",
         VQType::SOVIET07, VQType::SOVIET07, VQType::SOVIET08, VQType::SOVIET06,
         ThemeType::FACE_THE_ENEMY_2, TheaterType::SNOW,
         true, 8, 8
@@ -292,8 +294,8 @@ const MissionData SovietMissions[] = {
     // Mission 12: Test of Faith
     {
         12, "Test of Faith",
-        "The Allied command structure must be dismantled. Destroy their command "
-        "center and all supporting structures. Leave nothing standing.",
+        "The Allied command structure must be dismantled. Destroy their "
+        "command center and all supporting structures. Leave nothing standing.",
         VQType::SOVIET12, VQType::SOVIET12, VQType::SOVIET13, VQType::SOVIET11,
         ThemeType::VECTOR, TheaterType::TEMPERATE,
         false, 13, -1
@@ -450,7 +452,8 @@ void CampaignClass::Init() {
     score_.Reset();
 }
 
-bool CampaignClass::Start_Campaign(CampaignType campaign, DifficultyType difficulty) {
+bool CampaignClass::Start_Campaign(CampaignType campaign,
+                                   DifficultyType difficulty) {
     if (campaign == CampaignType::NONE || campaign >= CampaignType::COUNT) {
         return false;
     }
@@ -671,7 +674,8 @@ void CampaignClass::Load_Carryover() {
     // Would apply carryover to new mission
 }
 
-const MissionData* CampaignClass::Get_Mission_Table(CampaignType campaign) const {
+const MissionData* CampaignClass::Get_Mission_Table(
+    CampaignType campaign) const {
     switch (campaign) {
         case CampaignType::ALLIED:
             return AlliedMissions;

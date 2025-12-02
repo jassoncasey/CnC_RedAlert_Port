@@ -13,648 +13,694 @@
 // Note: Many values are defaults - actual values come from RULES.INI
 //===========================================================================
 
+// Shorthand for compact data table rows
+#define T true
+#define F false
+#define BT BuildingType
+#define FT FacingType
+#define RM RemapType
+#define BS BSizeType
+#define RT RTTIType
+#define DT DirType
+#define AT ArmorType
+#define WT WeaponType
+#define PF PrereqFlag
+#define OF OwnerFlag
+
 const BuildingTypeData BuildingTypes[] = {
     // Allied Tech Center (ATEK)
     {
-        BuildingType::ADVANCED_TECH, 0, "ATEK",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::ADVANCED_TECH, 0, "ATEK",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 1500, 5, -200, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::RADAR | PrereqFlag::POWER, OwnerFlag::ALLIES
+        F, T, F, F, T, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 1500, 5, -200, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::RADAR | PF::POWER, OF::ALLIES
     },
 
     // Iron Curtain (IRON)
     {
-        BuildingType::IRON_CURTAIN, 0, "IRON",
-        FacingType::SOUTH, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::IRON_CURTAIN, 0, "IRON",
+        FT::SOUTH, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 2800, 4, -200, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::TECH | PrereqFlag::POWER, OwnerFlag::SOVIET
+        F, T, F, F, T, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 2800, 4, -200, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::TECH | PF::POWER, OF::SOVIET
     },
 
     // Weapons Factory (WEAP)
     {
-        BuildingType::WEAP, 0, "WEAP",
-        FacingType::NONE, 384, 256, RemapType::ALTERNATE, BSizeType::BSIZE_32,
+        BT::WEAP, 0, "WEAP",
+        FT::NONE, 384, 256, RM::ALTERNATE, BS::BSIZE_32,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::UNIT, DirType::N,
-        1000, 2000, 3, -100, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::PROC | PrereqFlag::POWER, OwnerFlag::ALL
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::UNIT, DT::N,
+        1000, 2000, 3, -100, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::PROC | PF::POWER, OF::ALL
     },
 
     // Chronosphere (PDOX)
     {
-        BuildingType::CHRONOSPHERE, 0, "PDOX",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::CHRONOSPHERE, 0, "PDOX",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 2800, 4, -200, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::TECH | PrereqFlag::POWER, OwnerFlag::ALLIES
+        F, T, F, F, T, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 2800, 4, -200, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::TECH | PF::POWER, OF::ALLIES
     },
 
     // Pillbox (PBOX)
     {
-        BuildingType::PILLBOX, 0, "PBOX",
-        FacingType::NONE, 0, 0, RemapType::NORMAL, BSizeType::BSIZE_11,
+        BT::PILLBOX, 0, "PBOX",
+        FT::NONE, 0, 0, RM::NORMAL, BS::BSIZE_11,
         0x0000, 0x0020, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 400, 5, 0, ArmorType::CONCRETE,
-        WeaponType::M60MG, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::ALLIES
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 400, 5, 0, AT::CONCRETE,
+        WT::M60MG, WT::NONE,
+        PF::BARRACKS, OF::ALLIES
     },
 
     // Camo Pillbox (HBOX)
     {
-        BuildingType::CAMOPILLBOX, 0, "HBOX",
-        FacingType::NONE, 0, 0, RemapType::NORMAL, BSizeType::BSIZE_11,
+        BT::CAMOPILLBOX, 0, "HBOX",
+        FT::NONE, 0, 0, RM::NORMAL, BS::BSIZE_11,
         0x0000, 0x0020, 0x0000,
-        false, false, false, false, false, true, true, true, false, true, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 600, 5, 0, ArmorType::CONCRETE,
-        WeaponType::M60MG, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::ALLIES
+        F, F, F, F, F, T, T, T, F, T, F, T,
+        RT::NONE, DT::N,
+        400, 600, 5, 0, AT::CONCRETE,
+        WT::M60MG, WT::NONE,
+        PF::BARRACKS, OF::ALLIES
     },
 
     // Radar Dome (DOME)
     {
-        BuildingType::RADAR, 0, "DOME",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::RADAR, 0, "DOME",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        1000, 1000, 10, -40, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::POWER, OwnerFlag::ALL
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        1000, 1000, 10, -40, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::POWER, OF::ALL
     },
 
     // Gap Generator (GAP)
     {
-        BuildingType::GAP, 0, "GAP",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_12,
+        BT::GAP, 0, "GAP",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_12,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 500, 6, -60, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::RADAR | PrereqFlag::POWER, OwnerFlag::ALLIES
+        F, T, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 500, 6, -60, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::RADAR | PF::POWER, OF::ALLIES
     },
 
     // Gun Turret (GUN)
     {
-        BuildingType::TURRET, 0, "GUN",
-        FacingType::NONE, 0, 0, RemapType::NORMAL, BSizeType::BSIZE_11,
+        BT::TURRET, 0, "GUN",
+        FT::NONE, 0, 0, RM::NORMAL, BS::BSIZE_11,
         0x0000, 0x0030, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, true, true,
-        RTTIType::NONE, DirType::N,
-        400, 600, 5, 0, ArmorType::CONCRETE,
-        WeaponType::TURRET_CANNON, WeaponType::NONE,
-        PrereqFlag::RADAR, OwnerFlag::SOVIET
+        F, F, F, F, F, F, T, T, F, F, T, T,
+        RT::NONE, DT::N,
+        400, 600, 5, 0, AT::CONCRETE,
+        WT::TURRET_CANNON, WT::NONE,
+        PF::RADAR, OF::SOVIET
     },
 
     // AA Gun (AGUN)
     {
-        BuildingType::AAGUN, 0, "AGUN",
-        FacingType::NONE, 0, 0, RemapType::NORMAL, BSizeType::BSIZE_22,
+        BT::AAGUN, 0, "AGUN",
+        FT::NONE, 0, 0, RM::NORMAL, BS::BSIZE_22,
         0x0000, 0x0030, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, true, true,
-        RTTIType::NONE, DirType::N,
-        600, 600, 5, 0, ArmorType::CONCRETE,
-        WeaponType::AA_CANNON, WeaponType::NONE,
-        PrereqFlag::RADAR, OwnerFlag::SOVIET
+        F, F, F, F, F, F, T, T, F, F, T, T,
+        RT::NONE, DT::N,
+        600, 600, 5, 0, AT::CONCRETE,
+        WT::AA_CANNON, WT::NONE,
+        PF::RADAR, OF::SOVIET
     },
 
     // Flame Tower (FTUR)
     {
-        BuildingType::FLAME_TURRET, 0, "FTUR",
-        FacingType::NONE, 0, 0, RemapType::NORMAL, BSizeType::BSIZE_11,
+        BT::FLAME_TURRET, 0, "FTUR",
+        FT::NONE, 0, 0, RM::NORMAL, BS::BSIZE_11,
         0x0000, 0x0030, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 600, 3, 0, ArmorType::CONCRETE,
-        WeaponType::FIRE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::SOVIET
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 600, 3, 0, AT::CONCRETE,
+        WT::FIRE, WT::NONE,
+        PF::BARRACKS, OF::SOVIET
     },
 
     // Construction Yard (FACT)
     {
-        BuildingType::CONST, 0, "FACT",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_33,
+        BT::CONST, 0, "FACT",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_33,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::BUILDING, DirType::N,
-        1500, 5000, 3, 0, ArmorType::CONCRETE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALL
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::BUILDING, DT::N,
+        1500, 5000, 3, 0, AT::CONCRETE,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALL
     },
 
     // Ore Refinery (PROC)
     {
-        BuildingType::REFINERY, 0, "PROC",
-        FacingType::NONE, 0, 512, RemapType::ALTERNATE, BSizeType::BSIZE_33,
+        BT::REFINERY, 0, "PROC",
+        FT::NONE, 0, 512, RM::ALTERNATE, BS::BSIZE_33,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        900, 2000, 4, -40, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::POWER, OwnerFlag::ALL
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        900, 2000, 4, -40, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::POWER, OF::ALL
     },
 
     // Ore Silo (SILO)
     {
-        BuildingType::STORAGE, 0, "SILO",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11,
+        BT::STORAGE, 0, "SILO",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        150, 150, 2, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::PROC, OwnerFlag::ALL
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        150, 150, 2, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::PROC, OF::ALL
     },
 
     // Helipad (HPAD)
     {
-        BuildingType::HELIPAD, 0, "HPAD",
-        FacingType::NONE, 128, 128, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::HELIPAD, 0, "HPAD",
+        FT::NONE, 128, 128, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::AIRCRAFT, DirType::N,
-        400, 1500, 3, -10, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::RADAR, OwnerFlag::ALLIES
+        F, F, F, F, T, F, T, T, F, F, F, T,
+        RT::AIRCRAFT, DT::N,
+        400, 1500, 3, -10, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::RADAR, OF::ALLIES
     },
 
     // SAM Site (SAM)
     {
-        BuildingType::SAM, 0, "SAM",
-        FacingType::NONE, 0, 0, RemapType::NORMAL, BSizeType::BSIZE_21,
+        BT::SAM, 0, "SAM",
+        FT::NONE, 0, 0, RM::NORMAL, BS::BSIZE_21,
         0x0000, 0x0060, 0x0000,
-        false, false, false, false, false, true, true, true, false, false, true, true,
-        RTTIType::NONE, DirType::N,
-        400, 750, 3, 0, ArmorType::WOOD,
-        WeaponType::NIKE, WeaponType::NONE,
-        PrereqFlag::RADAR, OwnerFlag::SOVIET
+        F, F, F, F, F, T, T, T, F, F, T, T,
+        RT::NONE, DT::N,
+        400, 750, 3, 0, AT::WOOD,
+        WT::NIKE, WT::NONE,
+        PF::RADAR, OF::SOVIET
     },
 
     // Airfield (AFLD)
     {
-        BuildingType::AIRSTRIP, 0, "AFLD",
-        FacingType::NONE, 512, 384, RemapType::ALTERNATE, BSizeType::BSIZE_32,
+        BT::AIRSTRIP, 0, "AFLD",
+        FT::NONE, 512, 384, RM::ALTERNATE, BS::BSIZE_32,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::AIRCRAFT, DirType::N,
-        800, 2000, 5, -50, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::RADAR, OwnerFlag::SOVIET
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::AIRCRAFT, DT::N,
+        800, 2000, 5, -50, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::RADAR, OF::SOVIET
     },
 
     // Power Plant (POWR)
     {
-        BuildingType::POWER, 0, "POWR",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::POWER, 0, "POWR",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 300, 2, 100, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALL
+        F, T, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 300, 2, 100, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALL
     },
 
     // Advanced Power Plant (APWR)
     {
-        BuildingType::ADVANCED_POWER, 0, "APWR",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_32,
+        BT::ADVANCED_POWER, 0, "APWR",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_32,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        700, 500, 4, 200, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::POWER, OwnerFlag::ALL
+        F, T, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        700, 500, 4, 200, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::POWER, OF::ALL
     },
 
     // Soviet Tech Center (STEK)
     {
-        BuildingType::SOVIET_TECH, 0, "STEK",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::SOVIET_TECH, 0, "STEK",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 1500, 5, -200, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::RADAR | PrereqFlag::POWER, OwnerFlag::SOVIET
+        F, T, F, F, T, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 1500, 5, -200, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::RADAR | PF::POWER, OF::SOVIET
     },
 
     // Hospital (HOSP)
     {
-        BuildingType::HOSPITAL, 0, "HOSP",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::HOSPITAL, 0, "HOSP",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 500, 2, -20, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::ALLIES
+        F, T, F, F, T, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 500, 2, -20, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::ALLIES
     },
 
     // Allied Barracks (BARR)
     {
-        BuildingType::BARRACKS, 0, "BARR",
-        FacingType::NONE, 256, 384, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::BARRACKS, 0, "BARR",
+        FT::NONE, 256, 384, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::INFANTRY, DirType::N,
-        800, 300, 3, -20, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::POWER, OwnerFlag::ALLIES
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::INFANTRY, DT::N,
+        800, 300, 3, -20, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::POWER, OF::ALLIES
     },
 
     // Soviet Barracks (TENT)
     {
-        BuildingType::TENT, 0, "TENT",
-        FacingType::NONE, 256, 384, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::TENT, 0, "TENT",
+        FT::NONE, 256, 384, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::INFANTRY, DirType::N,
-        800, 300, 3, -20, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::POWER, OwnerFlag::SOVIET
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::INFANTRY, DT::N,
+        800, 300, 3, -20, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::POWER, OF::SOVIET
     },
 
     // Kennel (KENN)
     {
-        BuildingType::KENNEL, 0, "KENN",
-        FacingType::NONE, 128, 256, RemapType::ALTERNATE, BSizeType::BSIZE_11,
+        BT::KENNEL, 0, "KENN",
+        FT::NONE, 128, 256, RM::ALTERNATE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::INFANTRY, DirType::N,
-        400, 200, 2, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::SOVIET
+        F, F, F, F, T, F, T, T, F, F, F, T,
+        RT::INFANTRY, DT::N,
+        400, 200, 2, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::SOVIET
     },
 
     // Service Depot (FIX)
     {
-        BuildingType::REPAIR, 0, "FIX",
-        FacingType::NONE, 256, 384, RemapType::ALTERNATE, BSizeType::BSIZE_32,
+        BT::REPAIR, 0, "FIX",
+        FT::NONE, 256, 384, RM::ALTERNATE, BS::BSIZE_32,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        800, 1200, 3, -30, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::FACTORY, OwnerFlag::ALL
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        800, 1200, 3, -30, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::FACTORY, OF::ALL
     },
 
     // Bio Research Lab (BIO)
     {
-        BuildingType::BIO_LAB, 0, "BIO",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::BIO_LAB, 0, "BIO",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 1500, 5, -100, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::TECH | PrereqFlag::POWER, OwnerFlag::SOVIET
+        F, T, F, F, T, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 1500, 5, -100, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::TECH | PF::POWER, OF::SOVIET
     },
 
     // Mission Control (unused)
     {
-        BuildingType::MISSION, 0, "MISS",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::MISSION, 0, "MISS",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, false, false, true, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 0, 3, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, 0
+        F, T, F, F, T, F, F, F, T, F, F, T,
+        RT::NONE, DT::N,
+        400, 0, 3, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::NONE, 0
     },
 
     // Shipyard (SYRD)
     {
-        BuildingType::SHIP_YARD, 0, "SYRD",
-        FacingType::NONE, 332, 384, RemapType::ALTERNATE, BSizeType::BSIZE_33,
+        BT::SHIP_YARD, 0, "SYRD",
+        FT::NONE, 332, 384, RM::ALTERNATE, BS::BSIZE_33,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::VESSEL, DirType::N,
-        1500, 650, 3, -20, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::PROC | PrereqFlag::POWER, OwnerFlag::ALLIES
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::VESSEL, DT::N,
+        1500, 650, 3, -20, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::PROC | PF::POWER, OF::ALLIES
     },
 
     // Sub Pen (SPEN)
     {
-        BuildingType::SUB_PEN, 0, "SPEN",
-        FacingType::NONE, 256, 384, RemapType::ALTERNATE, BSizeType::BSIZE_33,
+        BT::SUB_PEN, 0, "SPEN",
+        FT::NONE, 256, 384, RM::ALTERNATE, BS::BSIZE_33,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::VESSEL, DirType::N,
-        1500, 650, 3, -20, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::PROC | PrereqFlag::POWER, OwnerFlag::SOVIET
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::VESSEL, DT::N,
+        1500, 650, 3, -20, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::PROC | PF::POWER, OF::SOVIET
     },
 
     // Missile Silo (MSLO)
     {
-        BuildingType::MSLO, 0, "MSLO",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_21,
+        BT::MSLO, 0, "MSLO",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_21,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        1000, 2500, 3, -100, ArmorType::CONCRETE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::TECH | PrereqFlag::POWER, OwnerFlag::ALL
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        1000, 2500, 3, -100, AT::CONCRETE,
+        WT::NONE, WT::NONE,
+        PF::TECH | PF::POWER, OF::ALL
     },
 
     // Forward Command (FCOM)
     {
-        BuildingType::FORWARD_COM, 0, "FCOM",
-        FacingType::SOUTH, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::FORWARD_COM, 0, "FCOM",
+        FT::SOUTH, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, true, false, false, true, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 1500, 10, -200, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::RADAR | PrereqFlag::POWER, OwnerFlag::SOVIET
+        F, T, F, F, T, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 1500, 10, -200, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::RADAR | PF::POWER, OF::SOVIET
     },
 
     // Tesla Coil (TSLA)
     {
-        BuildingType::TESLA, 0, "TSLA",
-        FacingType::NONE, 0, 0, RemapType::NORMAL, BSizeType::BSIZE_12,
+        BT::TESLA, 0, "TSLA",
+        FT::NONE, 0, 0, RM::NORMAL, BS::BSIZE_12,
         0x0000, 0x0060, 0x0000,
-        false, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        400, 1500, 6, -150, ArmorType::CONCRETE,
-        WeaponType::TESLA_COIL, WeaponType::NONE,
-        PrereqFlag::TECH | PrereqFlag::POWER, OwnerFlag::SOVIET
+        F, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        400, 1500, 6, -150, AT::CONCRETE,
+        WT::TESLA_COIL, WT::NONE,
+        PF::TECH | PF::POWER, OF::SOVIET
     },
 
     // Fake Weapons Factory (WEAP fake)
     {
-        BuildingType::FAKEWEAP, 0, "WEAP",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_32,
+        BT::FAKEWEAP, 0, "WEAP",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_32,
         0x0000, 0x0000, 0x0000,
-        true, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 25, 3, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALL
+        T, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 25, 3, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALL
     },
 
     // Fake Construction Yard (FACT fake)
     {
-        BuildingType::FAKECONST, 0, "FACT",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_33,
+        BT::FAKECONST, 0, "FACT",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_33,
         0x0000, 0x0000, 0x0000,
-        true, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 25, 3, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALL
+        T, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 25, 3, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALL
     },
 
     // Fake Shipyard (SYRD fake)
     {
-        BuildingType::FAKE_YARD, 0, "SYRD",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_33,
+        BT::FAKE_YARD, 0, "SYRD",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_33,
         0x0000, 0x0000, 0x0000,
-        true, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 25, 3, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALLIES
+        T, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 25, 3, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALLIES
     },
 
     // Fake Sub Pen (SPEN fake)
     {
-        BuildingType::FAKE_PEN, 0, "SPEN",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_33,
+        BT::FAKE_PEN, 0, "SPEN",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_33,
         0x0000, 0x0000, 0x0000,
-        true, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 25, 3, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::SOVIET
+        T, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 25, 3, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::SOVIET
     },
 
     // Fake Radar (DOME fake)
     {
-        BuildingType::FAKE_RADAR, 0, "DOME",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22,
+        BT::FAKE_RADAR, 0, "DOME",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        true, false, false, false, false, false, true, true, false, false, false, true,
-        RTTIType::NONE, DirType::N,
-        500, 25, 3, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALL
+        T, F, F, F, F, F, T, T, F, F, F, T,
+        RT::NONE, DT::N,
+        500, 25, 3, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALL
     },
 
     // Sandbag Wall (SBAG)
     {
-        BuildingType::SANDBAG_WALL, 0, "SBAG",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::SANDBAG_WALL, 0, "SBAG",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, true, true, true, false, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        25, 50, 0, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::ALLIES
+        F, F, F, T, T, T, F, T, T, F, F, F,
+        RT::NONE, DT::N,
+        25, 50, 0, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::ALLIES
     },
 
     // Chain Link Fence (CYCL)
     {
-        BuildingType::CYCLONE_WALL, 0, "CYCL",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::CYCLONE_WALL, 0, "CYCL",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, true, true, true, false, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        10, 75, 0, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::ALLIES
+        F, F, F, T, T, T, F, T, T, F, F, F,
+        RT::NONE, DT::N,
+        10, 75, 0, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::ALLIES
     },
 
     // Concrete Wall (BRIK)
     {
-        BuildingType::BRICK_WALL, 0, "BRIK",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::BRICK_WALL, 0, "BRIK",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, true, true, true, false, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        75, 100, 0, 0, ArmorType::CONCRETE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::SOVIET
+        F, F, F, T, T, T, F, T, T, F, F, F,
+        RT::NONE, DT::N,
+        75, 100, 0, 0, AT::CONCRETE,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::SOVIET
     },
 
     // Barbed Wire (BARB)
     {
-        BuildingType::BARBWIRE_WALL, 0, "BARB",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::BARBWIRE_WALL, 0, "BARB",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, true, true, true, false, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        10, 25, 0, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::ALLIES
+        F, F, F, T, T, T, F, T, T, F, F, F,
+        RT::NONE, DT::N,
+        10, 25, 0, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::ALLIES
     },
 
     // Wood Fence (WOOD)
     {
-        BuildingType::WOOD_WALL, 0, "WOOD",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::WOOD_WALL, 0, "WOOD",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, true, true, true, false, true, true, true, false, false,
-        RTTIType::NONE, DirType::N,
-        10, 25, 0, 0, ArmorType::WOOD,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::ALLIES
+        F, F, F, T, T, T, F, T, T, T, F, F,
+        RT::NONE, DT::N,
+        10, 25, 0, 0, AT::WOOD,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::ALLIES
     },
 
     // Wire Fence (FENC)
     {
-        BuildingType::FENCE, 0, "FENC",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::FENCE, 0, "FENC",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, true, true, true, false, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        10, 75, 0, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::BARRACKS, OwnerFlag::SOVIET
+        F, F, F, T, T, T, F, T, T, F, F, F,
+        RT::NONE, DT::N,
+        10, 75, 0, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::BARRACKS, OF::SOVIET
     },
 
     // Anti-Vehicle Mine (MINV)
     {
-        BuildingType::AVMINE, 0, "MINV",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::AVMINE, 0, "MINV",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, true, true, false, false, true, false, false, true,
-        RTTIType::NONE, DirType::N,
-        5, 25, 0, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALL
+        F, F, F, F, T, T, F, F, T, F, F, T,
+        RT::NONE, DT::N,
+        5, 25, 0, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALL
     },
 
     // Anti-Personnel Mine (MINP)
     {
-        BuildingType::APMINE, 0, "MINP",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::APMINE, 0, "MINP",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, false, false, true, true, false, false, true, false, false, true,
-        RTTIType::NONE, DirType::N,
-        5, 25, 0, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, OwnerFlag::ALL
+        F, F, F, F, T, T, F, F, T, F, F, T,
+        RT::NONE, DT::N,
+        5, 25, 0, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::NONE, OF::ALL
     },
 
-    // Civilian structures V01-V18
-    {BuildingType::V01, 0, "V01", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V02, 0, "V02", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V03, 0, "V03", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V04, 0, "V04", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V05, 0, "V05", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_21, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V06, 0, "V06", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V07, 0, "V07", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V08, 0, "V08", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V09, 0, "V09", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V10, 0, "V10", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V11, 0, "V11", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V12, 0, "V12", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 100, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V13, 0, "V13", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 100, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V14, 0, "V14", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 100, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V15, 0, "V15", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 100, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V16, 0, "V16", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 100, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V17, 0, "V17", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 100, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V18, 0, "V18", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 100, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
+    // Civilian structures V01-V18 (compact format)
+    // type, idx, name, facing, exit_x/y, remap, size, occ, flags..., prod, dir,
+    // hp, cost, sight, power, armor, wpn1, wpn2, prereq, owner
+    #define CIV22 FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22
+    #define CIV21 FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_21
+    #define CIV11 FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_11
+    #define CIVFL F,F,T,F,F,F,T,T,T,T,F,F,RT::NONE,DT::N
+    #define CIVFX F,F,T,F,T,F,T,T,T,T,F,F,RT::NONE,DT::N
+    #define CIVEND AT::WOOD, WT::NONE, WT::NONE, PF::NONE, 0
+    {BT::V01, 0, "V01", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V02, 0, "V02", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V03, 0, "V03", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V04, 0, "V04", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V05, 0, "V05", CIV21, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V06, 0, "V06", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V07, 0, "V07", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V08, 0, "V08", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V09, 0, "V09", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V10, 0, "V10", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V11, 0, "V11", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V12, 0, "V12", CIV11, 0, 0, 0, CIVFX, 100, 0, 1, 0, CIVEND},
+    {BT::V13, 0, "V13", CIV11, 0, 0, 0, CIVFX, 100, 0, 1, 0, CIVEND},
+    {BT::V14, 0, "V14", CIV11, 0, 0, 0, CIVFX, 100, 0, 1, 0, CIVEND},
+    {BT::V15, 0, "V15", CIV11, 0, 0, 0, CIVFX, 100, 0, 1, 0, CIVEND},
+    {BT::V16, 0, "V16", CIV11, 0, 0, 0, CIVFX, 100, 0, 1, 0, CIVEND},
+    {BT::V17, 0, "V17", CIV11, 0, 0, 0, CIVFX, 100, 0, 1, 0, CIVEND},
+    {BT::V18, 0, "V18", CIV11, 0, 0, 0, CIVFX, 100, 0, 1, 0, CIVEND},
+    #undef CIV22
+    #undef CIV21
+    #undef CIV11
+    #undef CIVFL
+    #undef CIVFX
+    #undef CIVEND
 
     // Water Pump (PUMP / V19)
-    {BuildingType::PUMP, 0, "V19", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, true, true, false, true, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
+    {
+        BT::PUMP, 0, "V19",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_11,
+        0, 0, 0, F, T, T, F, T, F, T, T, T, T, F, F,
+        RT::NONE, DT::N, 200, 0, 1, 0, AT::WOOD,
+        WT::NONE, WT::NONE, PF::NONE, 0
+    },
 
-    // Civilian structures V20-V37
-    {BuildingType::V20, 0, "V20", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V21, 0, "V21", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_21, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V22, 0, "V22", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_21, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V23, 0, "V23", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V24, 0, "V24", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V25, 0, "V25", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V26, 0, "V26", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_21, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V27, 0, "V27", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V28, 0, "V28", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V29, 0, "V29", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V30, 0, "V30", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V31, 0, "V31", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V32, 0, "V32", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V33, 0, "V33", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_22, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V34, 0, "V34", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V35, 0, "V35", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V36, 0, "V36", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
-    {BuildingType::V37, 0, "V37", FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_32, 0, 0, 0, false, false, true, false, false, false, true, true, true, true, false, false, RTTIType::NONE, DirType::N, 200, 0, 1, 0, ArmorType::WOOD, WeaponType::NONE, WeaponType::NONE, PrereqFlag::NONE, 0},
+    // Civilian structures V20-V37 (compact format)
+    #define CIV22 FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_22
+    #define CIV21 FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_21
+    #define CIV11 FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_11
+    #define CIV32 FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_32
+    #define CIVFL F,F,T,F,F,F,T,T,T,T,F,F,RT::NONE,DT::N
+    #define CIVEND AT::WOOD, WT::NONE, WT::NONE, PF::NONE, 0
+    {BT::V20, 0, "V20", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V21, 0, "V21", CIV21, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V22, 0, "V22", CIV21, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V23, 0, "V23", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V24, 0, "V24", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V25, 0, "V25", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V26, 0, "V26", CIV21, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V27, 0, "V27", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V28, 0, "V28", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V29, 0, "V29", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V30, 0, "V30", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V31, 0, "V31", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V32, 0, "V32", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V33, 0, "V33", CIV22, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V34, 0, "V34", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V35, 0, "V35", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V36, 0, "V36", CIV11, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    {BT::V37, 0, "V37", CIV32, 0, 0, 0, CIVFL, 200, 0, 1, 0, CIVEND},
+    #undef CIV22
+    #undef CIV21
+    #undef CIV11
+    #undef CIV32
+    #undef CIVFL
+    #undef CIVEND
 
     // Explosive Barrel (BARL)
     {
-        BuildingType::BARREL, 0, "BARL",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11,
+        BT::BARREL, 0, "BARL",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, true, false, true, true, true, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        20, 0, 1, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, 0
+        F, F, T, F, T, T, T, T, T, F, F, F,
+        RT::NONE, DT::N,
+        20, 0, 1, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::NONE, 0
     },
 
     // 3-Barrel Group (BRL3)
     {
-        BuildingType::BARREL3, 0, "BRL3",
-        FacingType::NONE, 0, 0, RemapType::ALTERNATE, BSizeType::BSIZE_11,
+        BT::BARREL3, 0, "BRL3",
+        FT::NONE, 0, 0, RM::ALTERNATE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, false, true, false, true, true, false, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        20, 0, 1, 0, ArmorType::NONE,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, 0
+        F, F, T, F, T, T, F, T, T, F, F, F,
+        RT::NONE, DT::N,
+        20, 0, 1, 0, AT::NONE,
+        WT::NONE, WT::NONE,
+        PF::NONE, 0
     },
 
     // Ant Queen (QUEE)
     {
-        BuildingType::QUEEN, 0, "QUEE",
-        FacingType::NONE, 256, 384, RemapType::NONE, BSizeType::BSIZE_22,
+        BT::QUEEN, 0, "QUEE",
+        FT::NONE, 256, 384, RM::NONE, BS::BSIZE_22,
         0x0000, 0x0000, 0x0000,
-        false, false, true, false, false, false, true, true, false, false, false, false,
-        RTTIType::NONE, DirType::N,
-        800, 0, 4, 0, ArmorType::LIGHT,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, 0
+        F, F, T, F, F, F, T, T, F, F, F, F,
+        RT::NONE, DT::N,
+        800, 0, 4, 0, AT::LIGHT,
+        WT::NONE, WT::NONE,
+        PF::NONE, 0
     },
 
     // Larva 1 (LAR1)
     {
-        BuildingType::LARVA1, 0, "LAR1",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::LARVA1, 0, "LAR1",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, true, true, false, false, false, true, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        150, 0, 1, 0, ArmorType::LIGHT,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, 0
+        F, T, T, F, F, F, T, T, T, F, F, F,
+        RT::NONE, DT::N,
+        150, 0, 1, 0, AT::LIGHT,
+        WT::NONE, WT::NONE,
+        PF::NONE, 0
     },
 
     // Larva 2 (LAR2)
     {
-        BuildingType::LARVA2, 0, "LAR2",
-        FacingType::NONE, 0, 0, RemapType::NONE, BSizeType::BSIZE_11,
+        BT::LARVA2, 0, "LAR2",
+        FT::NONE, 0, 0, RM::NONE, BS::BSIZE_11,
         0x0000, 0x0000, 0x0000,
-        false, true, true, false, false, false, true, true, true, false, false, false,
-        RTTIType::NONE, DirType::N,
-        150, 0, 1, 0, ArmorType::LIGHT,
-        WeaponType::NONE, WeaponType::NONE,
-        PrereqFlag::NONE, 0
+        F, T, T, F, F, F, T, T, T, F, F, F,
+        RT::NONE, DT::N,
+        150, 0, 1, 0, AT::LIGHT,
+        WT::NONE, WT::NONE,
+        PF::NONE, 0
     },
 };
 
@@ -692,19 +738,19 @@ const BuildingTypeData* GetBuildingType(BuildingType type) {
 }
 
 BuildingType BuildingTypeFromName(const char* name) {
-    if (name == nullptr) return BuildingType::NONE;
+    if (name == nullptr) return BT::NONE;
 
     for (int i = 0; i < BuildingTypeCount; i++) {
         if (strcasecmp(BuildingTypes[i].iniName, name) == 0) {
             return BuildingTypes[i].type;
         }
     }
-    return BuildingType::NONE;
+    return BT::NONE;
 }
 
 void GetBuildingSize(BSizeType size, int& width, int& height) {
     int idx = static_cast<int>(size);
-    if (idx >= 0 && idx < static_cast<int>(BSizeType::COUNT)) {
+    if (idx >= 0 && idx < static_cast<int>(BS::COUNT)) {
         width = BuildingSizes[idx].width;
         height = BuildingSizes[idx].height;
     } else {
@@ -715,12 +761,12 @@ void GetBuildingSize(BSizeType size, int& width, int& height) {
 
 bool IsBuildingWall(BuildingType type) {
     switch (type) {
-        case BuildingType::SANDBAG_WALL:
-        case BuildingType::CYCLONE_WALL:
-        case BuildingType::BRICK_WALL:
-        case BuildingType::BARBWIRE_WALL:
-        case BuildingType::WOOD_WALL:
-        case BuildingType::FENCE:
+        case BT::SANDBAG_WALL:
+        case BT::CYCLONE_WALL:
+        case BT::BRICK_WALL:
+        case BT::BARBWIRE_WALL:
+        case BT::WOOD_WALL:
+        case BT::FENCE:
             return true;
         default:
             return false;
@@ -729,16 +775,16 @@ bool IsBuildingWall(BuildingType type) {
 
 bool IsBuildingCivilian(BuildingType type) {
     int idx = static_cast<int>(type);
-    int v01 = static_cast<int>(BuildingType::V01);
-    int v37 = static_cast<int>(BuildingType::V37);
+    int v01 = static_cast<int>(BT::V01);
+    int v37 = static_cast<int>(BT::V37);
 
     return (idx >= v01 && idx <= v37) ||
-           type == BuildingType::PUMP ||
-           type == BuildingType::BARREL ||
-           type == BuildingType::BARREL3;
+           type == BT::PUMP ||
+           type == BT::BARREL ||
+           type == BT::BARREL3;
 }
 
 bool IsBuildingFactory(BuildingType type) {
     const BuildingTypeData* data = GetBuildingType(type);
-    return data != nullptr && data->factoryType != RTTIType::NONE;
+    return data != nullptr && data->factoryType != RT::NONE;
 }

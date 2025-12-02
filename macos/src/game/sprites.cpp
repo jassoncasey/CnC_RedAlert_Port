@@ -74,8 +74,9 @@ BOOL Sprites_Init(void) {
             g_unitSprites[i] = Assets_LoadSHP(g_unitSpriteNames[i]);
             if (g_unitSprites[i]) {
                 g_spritesLoaded++;
+                int frames = Shp_GetFrameCount(g_unitSprites[i]);
                 fprintf(stderr, "  Loaded %s (%d frames)\n",
-                       g_unitSpriteNames[i], Shp_GetFrameCount(g_unitSprites[i]));
+                       g_unitSpriteNames[i], frames);
             } else {
                 fprintf(stderr, "  MISSING: %s\n", g_unitSpriteNames[i]);
             }
@@ -89,8 +90,9 @@ BOOL Sprites_Init(void) {
             g_buildingSprites[i] = Assets_LoadSHP(g_buildingSpriteNames[i]);
             if (g_buildingSprites[i]) {
                 g_spritesLoaded++;
+                int frames = Shp_GetFrameCount(g_buildingSprites[i]);
                 fprintf(stderr, "  Loaded %s (%d frames)\n",
-                       g_buildingSpriteNames[i], Shp_GetFrameCount(g_buildingSprites[i]));
+                       g_buildingSpriteNames[i], frames);
             } else {
                 fprintf(stderr, "  MISSING: %s\n", g_buildingSpriteNames[i]);
             }

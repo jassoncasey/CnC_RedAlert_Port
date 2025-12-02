@@ -177,7 +177,8 @@ uint8_t* Renderer_GetAlphaBuffer(void);
  * Returns width of rendered text in pixels.
  * Note: This is a stub - real font rendering requires font data.
  */
-int Renderer_DrawText(const char* text, int x, int y, uint8_t fgColor, uint8_t bgColor);
+int Renderer_DrawText(const char* text, int x, int y,
+                      uint8_t fgColor, uint8_t bgColor);
 
 /**
  * Set clipping rectangle

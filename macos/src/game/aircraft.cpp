@@ -330,7 +330,8 @@ int AircraftClass::RearmTime(int weapon) const {
     return 30;  // Aircraft fire quickly
 }
 
-ResultType AircraftClass::TakeDamage(int& damage, int distance, WarheadType warhead,
+ResultType AircraftClass::TakeDamage(int& damage, int distance,
+                                      WarheadType warhead,
                                       TechnoClass* source, bool forced) {
     // Aircraft are vulnerable to AA
     if (warhead == WarheadType::AP) {
@@ -390,8 +391,9 @@ int AircraftClass::ShapeNumber() const {
     if (!typeData) return 0;
 
     // Calculate frame from facing
-    int facing = static_cast<int>(bodyFacing_) / (256 / typeData->rotationStages);
-    if (facing >= typeData->rotationStages) facing = 0;
+    int stages = typeData->rotationStages;
+    int facing = static_cast<int>(bodyFacing_) / (256 / stages);
+    if (facing >= stages) facing = 0;
 
     return facing;
 }

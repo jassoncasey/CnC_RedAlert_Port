@@ -22,7 +22,7 @@ class TechnoClass;
 //===========================================================================
 
 constexpr int FACTORY_MAX = 32;        // Max factories per house
-constexpr int STEP_COUNT = 54;         // Production broken into 54 animation steps
+constexpr int STEP_COUNT = 54;         // Production animation steps
 
 //===========================================================================
 // FactoryClass - Production Manager
@@ -146,7 +146,9 @@ public:
     /**
      * Check if production is in progress
      */
-    bool Is_Building() const { return stage_ > 0 && !isSuspended_ && !hasCompleted_; }
+    bool Is_Building() const {
+        return stage_ > 0 && !isSuspended_ && !hasCompleted_;
+    }
 
     /**
      * Get the object being produced

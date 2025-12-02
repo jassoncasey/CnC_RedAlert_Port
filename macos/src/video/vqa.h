@@ -265,7 +265,7 @@ private:
     int cbpBufferSize_;         // Size of cbpBuffer_
     int cbpOffset_;             // Current write offset in cbpBuffer_
     int cbpCount_;              // Number of CBP chunks accumulated
-    bool cbpIsCompressed_;      // True if accumulated chunks are CBPZ (compressed)
+    bool cbpIsCompressed_;      // True if chunks are CBPZ (compressed)
 
     //-----------------------------------------------------------------------
     // Internal Methods
@@ -279,7 +279,8 @@ private:
     bool DecodeFrame(int frameNum);
 
     // Decode frame components
-    bool DecodeCodebook(const uint8_t* data, uint32_t size, bool compressed, bool partial);
+    bool DecodeCodebook(const uint8_t* data, uint32_t size,
+                        bool compressed, bool partial);
     bool DecodePointers(const uint8_t* data, uint32_t size, uint32_t chunkId);
     bool DecodePalette(const uint8_t* data, uint32_t size, bool compressed);
     bool DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId);
@@ -295,10 +296,12 @@ private:
     static uint16_t SwapBE16(uint16_t val);
 
     // LCW decompression
-    static int DecompressLCW(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize);
+    static int DecompressLCW(const uint8_t* src, uint8_t* dst,
+                             int srcSize, int dstSize);
 
     // RLE decompression for vector pointers
-    static int DecompressRLE(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize);
+    static int DecompressRLE(const uint8_t* src, uint8_t* dst,
+                             int srcSize, int dstSize);
 };
 
 //===========================================================================
@@ -314,6 +317,7 @@ bool VQA_Play(const char* filename);
 // Return false from callback to stop playback
 typedef bool (*VQAFrameCallback)(const uint8_t* frame, const uint8_t* palette,
                                   int width, int height, void* userData);
-bool VQA_PlayWithCallback(const char* filename, VQAFrameCallback callback, void* userData);
+bool VQA_PlayWithCallback(const char* filename, VQAFrameCallback callback,
+                          void* userData);
 
 #endif // VIDEO_VQA_H

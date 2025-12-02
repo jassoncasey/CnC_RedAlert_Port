@@ -101,7 +101,8 @@ public:
     // Movement Zones
     //-----------------------------------------------------------------------
 
-    uint8_t zones_[static_cast<int>(MZoneType::COUNT)]; // Zone indices for pathfinding
+    // Zone indices for pathfinding
+    uint8_t zones_[static_cast<int>(MZoneType::COUNT)];
 
     //-----------------------------------------------------------------------
     // Special Effects

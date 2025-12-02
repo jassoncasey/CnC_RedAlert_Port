@@ -87,7 +87,8 @@ static UnitType ParseUnitType(const char* str) {
     if (strcasecmp(str, "E2") == 0) return UNIT_GRENADIER;
     if (strcasecmp(str, "E3") == 0) return UNIT_ROCKET;
     if (strcasecmp(str, "E6") == 0) return UNIT_ENGINEER;
-    if (strcasecmp(str, "E5") == 0 || strcasecmp(str, "SPY") == 0) return UNIT_SPY;
+    bool isSpy = strcasecmp(str, "E5") == 0 || strcasecmp(str, "SPY") == 0;
+    if (isSpy) return UNIT_SPY;
     if (strcasecmp(str, "DOG") == 0) return UNIT_DOG;
     if (strcasecmp(str, "MEDI") == 0) return UNIT_MEDIC;
     if (strcasecmp(str, "THF") == 0) return UNIT_THIEF;
@@ -138,7 +139,9 @@ static BuildingType ParseBuildingType(const char* str) {
     if (strcasecmp(str, "SILO") == 0) return BUILDING_SILO;
 
     // Production
-    if (strcasecmp(str, "TENT") == 0 || strcasecmp(str, "BARR") == 0) return BUILDING_BARRACKS;
+    bool isBarr = strcasecmp(str, "TENT") == 0;
+    isBarr = isBarr || strcasecmp(str, "BARR") == 0;
+    if (isBarr) return BUILDING_BARRACKS;
     if (strcasecmp(str, "WEAP") == 0) return BUILDING_FACTORY;
     if (strcasecmp(str, "AFLD") == 0) return BUILDING_AIRFIELD;
     if (strcasecmp(str, "HPAD") == 0) return BUILDING_HELIPAD;
@@ -147,7 +150,9 @@ static BuildingType ParseBuildingType(const char* str) {
 
     // Tech
     if (strcasecmp(str, "DOME") == 0) return BUILDING_RADAR;
-    if (strcasecmp(str, "ATEK") == 0 || strcasecmp(str, "STEK") == 0) return BUILDING_TECH_CENTER;
+    bool isTech = strcasecmp(str, "ATEK") == 0;
+    isTech = isTech || strcasecmp(str, "STEK") == 0;
+    if (isTech) return BUILDING_TECH_CENTER;
     if (strcasecmp(str, "KENN") == 0) return BUILDING_KENNEL;
 
     // Defense
@@ -216,7 +221,7 @@ static MissionType ParseMissionType(const char* str) {
 }
 
 // Parse house name to house number (for TeamTypes, Base sections)
-// House numbers: 0=Spain, 1=Greece, 2=USSR, 3=England, 4=Ukraine, 5=Germany, 6=France, 7=Turkey
+// Houses: 0=Spain, 1=Greece, 2=USSR, 3=England, 4=Ukraine, 5-7=DE/FR/TR
 static int ParseHouseName(const char* str) {
     if (!str) return -1;
 
@@ -238,7 +243,7 @@ static int ParseHouseName(const char* str) {
     return -1;
 }
 
-// Convert cell number to X/Y coordinates (Red Alert uses 128-wide maps internally)
+// Convert cell to X/Y (Red Alert uses 128-wide maps internally)
 #define CELL_TO_X(cell) ((cell) % 128)
 #define CELL_TO_Y(cell) ((cell) / 128)
 
@@ -270,7 +275,8 @@ static void ParseBasicSection(MissionData* mission, INIClass* ini) {
 // Parse [Map] section - theater and dimensions
 static void ParseMapSection(MissionData* mission, INIClass* ini) {
     char theaterStr[32];
-    ini->GetString("Map", "Theater", "TEMPERATE", theaterStr, sizeof(theaterStr));
+    int sz = sizeof(theaterStr);
+    ini->GetString("Map", "Theater", "TEMPERATE", theaterStr, sz);
     if (strcasecmp(theaterStr, "SNOW") == 0) mission->theater = 1;
     else if (strcasecmp(theaterStr, "INTERIOR") == 0) mission->theater = 2;
     else if (strcasecmp(theaterStr, "DESERT") == 0) mission->theater = 3;
@@ -643,7 +649,8 @@ static void ParseTerrainSection(MissionData* mission, INIClass* ini) {
         ini->GetString("TERRAIN", entry, "", terrType, sizeof(terrType));
         if (terrType[0] == '\0') continue;
 
-        MissionTerrainObj* obj = &mission->terrainObjs[mission->terrainObjCount];
+        int idx = mission->terrainObjCount;
+        MissionTerrainObj* obj = &mission->terrainObjs[idx];
         strncpy(obj->type, terrType, sizeof(obj->type) - 1);
         obj->type[sizeof(obj->type) - 1] = '\0';
         obj->cellX = CELL_TO_X(cell);
@@ -905,7 +912,8 @@ int Mission_LoadFromBuffer(MissionData* mission, const char* buffer, int size) {
     Mission_Init(mission);
 
     // [Basic] section
-    ini.GetString("Basic", "Name", "Mission", mission->name, sizeof(mission->name));
+    int nsz = sizeof(mission->name);
+    ini.GetString("Basic", "Name", "Mission", mission->name, nsz);
     mission->startCredits = ini.GetInt("Basic", "Credits", 5000);
 
     // ... (same parsing as above, but simpler for buffer)
@@ -1022,8 +1030,10 @@ static void LogMissionData(const MissionData* mission) {
                     team->name, team->house,
                     team->memberCount, team->missionCount);
         }
-        if (mission->teamTypeCount > 5)
-            fprintf(stderr, "    ... and %d more\n", mission->teamTypeCount - 5);
+        if (mission->teamTypeCount > 5) {
+            int more = mission->teamTypeCount - 5;
+            fprintf(stderr, "    ... and %d more\n", more);
+        }
     }
     if (mission->terrainObjCount > 0)
         fprintf(stderr, "  Loaded %d terrain objects (trees, etc.)\n",
@@ -1180,40 +1190,83 @@ void Mission_GetDemo(MissionData* mission) {
     mission->winCondition = 0;  // Destroy all
     mission->loseCondition = 0; // Lose all
 
-    // Player buildings (type, team, cellX, cellY, health, facing, sellable, rebuild)
-    mission->buildings[mission->buildingCount++] = {BUILDING_CONSTRUCTION, TEAM_PLAYER, 2, 15, 256, 0, 1, 0};
-    mission->buildings[mission->buildingCount++] = {BUILDING_POWER, TEAM_PLAYER, 6, 16, 256, 0, 1, 0};
-    mission->buildings[mission->buildingCount++] = {BUILDING_BARRACKS, TEAM_PLAYER, 2, 19, 256, 0, 1, 0};
-    mission->buildings[mission->buildingCount++] = {BUILDING_REFINERY, TEAM_PLAYER, 6, 19, 256, 0, 1, 0};
+    // Building/unit macros for concise initialization
+    #define B(t,tm,x,y,s,r) {t, tm, x, y, 256, 0, s, r}
+    #define U(t,tm,x,y,f,m,s) {t, tm, x, y, 256, f, m, s}
+    #define P TEAM_PLAYER
+    #define E TEAM_ENEMY
+    #define CY BUILDING_CONSTRUCTION
+    #define PW BUILDING_POWER
+    #define BA BUILDING_BARRACKS
+    #define RE BUILDING_REFINERY
+    #define FA BUILDING_FACTORY
+    #define TU BUILDING_TURRET
+    #define TM UNIT_TANK_MEDIUM
+    #define TL UNIT_TANK_LIGHT
+    #define TH UNIT_TANK_HEAVY
+    #define RI UNIT_RIFLE
+    #define RK UNIT_ROCKET
+    #define HA UNIT_HARVESTER
+    #define G MISSION_GUARD
+    #define H MISSION_HUNT
+
+    // Player buildings
+    MissionBuilding* bld = mission->buildings;
+    int& bc = mission->buildingCount;
+    bld[bc++] = B(CY, P, 2, 15, 1, 0);
+    bld[bc++] = B(PW, P, 6, 16, 1, 0);
+    bld[bc++] = B(BA, P, 2, 19, 1, 0);
+    bld[bc++] = B(RE, P, 6, 19, 1, 0);
 
     // Enemy buildings
-    mission->buildings[mission->buildingCount++] = {BUILDING_CONSTRUCTION, TEAM_ENEMY, 55, 10, 256, 0, 0, 1};
-    mission->buildings[mission->buildingCount++] = {BUILDING_POWER, TEAM_ENEMY, 52, 10, 256, 0, 0, 1};
-    mission->buildings[mission->buildingCount++] = {BUILDING_BARRACKS, TEAM_ENEMY, 55, 6, 256, 0, 0, 1};
-    mission->buildings[mission->buildingCount++] = {BUILDING_FACTORY, TEAM_ENEMY, 52, 6, 256, 0, 0, 1};
-    mission->buildings[mission->buildingCount++] = {BUILDING_TURRET, TEAM_ENEMY, 50, 12, 256, 0, 0, 1};
-    mission->buildings[mission->buildingCount++] = {BUILDING_TURRET, TEAM_ENEMY, 58, 12, 256, 0, 0, 1};
-    mission->buildings[mission->buildingCount++] = {BUILDING_REFINERY, TEAM_ENEMY, 58, 8, 256, 0, 0, 1};
+    bld[bc++] = B(CY, E, 55, 10, 0, 1);
+    bld[bc++] = B(PW, E, 52, 10, 0, 1);
+    bld[bc++] = B(BA, E, 55, 6, 0, 1);
+    bld[bc++] = B(FA, E, 52, 6, 0, 1);
+    bld[bc++] = B(TU, E, 50, 12, 0, 1);
+    bld[bc++] = B(TU, E, 58, 12, 0, 1);
+    bld[bc++] = B(RE, E, 58, 8, 0, 1);
 
-    // Player units (type, team, cellX, cellY, health, facing, mission, subCell)
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_PLAYER, 4, 16, 256, 64, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_PLAYER, 5, 17, 256, 64, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_TANK_LIGHT, TEAM_PLAYER, 7, 16, 256, 64, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_TANK_LIGHT, TEAM_PLAYER, 7, 18, 256, 64, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 3, 18, 256, 64, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 4, 18, 256, 64, MISSION_GUARD, 1};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 5, 18, 256, 64, MISSION_GUARD, 2};
-    mission->units[mission->unitCount++] = {UNIT_ROCKET, TEAM_PLAYER, 2, 17, 256, 64, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_HARVESTER, TEAM_PLAYER, 8, 20, 256, 64, MISSION_HARVEST, 0};
+    // Player units
+    MissionUnit* unt = mission->units;
+    int& uc = mission->unitCount;
+    unt[uc++] = U(TM, P, 4, 16, 64, G, 0);
+    unt[uc++] = U(TM, P, 5, 17, 64, G, 0);
+    unt[uc++] = U(TL, P, 7, 16, 64, G, 0);
+    unt[uc++] = U(TL, P, 7, 18, 64, G, 0);
+    unt[uc++] = U(RI, P, 3, 18, 64, G, 0);
+    unt[uc++] = U(RI, P, 4, 18, 64, G, 1);
+    unt[uc++] = U(RI, P, 5, 18, 64, G, 2);
+    unt[uc++] = U(RK, P, 2, 17, 64, G, 0);
+    unt[uc++] = U(HA, P, 8, 20, 64, MISSION_HARVEST, 0);
 
     // Enemy units
-    mission->units[mission->unitCount++] = {UNIT_TANK_HEAVY, TEAM_ENEMY, 54, 12, 256, 192, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_ENEMY, 52, 13, 256, 192, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_ENEMY, 56, 13, 256, 192, MISSION_GUARD, 0};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 50, 14, 256, 192, MISSION_HUNT, 0};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 51, 14, 256, 192, MISSION_HUNT, 1};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 52, 14, 256, 192, MISSION_HUNT, 2};
-    mission->units[mission->unitCount++] = {UNIT_ROCKET, TEAM_ENEMY, 54, 10, 256, 192, MISSION_GUARD, 0};
+    unt[uc++] = U(TH, E, 54, 12, 192, G, 0);
+    unt[uc++] = U(TM, E, 52, 13, 192, G, 0);
+    unt[uc++] = U(TM, E, 56, 13, 192, G, 0);
+    unt[uc++] = U(RI, E, 50, 14, 192, H, 0);
+    unt[uc++] = U(RI, E, 51, 14, 192, H, 1);
+    unt[uc++] = U(RI, E, 52, 14, 192, H, 2);
+    unt[uc++] = U(RK, E, 54, 10, 192, G, 0);
+
+    #undef B
+    #undef U
+    #undef P
+    #undef E
+    #undef CY
+    #undef PW
+    #undef BA
+    #undef RE
+    #undef FA
+    #undef TU
+    #undef TM
+    #undef TL
+    #undef TH
+    #undef RI
+    #undef RK
+    #undef HA
+    #undef G
+    #undef H
 }
 
 // ============================================================================
@@ -1521,18 +1574,22 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             Map_RevealAll();
             break;
 
-        case RA_ACTION_REVEAL_SOME:
+        case RA_ACTION_REVEAL_SOME: {
             // param3 = waypoint number
-            fprintf(stderr, "  TRIGGER: Reveal around waypoint %d\n", param3);
-            if (mission && param3 >= 0 && param3 < MAX_MISSION_WAYPOINTS &&
-                mission->waypoints[param3].cell >= 0) {
+            fprintf(stderr, "  TRIGGER: Reveal around wp %d\n", param3);
+            bool validWp = mission && param3 >= 0;
+            validWp = validWp && param3 < MAX_MISSION_WAYPOINTS;
+            validWp = validWp && mission->waypoints[param3].cell >= 0;
+            if (validWp) {
                 // Convert waypoint cell to world coordinates
-                int wpX = (mission->waypoints[param3].cellX - mission->mapX) * CELL_SIZE;
-                int wpY = (mission->waypoints[param3].cellY - mission->mapY) * CELL_SIZE;
+                const MissionWaypoint* wp = &mission->waypoints[param3];
+                int wpX = (wp->cellX - mission->mapX) * CELL_SIZE;
+                int wpY = (wp->cellY - mission->mapY) * CELL_SIZE;
                 // Reveal 5-cell radius around waypoint
                 Map_RevealArea(wpX, wpY, 5 * CELL_SIZE);
             }
             break;
+        }
 
         case RA_ACTION_FORCE_TRIG:
             // param3 = trigger ID to force

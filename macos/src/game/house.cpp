@@ -22,44 +22,40 @@ int HouseCount = 0;
 // House Type Data (from HDATA.CPP)
 //===========================================================================
 
+#define A SideType::ALLIED
+#define S SideType::SOVIET
+#define N SideType::NEUTRAL
+#define D 256  // Default bias value
 static const HouseTypeData HouseTypeDataArray[] = {
-    // SPAIN - Allied (yellow)
-    { "Spain", "Spain", "SPA", SideType::ALLIED, 5, 176, 256, 256, 256, 256, 256, 256, 256 },
-    // GREECE - Allied (blue)
-    { "Greece", "Greece", "GRE", SideType::ALLIED, 1, 135, 256, 256, 256, 256, 256, 256, 256 },
-    // USSR - Soviet (red)
-    { "USSR", "Russia", "RED", SideType::SOVIET, 123, 127, 256, 256, 256, 256, 256, 256, 256 },
-    // ENGLAND - Allied (green)
-    { "England", "England", "ENG", SideType::ALLIED, 159, 167, 256, 256, 256, 256, 256, 256, 256 },
-    // UKRAINE - Soviet (orange)
-    { "Ukraine", "Ukraine", "UKR", SideType::SOVIET, 24, 25, 256, 256, 256, 256, 256, 256, 256 },
-    // GERMANY - Allied (gray)
-    { "Germany", "Germany", "GER", SideType::ALLIED, 204, 207, 256, 256, 256, 256, 256, 256, 256 },
-    // FRANCE - Allied (teal)
-    { "France", "France", "FRA", SideType::ALLIED, 136, 143, 256, 256, 256, 256, 256, 256, 256 },
-    // TURKEY - Allied (brown)
-    { "Turkey", "Turkey", "TRK", SideType::ALLIED, 184, 191, 256, 256, 256, 256, 256, 256, 256 },
-    // GOOD - Generic Allied
-    { "GoodGuy", "Allies", "GDI", SideType::ALLIED, 1, 135, 256, 256, 256, 256, 256, 256, 256 },
-    // BAD - Generic Soviet
-    { "BadGuy", "Soviet", "NOD", SideType::SOVIET, 123, 127, 256, 256, 256, 256, 256, 256, 256 },
-    // NEUTRAL - Civilian
-    { "Neutral", "Neutral", "NEU", SideType::NEUTRAL, 204, 207, 256, 256, 256, 256, 256, 256, 256 },
-    // SPECIAL - Special
-    { "Special", "Special", "SPC", SideType::NEUTRAL, 204, 207, 256, 256, 256, 256, 256, 256, 256 },
-    // MULTI1
-    { "Multi1", "Multi1", "MP1", SideType::ALLIED, 5, 176, 256, 256, 256, 256, 256, 256, 256 },
-    // MULTI2
-    { "Multi2", "Multi2", "MP2", SideType::SOVIET, 123, 127, 256, 256, 256, 256, 256, 256, 256 },
-    // MULTI3
-    { "Multi3", "Multi3", "MP3", SideType::ALLIED, 159, 167, 256, 256, 256, 256, 256, 256, 256 },
-    // MULTI4
-    { "Multi4", "Multi4", "MP4", SideType::SOVIET, 24, 25, 256, 256, 256, 256, 256, 256, 256 },
+    // Name        FullName   INI  Side  Col1 Col2  Biases (7x)
+    {"Spain",     "Spain",   "SPA", A,   5,  176, D, D, D, D, D, D, D},
+    {"Greece",    "Greece",  "GRE", A,   1,  135, D, D, D, D, D, D, D},
+    {"USSR",      "Russia",  "RED", S, 123,  127, D, D, D, D, D, D, D},
+    {"England",   "England", "ENG", A, 159,  167, D, D, D, D, D, D, D},
+    {"Ukraine",   "Ukraine", "UKR", S,  24,   25, D, D, D, D, D, D, D},
+    {"Germany",   "Germany", "GER", A, 204,  207, D, D, D, D, D, D, D},
+    {"France",    "France",  "FRA", A, 136,  143, D, D, D, D, D, D, D},
+    {"Turkey",    "Turkey",  "TRK", A, 184,  191, D, D, D, D, D, D, D},
+    {"GoodGuy",   "Allies",  "GDI", A,   1,  135, D, D, D, D, D, D, D},
+    {"BadGuy",    "Soviet",  "NOD", S, 123,  127, D, D, D, D, D, D, D},
+    {"Neutral",   "Neutral", "NEU", N, 204,  207, D, D, D, D, D, D, D},
+    {"Special",   "Special", "SPC", N, 204,  207, D, D, D, D, D, D, D},
+    {"Multi1",    "Multi1",  "MP1", A,   5,  176, D, D, D, D, D, D, D},
+    {"Multi2",    "Multi2",  "MP2", S, 123,  127, D, D, D, D, D, D, D},
+    {"Multi3",    "Multi3",  "MP3", A, 159,  167, D, D, D, D, D, D, D},
+    {"Multi4",    "Multi4",  "MP4", S,  24,   25, D, D, D, D, D, D, D},
 };
+#undef A
+#undef S
+#undef N
+#undef D
+
+static constexpr int HOUSE_TYPE_COUNT =
+    sizeof(HouseTypeDataArray) / sizeof(HouseTypeDataArray[0]);
 
 const HouseTypeData* GetHouseType(HousesType type) {
     int idx = static_cast<int>(type);
-    if (idx >= 0 && idx < static_cast<int>(sizeof(HouseTypeDataArray) / sizeof(HouseTypeDataArray[0]))) {
+    if (idx >= 0 && idx < HOUSE_TYPE_COUNT) {
         return &HouseTypeDataArray[idx];
     }
     return nullptr;
@@ -68,7 +64,7 @@ const HouseTypeData* GetHouseType(HousesType type) {
 HousesType HouseTypeFromName(const char* name) {
     if (name == nullptr) return HousesType::NONE;
 
-    for (int i = 0; i < static_cast<int>(sizeof(HouseTypeDataArray) / sizeof(HouseTypeDataArray[0])); i++) {
+    for (int i = 0; i < HOUSE_TYPE_COUNT; i++) {
         if (strcasecmp(name, HouseTypeDataArray[i].iniName) == 0) {
             return static_cast<HousesType>(i);
         }
@@ -323,8 +319,10 @@ void HouseClass::AI() {
 void HouseClass::Expert_AI() {
     // Evaluate each strategy and assign urgency
     urgency_[static_cast<int>(StrategyType::BUILD_POWER)] = Check_Build_Power();
-    urgency_[static_cast<int>(StrategyType::BUILD_DEFENSE)] = Check_Build_Defense();
-    urgency_[static_cast<int>(StrategyType::BUILD_OFFENSE)] = Check_Build_Offense();
+    int defIdx = static_cast<int>(StrategyType::BUILD_DEFENSE);
+    int offIdx = static_cast<int>(StrategyType::BUILD_OFFENSE);
+    urgency_[defIdx] = Check_Build_Defense();
+    urgency_[offIdx] = Check_Build_Offense();
     urgency_[static_cast<int>(StrategyType::ATTACK)] = Check_Attack();
     urgency_[static_cast<int>(StrategyType::FIRE_SALE)] = Check_Fire_Sale();
 
@@ -334,7 +332,8 @@ void HouseClass::Expert_AI() {
     }
 
     // Execute highest urgency strategies first
-    for (int level = static_cast<int>(UrgencyType::CRITICAL); level > 0; level--) {
+    int critical = static_cast<int>(UrgencyType::CRITICAL);
+    for (int level = critical; level > 0; level--) {
         for (int s = 0; s < static_cast<int>(StrategyType::COUNT); s++) {
             if (urgency_[s] == static_cast<UrgencyType>(level)) {
                 // Would execute strategy here
@@ -424,7 +423,8 @@ int32_t HouseClass::Find_Cell_In_Zone(int zone) const {
 //===========================================================================
 
 TeamTypeClass* HouseClass::Suggested_New_Team(bool alert) const {
-    return TeamTypeClass::Suggested_New_Team(const_cast<HouseClass*>(this), alert);
+    HouseClass* self = const_cast<HouseClass*>(this);
+    return TeamTypeClass::Suggested_New_Team(self, alert);
 }
 
 int HouseClass::Team_Count() const {

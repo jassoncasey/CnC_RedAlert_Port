@@ -106,7 +106,8 @@ void GameUI_Render(void);
  * Handle input in UI area
  * @return TRUE if input was consumed by UI
  */
-BOOL GameUI_HandleInput(int mouseX, int mouseY, BOOL leftClick, BOOL rightClick);
+BOOL GameUI_HandleInput(int mouseX, int mouseY,
+                        BOOL leftClick, BOOL rightClick);
 
 //===========================================================================
 // Radar Functions

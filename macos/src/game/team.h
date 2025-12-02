@@ -76,7 +76,7 @@ enum class FormationType : int8_t {
 
 struct TeamMissionData {
     TeamMissionType mission;    // Mission type
-    int8_t argument;            // Mission argument (waypoint, quarry type, etc.)
+    int8_t argument;            // Mission argument (waypoint, etc.)
 };
 
 //===========================================================================
@@ -125,10 +125,10 @@ public:
     //-----------------------------------------------------------------------
     // Composition
     //-----------------------------------------------------------------------
-    int8_t priority_;                   // Team creation priority (higher = more likely)
+    int8_t priority_;                   // Team priority (higher=likely)
     int8_t maxAllowed_;                 // Maximum instances of this team
     int8_t initNum_;                    // Initial number to create
-    int8_t fear_;                       // Fear level (0 = brave, 255 = cowardly)
+    int8_t fear_;                       // Fear level (0=brave, 255=coward)
 
     int8_t memberCount_;                // Number of member specs
     TeamMemberSpec members_[8];         // Member specifications

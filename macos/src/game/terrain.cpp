@@ -72,32 +72,38 @@ BOOL Terrain_Init(void) {
     // Try to load terrain templates
     // First try SNOW tileset, then TEMPERATE
     int loadedTiles = 0;
-    for (int i = 0; g_terrainTemplates[i] && g_terrainTemplateCount < MAX_TERRAIN_TEMPLATES; i++) {
+    bool notFull = g_terrainTemplateCount < MAX_TERRAIN_TEMPLATES;
+    for (int i = 0; g_terrainTemplates[i] && notFull; i++) {
         uint32_t size = 0;
         void* data = Assets_LoadRaw(g_terrainTemplates[i], &size);
         if (data && size > 0) {
-            g_terrainTmp[g_terrainTemplateCount] = Tmp_Load(data, size);
-            if (g_terrainTmp[g_terrainTemplateCount]) {
-                loadedTiles += Tmp_GetTileCount(g_terrainTmp[g_terrainTemplateCount]);
+            TmpFileHandle tmp = Tmp_Load(data, size);
+            g_terrainTmp[g_terrainTemplateCount] = tmp;
+            if (tmp) {
+                loadedTiles += Tmp_GetTileCount(tmp);
                 g_terrainTemplateCount++;
             }
             free(data);
         }
+        notFull = g_terrainTemplateCount < MAX_TERRAIN_TEMPLATES;
     }
 
     // Try temperate if snow didn't work
     if (g_terrainTemplateCount == 0) {
-        for (int i = 0; g_temperateTemplates[i] && g_terrainTemplateCount < MAX_TERRAIN_TEMPLATES; i++) {
+        notFull = g_terrainTemplateCount < MAX_TERRAIN_TEMPLATES;
+        for (int i = 0; g_temperateTemplates[i] && notFull; i++) {
             uint32_t size = 0;
             void* data = Assets_LoadRaw(g_temperateTemplates[i], &size);
             if (data && size > 0) {
-                g_terrainTmp[g_terrainTemplateCount] = Tmp_Load(data, size);
-                if (g_terrainTmp[g_terrainTemplateCount]) {
-                    loadedTiles += Tmp_GetTileCount(g_terrainTmp[g_terrainTemplateCount]);
+                TmpFileHandle tmp = Tmp_Load(data, size);
+                g_terrainTmp[g_terrainTemplateCount] = tmp;
+                if (tmp) {
+                    loadedTiles += Tmp_GetTileCount(tmp);
                     g_terrainTemplateCount++;
                 }
                 free(data);
             }
+            notFull = g_terrainTemplateCount < MAX_TERRAIN_TEMPLATES;
         }
     }
 
@@ -123,7 +129,8 @@ BOOL Terrain_Init(void) {
     }
 
     g_terrainInitialized = true;
-    fprintf(stderr, "Terrain: Loaded %d templates (%d tiles)\n", g_terrainTemplateCount, loadedTiles);
+    fprintf(stderr, "Terrain: Loaded %d templates (%d tiles)\n",
+            g_terrainTemplateCount, loadedTiles);
     return TRUE;
 }
 
@@ -177,7 +184,8 @@ static int GetTemplateForTerrain(int terrainType, int variant) {
     }
 }
 
-BOOL Terrain_RenderTile(int terrainType, int variant, int screenX, int screenY) {
+BOOL Terrain_RenderTile(int terrainType, int variant,
+                        int screenX, int screenY) {
     if (!g_terrainInitialized) return FALSE;
 
     const uint8_t* pixels = nullptr;
@@ -289,7 +297,8 @@ static const char* GetTemplateFilename(int templateID, const char* ext) {
     if (templateID >= 235 && templateID <= 244) {
         int bridgeNum = (templateID - 235) / 3 + 1;  // 1 or 2
         char suffix = 'a' + ((templateID - 235) % 3);  // a, b, or c
-        snprintf(filename, sizeof(filename), "br%d%c%s", bridgeNum, suffix, ext);
+        snprintf(filename, sizeof(filename),
+                 "br%d%c%s", bridgeNum, suffix, ext);
         return filename;
     }
 
@@ -369,7 +378,8 @@ void Terrain_SetTheater(int theater) {
     LoadTemplateByID(255);
 }
 
-BOOL Terrain_RenderByID(int templateID, int tileIndex, int screenX, int screenY) {
+BOOL Terrain_RenderByID(int templateID, int tileIndex,
+                        int screenX, int screenY) {
     if (!g_terrainInitialized) {
         Terrain_Init();
     }

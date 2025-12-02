@@ -64,7 +64,8 @@ int Base64_Decode(const char* src, int srcLen, uint8_t* dst, int dstSize) {
                           (vals[2] << 6) | vals[3];
 
         if (dstIdx < dstSize) dst[dstIdx++] = (triple >> 16) & 0xFF;
-        if (padding < 2 && dstIdx < dstSize) dst[dstIdx++] = (triple >> 8) & 0xFF;
+        bool mid = padding < 2 && dstIdx < dstSize;
+        if (mid) dst[dstIdx++] = (triple >> 8) & 0xFF;
         if (padding < 1 && dstIdx < dstSize) dst[dstIdx++] = triple & 0xFF;
     }
 

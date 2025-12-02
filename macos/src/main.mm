@@ -48,7 +48,7 @@ static bool g_inGameplay = false;
 static int g_selectionStartX = -1;
 static int g_selectionStartY = -1;
 static bool g_isSelecting = false;
-static bool g_attackMoveMode = false;  // 'A' key activates, next click = attack-move
+static bool g_attackMoveMode = false;  // A key: next click = attack-move
 
 // Mission result state
 typedef enum {
@@ -58,7 +58,7 @@ typedef enum {
 } MissionResult;
 static MissionResult g_missionResult = MISSION_ONGOING;
 static int g_resultDisplayTimer = 0;   // Frames to show result screen
-static int g_gameFrameCount = 0;       // Game frame counter (for triggers, time-based conditions)
+static int g_gameFrameCount = 0;       // Frame counter (triggers, timing)
 
 // Assets loaded flag
 static bool g_assetsLoaded = false;
@@ -91,7 +91,9 @@ static void StartMission(const MissionData* mission) {
     int centerX = 150, centerY = 450;
     for (int i = 0; i < MAX_BUILDINGS; i++) {
         Building* bld = Buildings_Get(i);
-        if (bld && bld->team == TEAM_PLAYER && bld->type == BUILDING_CONSTRUCTION) {
+        bool isPlayerConYard = bld && bld->team == TEAM_PLAYER &&
+                              bld->type == BUILDING_CONSTRUCTION;
+        if (isPlayerConYard) {
             centerX = bld->cellX * CELL_SIZE + (bld->width * CELL_SIZE) / 2;
             centerY = bld->cellY * CELL_SIZE + (bld->height * CELL_SIZE) / 2;
             break;
@@ -148,7 +150,8 @@ static bool TryLoadMission(MissionData* mission, const char* missionName) {
 // Start a campaign mission (shows briefing first)
 static void StartCampaignMission(int campaign, int difficulty) {
     // Set mission name based on campaign and difficulty
-    const char* campaignName = (campaign == CAMPAIGN_ALLIED) ? "Allied" : "Soviet";
+    bool isAllied = (campaign == CAMPAIGN_ALLIED);
+    const char* campaignName = isAllied ? "Allied" : "Soviet";
     const char* diffName = (difficulty == DIFFICULTY_EASY) ? "Easy" :
                            (difficulty == DIFFICULTY_HARD) ? "Hard" : "Normal";
 
@@ -175,32 +178,35 @@ static void StartCampaignMission(int campaign, int difficulty) {
                  "%s Mission 1 (Demo)", campaignName);
     } else {
         NSLog(@"Mission loaded: %s", g_currentMission.name);
-        NSLog(@"  Map: %dx%d at (%d,%d)", g_currentMission.mapWidth, g_currentMission.mapHeight,
-              g_currentMission.mapX, g_currentMission.mapY);
-        NSLog(@"  Terrain data: %s", g_currentMission.terrainType ? "YES" : "NO");
-        NSLog(@"  Units: %d, Buildings: %d", g_currentMission.unitCount, g_currentMission.buildingCount);
+        int mw = g_currentMission.mapWidth, mh = g_currentMission.mapHeight;
+        int mx = g_currentMission.mapX, my = g_currentMission.mapY;
+        NSLog(@"  Map: %dx%d at (%d,%d)", mw, mh, mx, my);
+        const char* hasTerr = g_currentMission.terrainType ? "YES" : "NO";
+        NSLog(@"  Terrain data: %s", hasTerr);
+        int uc = g_currentMission.unitCount;
+        int bc = g_currentMission.buildingCount;
+        NSLog(@"  Units: %d, Buildings: %d", uc, bc);
     }
 
     // Adjust starting credits based on difficulty
+    int credits = g_currentMission.startCredits;
     if (difficulty == DIFFICULTY_EASY) {
-        g_currentMission.startCredits = (g_currentMission.startCredits * 150) / 100;
+        g_currentMission.startCredits = (credits * 150) / 100;
     } else if (difficulty == DIFFICULTY_HARD) {
-        g_currentMission.startCredits = (g_currentMission.startCredits * 60) / 100;
+        g_currentMission.startCredits = (credits * 60) / 100;
     }
 
     // Use mission description as briefing text, or generate default
     const char* briefingText = g_currentMission.description;
     if (!briefingText || strlen(briefingText) < 10) {
-        if (campaign == CAMPAIGN_ALLIED) {
-            briefingText = "Commander, Soviet forces have invaded Eastern Europe. "
-                           "Your mission is to establish a base and rescue Allied scientists "
-                           "from the Soviet advance. Build your base and eliminate all Soviet "
-                           "forces in the area. Good luck, Commander.";
+        if (isAllied) {
+            briefingText = "Commander, Soviet forces invaded Eastern Europe. "
+                           "Establish a base and rescue Allied scientists. "
+                           "Eliminate all Soviet forces. Good luck.";
         } else {
-            briefingText = "Comrade Commander, the capitalist West threatens our glorious "
-                           "Soviet Union. Crush the Allied forces in this region and secure "
-                           "our borders. Show them the might of the Red Army! The Motherland "
-                           "is counting on you.";
+            briefingText = "Comrade, the capitalist West threatens our Union. "
+                           "Crush Allied forces and secure our borders. "
+                           "Show them the might of the Red Army!";
         }
     }
 
@@ -233,13 +239,16 @@ static bool UpdateMenuScreen(float /*deltaTime*/) {
         case MENU_SCREEN_OPTIONS:
             activeMenu = Menu_GetOptionsMenu();
             break;
-        case MENU_SCREEN_CREDITS:
-            if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
-                Input_WasKeyPressed(VK_SPACE) ||
-                (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
+        case MENU_SCREEN_CREDITS: {
+            bool esc = Input_WasKeyPressed(VK_ESCAPE);
+            bool enter = Input_WasKeyPressed(VK_RETURN);
+            bool space = Input_WasKeyPressed(VK_SPACE);
+            bool click = (Input_GetMouseButtons() & INPUT_MOUSE_LEFT);
+            if (esc || enter || space || click) {
                 Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
             }
             break;
+        }
         case MENU_SCREEN_BRIEFING:
             Menu_UpdateBriefing();
             break;
@@ -558,10 +567,14 @@ static bool RenderMenuScreen(void) {
 
     Menu* activeMenu = nullptr;
     switch (screen) {
-        case MENU_SCREEN_MAIN:              activeMenu = Menu_GetMainMenu(); break;
-        case MENU_SCREEN_CAMPAIGN_SELECT:   activeMenu = Menu_GetCampaignMenu(); break;
-        case MENU_SCREEN_DIFFICULTY_SELECT: activeMenu = Menu_GetDifficultyMenu(); break;
-        case MENU_SCREEN_OPTIONS:           activeMenu = Menu_GetOptionsMenu(); break;
+        case MENU_SCREEN_MAIN:
+            activeMenu = Menu_GetMainMenu(); break;
+        case MENU_SCREEN_CAMPAIGN_SELECT:
+            activeMenu = Menu_GetCampaignMenu(); break;
+        case MENU_SCREEN_DIFFICULTY_SELECT:
+            activeMenu = Menu_GetDifficultyMenu(); break;
+        case MENU_SCREEN_OPTIONS:
+            activeMenu = Menu_GetOptionsMenu(); break;
         default: break;
     }
     if (activeMenu) Menu_Render(activeMenu);
@@ -632,23 +645,24 @@ static void RenderResultOverlay(void) {
     Renderer_DrawRect(boxX, boxY, boxW, boxH, 15);
     Renderer_DrawRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4, 7);
 
+    int tx = boxX + 50, ty1 = boxY + 20, ty2 = boxY + 45;
     if (g_missionResult == MISSION_VICTORY) {
-        Renderer_DrawText("MISSION ACCOMPLISHED", boxX + 50, boxY + 20, 10, 0);
-        Renderer_DrawText("You have defeated the enemy!", boxX + 40, boxY + 45, 15, 0);
+        Renderer_DrawText("MISSION ACCOMPLISHED", tx, ty1, 10, 0);
+        Renderer_DrawText("You defeated the enemy!", tx - 10, ty2, 15, 0);
     } else {
-        Renderer_DrawText("MISSION FAILED", boxX + 75, boxY + 20, 4, 0);
-        Renderer_DrawText("Your forces were destroyed.", boxX + 45, boxY + 45, 15, 0);
+        Renderer_DrawText("MISSION FAILED", tx + 25, ty1, 4, 0);
+        Renderer_DrawText("Your forces destroyed.", tx - 5, ty2, 15, 0);
     }
-    Renderer_DrawText("Press any key to continue...", boxX + 55, boxY + 75, 7, 0);
+    Renderer_DrawText("Press any key...", boxX + 75, boxY + 75, 7, 0);
 }
 
 // Render bottom controls help bar
 static void RenderControlsHelp(void) {
     Renderer_FillRect(0, 384, 560, 16, 0);
     if (g_attackMoveMode) {
-        Renderer_DrawText("ATTACK-MOVE: RMB=TARGET  ESC=CANCEL", 20, 387, 14, 0);
+        Renderer_DrawText("A-MOVE: RMB=TARGET ESC=CANCEL", 20, 387, 14, 0);
     } else {
-        Renderer_DrawText("WASD=SCROLL A=ATTACK-MOVE G=GUARD S=STOP", 20, 387, 7, 0);
+        Renderer_DrawText("WASD=SCROLL A=MOVE G=GUARD S=STOP", 20, 387, 7, 0);
     }
 }
 
@@ -710,7 +724,8 @@ static void RenderDemoMode(void) {
     Renderer_ScaleBlit(g_testSprite, 16, 16, 150, 170, 48, 48, TRUE);
 
     // Bouncing box
-    Renderer_FillRect(g_bounceX, g_bounceY, 30, 30, 1 + (stats->gameFrame % 14));
+    uint8_t boxClr = 1 + (stats->gameFrame % 14);
+    Renderer_FillRect(g_bounceX, g_bounceY, 30, 30, boxClr);
     Renderer_DrawRect(g_bounceX - 2, g_bounceY - 2, 34, 34, 15);
 
     // Cursor
@@ -755,13 +770,18 @@ static void RenderDemoMode(void) {
 
     // Arrow keys
     Renderer_DrawText("ARROWS:", 460, keyY - 15, 7, 0);
-    Renderer_FillRect(510, keyY, 25, 20, Input_IsKeyDown(VK_UP) ? 15 : 2);
-    Renderer_FillRect(475, keyY + 25, 25, 20, Input_IsKeyDown(VK_LEFT) ? 15 : 2);
-    Renderer_FillRect(510, keyY + 25, 25, 20, Input_IsKeyDown(VK_DOWN) ? 15 : 2);
-    Renderer_FillRect(545, keyY + 25, 25, 20, Input_IsKeyDown(VK_RIGHT) ? 15 : 2);
+    uint8_t upC = Input_IsKeyDown(VK_UP) ? 15 : 2;
+    uint8_t dnC = Input_IsKeyDown(VK_DOWN) ? 15 : 2;
+    uint8_t ltC = Input_IsKeyDown(VK_LEFT) ? 15 : 2;
+    uint8_t rtC = Input_IsKeyDown(VK_RIGHT) ? 15 : 2;
+    Renderer_FillRect(510, keyY, 25, 20, upC);
+    Renderer_FillRect(475, keyY + 25, 25, 20, ltC);
+    Renderer_FillRect(510, keyY + 25, 25, 20, dnC);
+    Renderer_FillRect(545, keyY + 25, 25, 20, rtC);
 
     // Space bar
-    Renderer_FillRect(370, keyY + 25, 80, 20, Input_IsKeyDown(VK_SPACE) ? 15 : 2);
+    uint8_t spC = Input_IsKeyDown(VK_SPACE) ? 15 : 2;
+    Renderer_FillRect(370, keyY + 25, 80, 20, spC);
     Renderer_DrawText("SPACE", 385, keyY + 30, 0, 0);
 
     // FPS
@@ -780,7 +800,8 @@ static void RenderDemoMode(void) {
 
     Renderer_DrawText("1234=PLAY", 10, 260, 7, 0);
     for (int i = 0; i < 4; i++) {
-        Renderer_FillRect(80 + i * 20, 258, 15, 12, Input_IsKeyDown('1' + i) ? 14 : 6);
+        uint8_t kc = Input_IsKeyDown('1' + i) ? 14 : 6;
+        Renderer_FillRect(80 + i * 20, 258, 15, 12, kc);
         char num[2] = {static_cast<char>('1' + i), '\0'};
         Renderer_DrawText(num, 84 + i * 20, 260, 0, 0);
     }
@@ -788,11 +809,11 @@ static void RenderDemoMode(void) {
     char audioText[32];
     snprintf(audioText, sizeof(audioText), "VOL:%d", vol);
     Renderer_DrawText(audioText, 10, 275, 7, 0);
-    snprintf(audioText, sizeof(audioText), "PLAYING:%d", Audio_GetPlayingCount());
+    snprintf(audioText, sizeof(audioText), "PLAY:%d", Audio_GetPlayingCount());
     Renderer_DrawText(audioText, 80, 275, 7, 0);
 
     // Help
-    Renderer_DrawText("ESC=QUIT P=PAUSE +/-=SPEED F=FULLSCREEN", 180, 375, 7, 0);
+    Renderer_DrawText("ESC=QUIT P=PAUSE +/-=SPEED F=FULL", 180, 375, 7, 0);
     Renderer_DrawText("1234=SOUND M=MUTE []=VOL", 210, 385, 7, 0);
 }
 
@@ -883,8 +904,9 @@ void GameRender(void) {
     NSSize viewSize = self.bounds.size;
 
     // Scale mouse coordinates to game resolution (640x400)
-    int x = (int)(location.x * WINDOW_WIDTH / viewSize.width);
-    int y = (int)((viewSize.height - location.y) * WINDOW_HEIGHT / viewSize.height);
+    float sw = viewSize.width, sh = viewSize.height;
+    int x = (int)(location.x * WINDOW_WIDTH / sw);
+    int y = (int)((sh - location.y) * WINDOW_HEIGHT / sh);
 
     // Clamp to valid range
     if (x < 0) x = 0;
@@ -965,7 +987,8 @@ void GameRender(void) {
     [self.window center];
 
     // Enable fullscreen support
-    [self.window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+    NSWindowCollectionBehavior fs = NSWindowCollectionBehaviorFullScreenPrimary;
+    [self.window setCollectionBehavior:fs];
 
     // Set minimum window size to maintain aspect ratio readability
     [self.window setMinSize:NSMakeSize(640, 400)];
@@ -981,14 +1004,17 @@ void GameRender(void) {
         return;
     }
 
-    RAMetalView *metalView = [[RAMetalView alloc] initWithFrame:frame device:device];
+    RAMetalView *metalView;
+    metalView = [[RAMetalView alloc] initWithFrame:frame device:device];
     metalView.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
     metalView.preferredFramesPerSecond = 60;
 
     // Enable mouse tracking
+    NSTrackingAreaOptions opts = NSTrackingMouseMoved |
+        NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect;
     NSTrackingArea *trackingArea = [[NSTrackingArea alloc]
         initWithRect:metalView.bounds
-             options:(NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect)
+             options:opts
                owner:metalView
             userInfo:nil];
     [metalView addTrackingArea:trackingArea];
@@ -1022,10 +1048,11 @@ void GameRender(void) {
         }
         // Initialize terrain system (loads terrain tiles)
         if (Terrain_Init()) {
-            NSLog(@"Terrain system initialized (%d templates)", Terrain_GetLoadedCount());
+            int cnt = Terrain_GetLoadedCount();
+            NSLog(@"Terrain initialized (%d templates)", cnt);
         }
     } else {
-        NSLog(@"Warning: AssetLoader failed to initialize (game archives not found)");
+        NSLog(@"AssetLoader failed (game archives not found)");
     }
 
     // Initialize audio
@@ -1080,7 +1107,8 @@ void GameRender(void) {
     NSLog(@"Controls: WASD/Arrows=move, +/-=speed, P=pause, ESC=quit");
 }
 
-- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:
+    (NSApplication *)sender {
     (void)sender;
     return YES;
 }
@@ -1134,9 +1162,10 @@ int main(int argc, const char *argv[]) {
         [menuBar addItem:appMenuItem];
 
         NSMenu *appMenu = [[NSMenu alloc] init];
-        NSMenuItem *quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit Red Alert"
-                                                          action:@selector(terminate:)
-                                                   keyEquivalent:@"q"];
+        NSMenuItem *quitItem = [[NSMenuItem alloc]
+            initWithTitle:@"Quit Red Alert"
+                   action:@selector(terminate:)
+            keyEquivalent:@"q"];
         [appMenu addItem:quitItem];
         [appMenuItem setSubmenu:appMenu];
 

@@ -35,7 +35,8 @@ BOOL Pal_Load(const void* data, uint32_t dataSize, Palette* pal) {
         pal->colors[i][0] = Scale6to8(bytes[i * 3 + 0]);  // R
         pal->colors[i][1] = Scale6to8(bytes[i * 3 + 1]);  // G
         pal->colors[i][2] = Scale6to8(bytes[i * 3 + 2]);  // B
-        pal->colors[i][3] = (i == 0) ? 0 : 255;           // A (index 0 is transparent)
+        // A (index 0 is transparent)
+        pal->colors[i][3] = (i == 0) ? 0 : 255;
     }
 
     return TRUE;
@@ -126,17 +127,21 @@ void Pal_Remap(const Palette* src, Palette* dst, const uint8_t* remap) {
     }
 }
 
-void Pal_Blend(const Palette* pal1, const Palette* pal2, Palette* dst, uint8_t blend) {
+void Pal_Blend(const Palette* pal1, const Palette* pal2,
+               Palette* dst, uint8_t blend) {
     if (!pal1 || !pal2 || !dst) return;
 
     uint16_t b1 = 255 - blend;
     uint16_t b2 = blend;
 
     for (int i = 0; i < 256; i++) {
-        dst->colors[i][0] = (uint8_t)((pal1->colors[i][0] * b1 + pal2->colors[i][0] * b2) / 255);
-        dst->colors[i][1] = (uint8_t)((pal1->colors[i][1] * b1 + pal2->colors[i][1] * b2) / 255);
-        dst->colors[i][2] = (uint8_t)((pal1->colors[i][2] * b1 + pal2->colors[i][2] * b2) / 255);
-        dst->colors[i][3] = (uint8_t)((pal1->colors[i][3] * b1 + pal2->colors[i][3] * b2) / 255);
+        uint8_t* d = dst->colors[i];
+        const uint8_t* c1 = pal1->colors[i];
+        const uint8_t* c2 = pal2->colors[i];
+        d[0] = (uint8_t)((c1[0] * b1 + c2[0] * b2) / 255);
+        d[1] = (uint8_t)((c1[1] * b1 + c2[1] * b2) / 255);
+        d[2] = (uint8_t)((c1[2] * b1 + c2[2] * b2) / 255);
+        d[3] = (uint8_t)((c1[3] * b1 + c2[3] * b2) / 255);
     }
 }
 

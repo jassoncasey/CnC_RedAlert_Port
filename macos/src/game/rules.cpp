@@ -12,6 +12,11 @@
 #include <cstring>
 #include <cstdio>
 
+// INI getter macros (to stay within 80 columns)
+#define GET_INT(s, k, v)   ini_.GetInt(s, k, v)
+#define GET_BOOL(s, k, v)  ini_.GetBool(s, k, v)
+#define GET_FIXED(s, k, v) ini_.GetFixed(s, k, v)
+
 //===========================================================================
 // Global Rules Instance
 //===========================================================================
@@ -141,9 +146,15 @@ void RulesClass::SetDefaults() {
     iq_.sellBack = 2;
 
     // Difficulty defaults
-    diffEasy_ = {1.2f, 1.2f, 1.2f, 0.8f, 1.2f, 0.8f, 0.8f, 0.001f, 0.001f, true, false};
-    diffNormal_ = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.02f, 0.03f, true, false};
-    diffHard_ = {0.9f, 0.9f, 0.9f, 1.2f, 0.8f, 1.2f, 1.1f, 0.02f, 0.03f, true, true};
+    diffEasy_ = {
+        1.2f, 1.2f, 1.2f, 0.8f, 1.2f, 0.8f, 0.8f, 0.001f, 0.001f, true, false
+    };
+    diffNormal_ = {
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.02f, 0.03f, true, false
+    };
+    diffHard_ = {
+        0.9f, 0.9f, 0.9f, 1.2f, 0.8f, 1.2f, 1.1f, 0.02f, 0.03f, true, true
+    };
 }
 
 //===========================================================================
@@ -181,183 +192,163 @@ bool RulesClass::Process() {
 // Process [General] section
 //===========================================================================
 void RulesClass::ProcessGeneral() {
-    const char* section = "General";
+    const char* s = "General";
+    GeneralRules& g = general_;
 
     // Crates
-    general_.crateMinimum = ini_.GetInt(section, "CrateMinimum", general_.crateMinimum);
-    general_.crateMaximum = ini_.GetInt(section, "CrateMaximum", general_.crateMaximum);
-    general_.crateRadius = ini_.GetFixed(section, "CrateRadius", general_.crateRadius);
-    general_.crateRegen = ini_.GetFixed(section, "CrateRegen", general_.crateRegen);
-    general_.waterCrateChance = ini_.GetFixed(section, "WaterCrateChance", general_.waterCrateChance);
-    general_.soloCrateMoney = ini_.GetInt(section, "SoloCrateMoney", general_.soloCrateMoney);
+    g.crateMinimum = GET_INT(s, "CrateMinimum", g.crateMinimum);
+    g.crateMaximum = GET_INT(s, "CrateMaximum", g.crateMaximum);
+    g.crateRadius = GET_FIXED(s, "CrateRadius", g.crateRadius);
+    g.crateRegen = GET_FIXED(s, "CrateRegen", g.crateRegen);
+    g.waterCrateChance = GET_FIXED(s, "WaterCrateChance", g.waterCrateChance);
+    g.soloCrateMoney = GET_INT(s, "SoloCrateMoney", g.soloCrateMoney);
 
     // Special weapons
-    general_.chronoDuration = ini_.GetFixed(section, "ChronoDuration", general_.chronoDuration);
-    general_.chronoKillCargo = ini_.GetBool(section, "ChronoKillCargo", general_.chronoKillCargo);
-    general_.chronoTechLevel = ini_.GetInt(section, "ChronoTechLevel", general_.chronoTechLevel);
-    general_.gpsTechLevel = ini_.GetInt(section, "GPSTechLevel", general_.gpsTechLevel);
-    general_.gapRadius = ini_.GetInt(section, "GapRadius", general_.gapRadius);
-    general_.gapRegenInterval = ini_.GetFixed(section, "GapRegenInterval", general_.gapRegenInterval);
-    general_.ironCurtainDuration = ini_.GetFixed(section, "IronCurtain", general_.ironCurtainDuration);
-    general_.paraTech = ini_.GetInt(section, "ParaTech", general_.paraTech);
-    general_.parabombTech = ini_.GetInt(section, "ParabombTech", general_.parabombTech);
-    general_.radarJamRadius = ini_.GetInt(section, "RadarJamRadius", general_.radarJamRadius);
-    general_.spyPlaneTech = ini_.GetInt(section, "SpyPlaneTech", general_.spyPlaneTech);
-    general_.badgerBombCount = ini_.GetInt(section, "BadgerBombCount", general_.badgerBombCount);
+    g.chronoDuration = GET_FIXED(s, "ChronoDuration", g.chronoDuration);
+    g.chronoKillCargo = GET_BOOL(s, "ChronoKillCargo", g.chronoKillCargo);
+    g.chronoTechLevel = GET_INT(s, "ChronoTechLevel", g.chronoTechLevel);
+    g.gpsTechLevel = GET_INT(s, "GPSTechLevel", g.gpsTechLevel);
+    g.gapRadius = GET_INT(s, "GapRadius", g.gapRadius);
+    g.gapRegenInterval = GET_FIXED(s, "GapRegenInterval", g.gapRegenInterval);
+    g.ironCurtainDuration = GET_FIXED(s, "IronCurtain", g.ironCurtainDuration);
+    g.paraTech = GET_INT(s, "ParaTech", g.paraTech);
+    g.parabombTech = GET_INT(s, "ParabombTech", g.parabombTech);
+    g.radarJamRadius = GET_INT(s, "RadarJamRadius", g.radarJamRadius);
+    g.spyPlaneTech = GET_INT(s, "SpyPlaneTech", g.spyPlaneTech);
+    g.badgerBombCount = GET_INT(s, "BadgerBombCount", g.badgerBombCount);
 
     // Chrono side effects
-    general_.quakeChance = ini_.GetFixed(section, "QuakeChance", general_.quakeChance);
-    general_.quakeDamage = ini_.GetFixed(section, "QuakeDamage", general_.quakeDamage);
-    general_.vortexChance = ini_.GetFixed(section, "VortexChance", general_.vortexChance);
-    general_.vortexDamage = ini_.GetInt(section, "VortexDamage", general_.vortexDamage);
-    general_.vortexRange = ini_.GetInt(section, "VortexRange", general_.vortexRange);
-    general_.vortexSpeed = ini_.GetInt(section, "VortexSpeed", general_.vortexSpeed);
+    g.quakeChance = GET_FIXED(s, "QuakeChance", g.quakeChance);
+    g.quakeDamage = GET_FIXED(s, "QuakeDamage", g.quakeDamage);
+    g.vortexChance = GET_FIXED(s, "VortexChance", g.vortexChance);
+    g.vortexDamage = GET_INT(s, "VortexDamage", g.vortexDamage);
+    g.vortexRange = GET_INT(s, "VortexRange", g.vortexRange);
+    g.vortexSpeed = GET_INT(s, "VortexSpeed", g.vortexSpeed);
 
     // Repair and refit
-    general_.refundPercent = ini_.GetFixed(section, "RefundPercent", general_.refundPercent);
-    general_.reloadRate = ini_.GetFixed(section, "ReloadRate", general_.reloadRate);
-    general_.repairPercent = ini_.GetFixed(section, "RepairPercent", general_.repairPercent);
-    general_.repairRate = ini_.GetFixed(section, "RepairRate", general_.repairRate);
-    general_.repairStep = ini_.GetInt(section, "RepairStep", general_.repairStep);
-    general_.uRepairPercent = ini_.GetFixed(section, "URepairPercent", general_.uRepairPercent);
-    general_.uRepairStep = ini_.GetInt(section, "URepairStep", general_.uRepairStep);
+    g.refundPercent = GET_FIXED(s, "RefundPercent", g.refundPercent);
+    g.reloadRate = GET_FIXED(s, "ReloadRate", g.reloadRate);
+    g.repairPercent = GET_FIXED(s, "RepairPercent", g.repairPercent);
+    g.repairRate = GET_FIXED(s, "RepairRate", g.repairRate);
+    g.repairStep = GET_INT(s, "RepairStep", g.repairStep);
+    g.uRepairPercent = GET_FIXED(s, "URepairPercent", g.uRepairPercent);
+    g.uRepairStep = GET_INT(s, "URepairStep", g.uRepairStep);
 
     // Combat and damage
-    general_.turboBoost = ini_.GetFixed(section, "TurboBoost", general_.turboBoost);
-    general_.apMineDamage = ini_.GetInt(section, "APMineDamage", general_.apMineDamage);
-    general_.avMineDamage = ini_.GetInt(section, "AVMineDamage", general_.avMineDamage);
-    general_.atomDamage = ini_.GetInt(section, "AtomDamage", general_.atomDamage);
-    general_.ballisticScatter = ini_.GetFixed(section, "BallisticScatter", general_.ballisticScatter);
-    general_.bridgeStrength = ini_.GetInt(section, "BridgeStrength", general_.bridgeStrength);
-    general_.c4Delay = ini_.GetFixed(section, "C4Delay", general_.c4Delay);
-    general_.crushDistance = ini_.GetFixed(section, "Crush", general_.crushDistance);
-    general_.expSpread = ini_.GetFixed(section, "ExpSpread", general_.expSpread);
-    general_.fireSuppress = ini_.GetFixed(section, "FireSupress", general_.fireSuppress);
-    general_.homingScatter = ini_.GetFixed(section, "HomingScatter", general_.homingScatter);
-    general_.maxDamage = ini_.GetInt(section, "MaxDamage", general_.maxDamage);
-    general_.minDamage = ini_.GetInt(section, "MinDamage", general_.minDamage);
-    general_.oreExplosive = ini_.GetBool(section, "OreExplosive", general_.oreExplosive);
-    general_.playerAutoCrush = ini_.GetBool(section, "PlayerAutoCrush", general_.playerAutoCrush);
-    general_.playerReturnFire = ini_.GetBool(section, "PlayerReturnFire", general_.playerReturnFire);
-    general_.playerScatter = ini_.GetBool(section, "PlayerScatter", general_.playerScatter);
-    general_.proneDamage = ini_.GetFixed(section, "ProneDamage", general_.proneDamage);
-    general_.treeTargeting = ini_.GetBool(section, "TreeTargeting", general_.treeTargeting);
-    general_.incomingSpeed = ini_.GetInt(section, "Incoming", general_.incomingSpeed);
+    g.turboBoost = GET_FIXED(s, "TurboBoost", g.turboBoost);
+    g.apMineDamage = GET_INT(s, "APMineDamage", g.apMineDamage);
+    g.avMineDamage = GET_INT(s, "AVMineDamage", g.avMineDamage);
+    g.atomDamage = GET_INT(s, "AtomDamage", g.atomDamage);
+    g.ballisticScatter = GET_FIXED(s, "BallisticScatter", g.ballisticScatter);
+    g.bridgeStrength = GET_INT(s, "BridgeStrength", g.bridgeStrength);
+    g.c4Delay = GET_FIXED(s, "C4Delay", g.c4Delay);
+    g.crushDistance = GET_FIXED(s, "Crush", g.crushDistance);
+    g.expSpread = GET_FIXED(s, "ExpSpread", g.expSpread);
+    g.fireSuppress = GET_FIXED(s, "FireSupress", g.fireSuppress);
+    g.homingScatter = GET_FIXED(s, "HomingScatter", g.homingScatter);
+    g.maxDamage = GET_INT(s, "MaxDamage", g.maxDamage);
+    g.minDamage = GET_INT(s, "MinDamage", g.minDamage);
+    g.oreExplosive = GET_BOOL(s, "OreExplosive", g.oreExplosive);
+    g.playerAutoCrush = GET_BOOL(s, "PlayerAutoCrush", g.playerAutoCrush);
+    g.playerReturnFire = GET_BOOL(s, "PlayerReturnFire", g.playerReturnFire);
+    g.playerScatter = GET_BOOL(s, "PlayerScatter", g.playerScatter);
+    g.proneDamage = GET_FIXED(s, "ProneDamage", g.proneDamage);
+    g.treeTargeting = GET_BOOL(s, "TreeTargeting", g.treeTargeting);
+    g.incomingSpeed = GET_INT(s, "Incoming", g.incomingSpeed);
 
     // Income and production
-    general_.bailCount = ini_.GetInt(section, "BailCount", general_.bailCount);
-    general_.buildSpeed = ini_.GetFixed(section, "BuildSpeed", general_.buildSpeed);
-    general_.buildupTime = ini_.GetFixed(section, "BuildupTime", general_.buildupTime);
-    general_.gemValue = ini_.GetInt(section, "GemValue", general_.gemValue);
-    general_.goldValue = ini_.GetInt(section, "GoldValue", general_.goldValue);
-    general_.growthRate = ini_.GetFixed(section, "GrowthRate", general_.growthRate);
-    general_.oreGrows = ini_.GetBool(section, "OreGrows", general_.oreGrows);
-    general_.oreSpreads = ini_.GetBool(section, "OreSpreads", general_.oreSpreads);
-    general_.oreTruckRate = ini_.GetFixed(section, "OreTruckRate", general_.oreTruckRate);
-    general_.separateAircraft = ini_.GetBool(section, "SeparateAircraft", general_.separateAircraft);
-    general_.survivorRate = ini_.GetFixed(section, "SurvivorRate", general_.survivorRate);
+    g.bailCount = GET_INT(s, "BailCount", g.bailCount);
+    g.buildSpeed = GET_FIXED(s, "BuildSpeed", g.buildSpeed);
+    g.buildupTime = GET_FIXED(s, "BuildupTime", g.buildupTime);
+    g.gemValue = GET_INT(s, "GemValue", g.gemValue);
+    g.goldValue = GET_INT(s, "GoldValue", g.goldValue);
+    g.growthRate = GET_FIXED(s, "GrowthRate", g.growthRate);
+    g.oreGrows = GET_BOOL(s, "OreGrows", g.oreGrows);
+    g.oreSpreads = GET_BOOL(s, "OreSpreads", g.oreSpreads);
+    g.oreTruckRate = GET_FIXED(s, "OreTruckRate", g.oreTruckRate);
+    g.separateAircraft = GET_BOOL(s, "SeparateAircraft", g.separateAircraft);
+    g.survivorRate = GET_FIXED(s, "SurvivorRate", g.survivorRate);
 
     // Audio/visual
-    general_.allyReveal = ini_.GetBool(section, "AllyReveal", general_.allyReveal);
-    general_.conditionRed = ini_.GetFixed(section, "ConditionRed", general_.conditionRed);
-    general_.conditionYellow = ini_.GetFixed(section, "ConditionYellow", general_.conditionYellow);
-    general_.dropZoneRadius = ini_.GetInt(section, "DropZoneRadius", general_.dropZoneRadius);
-    general_.enemyHealth = ini_.GetBool(section, "EnemyHealth", general_.enemyHealth);
-    general_.gravity = ini_.GetInt(section, "Gravity", general_.gravity);
-    general_.idleActionFrequency = ini_.GetFixed(section, "IdleActionFrequency", general_.idleActionFrequency);
-    general_.messageDelay = ini_.GetFixed(section, "MessageDelay", general_.messageDelay);
-    general_.movieTime = ini_.GetFixed(section, "MovieTime", general_.movieTime);
-    general_.namedCivilians = ini_.GetBool(section, "NamedCivilians", general_.namedCivilians);
-    general_.savourDelay = ini_.GetFixed(section, "SavourDelay", general_.savourDelay);
-    general_.shroudRate = ini_.GetFixed(section, "ShroudRate", general_.shroudRate);
-    general_.speakDelay = ini_.GetFixed(section, "SpeakDelay", general_.speakDelay);
-    general_.timerWarning = ini_.GetFixed(section, "TimerWarning", general_.timerWarning);
-    general_.flashLowPower = ini_.GetBool(section, "FlashLowPower", general_.flashLowPower);
+    g.allyReveal = GET_BOOL(s, "AllyReveal", g.allyReveal);
+    g.conditionRed = GET_FIXED(s, "ConditionRed", g.conditionRed);
+    g.conditionYellow = GET_FIXED(s, "ConditionYellow", g.conditionYellow);
+    g.dropZoneRadius = GET_INT(s, "DropZoneRadius", g.dropZoneRadius);
+    g.enemyHealth = GET_BOOL(s, "EnemyHealth", g.enemyHealth);
+    g.gravity = GET_INT(s, "Gravity", g.gravity);
+    g.idleActionFrequency = GET_FIXED(s, "IdleActionFrequency",
+                                       g.idleActionFrequency);
+    g.messageDelay = GET_FIXED(s, "MessageDelay", g.messageDelay);
+    g.movieTime = GET_FIXED(s, "MovieTime", g.movieTime);
+    g.namedCivilians = GET_BOOL(s, "NamedCivilians", g.namedCivilians);
+    g.savourDelay = GET_FIXED(s, "SavourDelay", g.savourDelay);
+    g.shroudRate = GET_FIXED(s, "ShroudRate", g.shroudRate);
+    g.speakDelay = GET_FIXED(s, "SpeakDelay", g.speakDelay);
+    g.timerWarning = GET_FIXED(s, "TimerWarning", g.timerWarning);
+    g.flashLowPower = GET_BOOL(s, "FlashLowPower", g.flashLowPower);
 
     // Computer controls
-    general_.curleyShuffle = ini_.GetBool(section, "CurleyShuffle", general_.curleyShuffle);
-    general_.baseBias = ini_.GetFixed(section, "BaseBias", general_.baseBias);
-    general_.baseDefenseDelay = ini_.GetFixed(section, "BaseDefenseDelay", general_.baseDefenseDelay);
-    general_.closeEnough = ini_.GetFixed(section, "CloseEnough", general_.closeEnough);
-    general_.damageDelay = ini_.GetFixed(section, "DamageDelay", general_.damageDelay);
-    general_.gameSpeedBias = ini_.GetFixed(section, "GameSpeeBias", general_.gameSpeedBias);  // Note: typo in original
-    general_.lzScanRadius = ini_.GetInt(section, "LZScanRadius", general_.lzScanRadius);
-    general_.mineAware = ini_.GetBool(section, "MineAware", general_.mineAware);
-    general_.stray = ini_.GetFixed(section, "Stray", general_.stray);
-    general_.submergeDelay = ini_.GetFixed(section, "SubmergeDelay", general_.submergeDelay);
-    general_.suspendDelay = ini_.GetFixed(section, "SuspendDelay", general_.suspendDelay);
-    general_.suspendPriority = ini_.GetInt(section, "SuspendPriority", general_.suspendPriority);
-    general_.teamDelay = ini_.GetFixed(section, "TeamDelay", general_.teamDelay);
+    g.curleyShuffle = GET_BOOL(s, "CurleyShuffle", g.curleyShuffle);
+    g.baseBias = GET_FIXED(s, "BaseBias", g.baseBias);
+    g.baseDefenseDelay = GET_FIXED(s, "BaseDefenseDelay", g.baseDefenseDelay);
+    g.closeEnough = GET_FIXED(s, "CloseEnough", g.closeEnough);
+    g.damageDelay = GET_FIXED(s, "DamageDelay", g.damageDelay);
+    g.gameSpeedBias = GET_FIXED(s, "GameSpeeBias", g.gameSpeedBias);  // typo
+    g.lzScanRadius = GET_INT(s, "LZScanRadius", g.lzScanRadius);
+    g.mineAware = GET_BOOL(s, "MineAware", g.mineAware);
+    g.stray = GET_FIXED(s, "Stray", g.stray);
+    g.submergeDelay = GET_FIXED(s, "SubmergeDelay", g.submergeDelay);
+    g.suspendDelay = GET_FIXED(s, "SuspendDelay", g.suspendDelay);
+    g.suspendPriority = GET_INT(s, "SuspendPriority", g.suspendPriority);
+    g.teamDelay = GET_FIXED(s, "TeamDelay", g.teamDelay);
 
     // Misc
-    general_.fineDiffControl = ini_.GetBool(section, "FineDiffControl", general_.fineDiffControl);
-    general_.mcvUndeploy = ini_.GetBool(section, "MCVUndeploy", general_.mcvUndeploy);
+    g.fineDiffControl = GET_BOOL(s, "FineDiffControl", g.fineDiffControl);
+    g.mcvUndeploy = GET_BOOL(s, "MCVUndeploy", g.mcvUndeploy);
 }
 
 //===========================================================================
 // Process [IQ] section
 //===========================================================================
 void RulesClass::ProcessIQ() {
-    const char* section = "IQ";
+    const char* s = "IQ";
+    IQSettings& q = iq_;
 
-    iq_.maxLevels = ini_.GetInt(section, "MaxIQLevels", iq_.maxLevels);
-    iq_.superWeapons = ini_.GetInt(section, "SuperWeapons", iq_.superWeapons);
-    iq_.production = ini_.GetInt(section, "Production", iq_.production);
-    iq_.guardArea = ini_.GetInt(section, "GuardArea", iq_.guardArea);
-    iq_.repairSell = ini_.GetInt(section, "RepairSell", iq_.repairSell);
-    iq_.autoCrush = ini_.GetInt(section, "AutoCrush", iq_.autoCrush);
-    iq_.scatter = ini_.GetInt(section, "Scatter", iq_.scatter);
-    iq_.contentScan = ini_.GetInt(section, "ContentScan", iq_.contentScan);
-    iq_.aircraft = ini_.GetInt(section, "Aircraft", iq_.aircraft);
-    iq_.harvester = ini_.GetInt(section, "Harvester", iq_.harvester);
-    iq_.sellBack = ini_.GetInt(section, "SellBack", iq_.sellBack);
+    q.maxLevels = GET_INT(s, "MaxIQLevels", q.maxLevels);
+    q.superWeapons = GET_INT(s, "SuperWeapons", q.superWeapons);
+    q.production = GET_INT(s, "Production", q.production);
+    q.guardArea = GET_INT(s, "GuardArea", q.guardArea);
+    q.repairSell = GET_INT(s, "RepairSell", q.repairSell);
+    q.autoCrush = GET_INT(s, "AutoCrush", q.autoCrush);
+    q.scatter = GET_INT(s, "Scatter", q.scatter);
+    q.contentScan = GET_INT(s, "ContentScan", q.contentScan);
+    q.aircraft = GET_INT(s, "Aircraft", q.aircraft);
+    q.harvester = GET_INT(s, "Harvester", q.harvester);
+    q.sellBack = GET_INT(s, "SellBack", q.sellBack);
+}
+
+// Helper: load difficulty settings for a section
+static void LoadDiff(INIClass& ini, const char* s, DifficultySettings& d) {
+    d.firepower = ini.GetFixed(s, "Firepower", d.firepower);
+    d.groundSpeed = ini.GetFixed(s, "Groundspeed", d.groundSpeed);
+    d.airSpeed = ini.GetFixed(s, "Airspeed", d.airSpeed);
+    d.buildTime = ini.GetFixed(s, "BuildTime", d.buildTime);
+    d.armor = ini.GetFixed(s, "Armor", d.armor);
+    d.rof = ini.GetFixed(s, "ROF", d.rof);
+    d.cost = ini.GetFixed(s, "Cost", d.cost);
+    d.repairDelay = ini.GetFixed(s, "RepairDelay", d.repairDelay);
+    d.buildDelay = ini.GetFixed(s, "BuildDelay", d.buildDelay);
+    d.destroyWalls = ini.GetBool(s, "DestroyWalls", d.destroyWalls);
+    d.contentScan = ini.GetBool(s, "ContentScan", d.contentScan);
 }
 
 //===========================================================================
 // Process difficulty sections [Easy], [Normal], [Hard]
 //===========================================================================
 void RulesClass::ProcessDifficulty() {
-    // Easy
-    const char* section = "Easy";
-    diffEasy_.firepower = ini_.GetFixed(section, "Firepower", diffEasy_.firepower);
-    diffEasy_.groundSpeed = ini_.GetFixed(section, "Groundspeed", diffEasy_.groundSpeed);
-    diffEasy_.airSpeed = ini_.GetFixed(section, "Airspeed", diffEasy_.airSpeed);
-    diffEasy_.buildTime = ini_.GetFixed(section, "BuildTime", diffEasy_.buildTime);
-    diffEasy_.armor = ini_.GetFixed(section, "Armor", diffEasy_.armor);
-    diffEasy_.rof = ini_.GetFixed(section, "ROF", diffEasy_.rof);
-    diffEasy_.cost = ini_.GetFixed(section, "Cost", diffEasy_.cost);
-    diffEasy_.repairDelay = ini_.GetFixed(section, "RepairDelay", diffEasy_.repairDelay);
-    diffEasy_.buildDelay = ini_.GetFixed(section, "BuildDelay", diffEasy_.buildDelay);
-    diffEasy_.destroyWalls = ini_.GetBool(section, "DestroyWalls", diffEasy_.destroyWalls);
-    diffEasy_.contentScan = ini_.GetBool(section, "ContentScan", diffEasy_.contentScan);
-
-    // Normal
-    section = "Normal";
-    diffNormal_.firepower = ini_.GetFixed(section, "Firepower", diffNormal_.firepower);
-    diffNormal_.groundSpeed = ini_.GetFixed(section, "Groundspeed", diffNormal_.groundSpeed);
-    diffNormal_.airSpeed = ini_.GetFixed(section, "Airspeed", diffNormal_.airSpeed);
-    diffNormal_.buildTime = ini_.GetFixed(section, "BuildTime", diffNormal_.buildTime);
-    diffNormal_.armor = ini_.GetFixed(section, "Armor", diffNormal_.armor);
-    diffNormal_.rof = ini_.GetFixed(section, "ROF", diffNormal_.rof);
-    diffNormal_.cost = ini_.GetFixed(section, "Cost", diffNormal_.cost);
-    diffNormal_.repairDelay = ini_.GetFixed(section, "RepairDelay", diffNormal_.repairDelay);
-    diffNormal_.buildDelay = ini_.GetFixed(section, "BuildDelay", diffNormal_.buildDelay);
-    diffNormal_.destroyWalls = ini_.GetBool(section, "DestroyWalls", diffNormal_.destroyWalls);
-    diffNormal_.contentScan = ini_.GetBool(section, "ContentScan", diffNormal_.contentScan);
-
-    // Hard (Difficult)
-    section = "Difficult";
-    diffHard_.firepower = ini_.GetFixed(section, "Firepower", diffHard_.firepower);
-    diffHard_.groundSpeed = ini_.GetFixed(section, "Groundspeed", diffHard_.groundSpeed);
-    diffHard_.airSpeed = ini_.GetFixed(section, "Airspeed", diffHard_.airSpeed);
-    diffHard_.buildTime = ini_.GetFixed(section, "BuildTime", diffHard_.buildTime);
-    diffHard_.armor = ini_.GetFixed(section, "Armor", diffHard_.armor);
-    diffHard_.rof = ini_.GetFixed(section, "ROF", diffHard_.rof);
-    diffHard_.cost = ini_.GetFixed(section, "Cost", diffHard_.cost);
-    diffHard_.repairDelay = ini_.GetFixed(section, "RepairDelay", diffHard_.repairDelay);
-    diffHard_.buildDelay = ini_.GetFixed(section, "BuildDelay", diffHard_.buildDelay);
-    diffHard_.destroyWalls = ini_.GetBool(section, "DestroyWalls", diffHard_.destroyWalls);
-    diffHard_.contentScan = ini_.GetBool(section, "ContentScan", diffHard_.contentScan);
+    LoadDiff(ini_, "Easy", diffEasy_);
+    LoadDiff(ini_, "Normal", diffNormal_);
+    LoadDiff(ini_, "Difficult", diffHard_);
 }
 
 //===========================================================================
@@ -399,8 +390,9 @@ void RulesClass::ProcessInfantry() {
     // [E2] - Grenadier
     // etc.
 
-    // Since our InfantryTypes[] is const, we would need mutable runtime data
-    // This is left as a future enhancement when game objects are fully implemented
+    // Since our InfantryTypes[] is const, we would need mutable runtime
+    // data. This is left as a future enhancement when game objects are
+    // fully implemented.
 }
 
 //===========================================================================

@@ -246,7 +246,8 @@ int PathFinder::Heuristic(CELL from, CELL to) const {
     return maxD * 10 + minD * 4;
 }
 
-int PathFinder::MoveCost(CELL from, CELL to, FacingType dir, SpeedType speed) const {
+int PathFinder::MoveCost(CELL from, CELL to,
+                         FacingType dir, SpeedType speed) const {
     (void)from;  // Unused in basic implementation
 
     if (!Map.IsValidCell(to)) return MAX_PATH_COST;
@@ -309,7 +310,8 @@ CELL PathFinder::PathCell(const PathType& path, int index) {
     if (index < 0 || index > path.length) return path.start;
 
     CELL cell = path.start;
-    for (int i = 0; i < index && i < static_cast<int>(path.commands.size()); i++) {
+    int maxI = static_cast<int>(path.commands.size());
+    for (int i = 0; i < index && i < maxI; i++) {
         cell = Adjacent_Cell(cell, path.commands[i]);
     }
     return cell;

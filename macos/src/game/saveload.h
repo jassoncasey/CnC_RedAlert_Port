@@ -69,7 +69,8 @@ struct SaveGameHeader {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(SaveGameHeader) == SAVE_HEADER_SIZE, "SaveGameHeader size mismatch");
+static_assert(sizeof(SaveGameHeader) == SAVE_HEADER_SIZE,
+              "SaveGameHeader size mismatch");
 
 //===========================================================================
 // SaveStream - Binary output stream for saving

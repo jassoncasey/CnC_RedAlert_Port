@@ -121,7 +121,8 @@ static Building* FindProductionBuilding(UnitType unitType) {
  * @param outY Output world Y coordinate
  * @return true if valid location found
  */
-static bool FindSpawnLocationNearBuilding(Building* bldg, int* outX, int* outY) {
+static bool FindSpawnLocationNearBuilding(Building* bldg,
+                                          int* outX, int* outY) {
     if (!bldg) return false;
 
     int centerCellX = bldg->cellX + bldg->width / 2;
@@ -131,13 +132,15 @@ static bool FindSpawnLocationNearBuilding(Building* bldg, int* outX, int* outY) 
     for (int radius = 0; radius <= 5; radius++) {
         for (int dy = -radius; dy <= radius; dy++) {
             for (int dx = -radius; dx <= radius; dx++) {
-                // Only check cells on the perimeter of current ring
-                if (radius > 0 && abs(dx) != radius && abs(dy) != radius) continue;
+                // Only check cells on perimeter of current ring
+                bool onPerim = abs(dx) == radius || abs(dy) == radius;
+                if (radius > 0 && !onPerim) continue;
 
                 int cx = centerCellX + dx;
                 int cy = centerCellY + dy;
 
-                if (cx < 0 || cy < 0 || cx >= Map_GetWidth() || cy >= Map_GetHeight()) continue;
+                int mw = Map_GetWidth(), mh = Map_GetHeight();
+                if (cx < 0 || cy < 0 || cx >= mw || cy >= mh) continue;
 
                 MapCell* cell = Map_GetCell(cx, cy);
                 if (!cell) continue;
@@ -197,26 +200,36 @@ struct BuildItemDef {
 //       └─ War Factory (power + refinery) → Vehicles
 //           └─ Radar Dome (power + factory)
 //               └─ Tech Center → Advanced units
+// Prereq shortcuts
+#define PRQ_PWR PREREQ_POWER
+#define PRQ_REF PREREQ_REFINERY
+#define PRQ_FAC PREREQ_FACTORY
+#define PRQ_BAR PREREQ_BARRACKS
+
+// PRQ_PR = PRQ_PWR|PRQ_REF, PRQ_PF = PRQ_PWR|PRQ_FAC
+#define PRQ_PR (PRQ_PWR|PRQ_REF)
+#define PRQ_PF (PRQ_PWR|PRQ_FAC)
+
 static BuildItemDef g_structureDefs[] = {
-    {"POWR", "Power Plant",   300,  300, false, BUILDING_POWER,    2, 2, PREREQ_NONE},
-    {"PROC", "Ore Refinery", 2000,  600, false, BUILDING_REFINERY, 3, 3, PREREQ_POWER},
-    {"TENT", "Barracks",      500,  400, false, BUILDING_BARRACKS, 2, 2, PREREQ_POWER},
-    {"WEAP", "War Factory",  2000,  600, false, BUILDING_FACTORY,  3, 3, PREREQ_POWER | PREREQ_REFINERY},
-    {"DOME", "Radar Dome",   1000,  500, false, BUILDING_RADAR,    2, 2, PREREQ_POWER | PREREQ_FACTORY},
+    {"POWR", "Power",   300, 300, false, BUILDING_POWER,    2,2, PREREQ_NONE},
+    {"PROC", "Refinery",2000,600, false, BUILDING_REFINERY, 3,3, PRQ_PWR},
+    {"TENT", "Barracks",500, 400, false, BUILDING_BARRACKS, 2,2, PRQ_PWR},
+    {"WEAP", "Factory", 2000,600, false, BUILDING_FACTORY,  3,3, PRQ_PR},
+    {"DOME", "Radar",   1000,500, false, BUILDING_RADAR,    2,2, PRQ_PF},
 };
 static const int g_structureDefCount = 5;
 
 // Available units with proper tech tree
 // Infantry requires Barracks, Vehicles require War Factory
-// Harvester requires Refinery (auto-spawned when refinery built, but also buildable)
+// Harvester requires Refinery (auto-spawned, but also buildable)
 static BuildItemDef g_unitDefs[] = {
-    {"E1",   "Rifle Infantry",  100, 150, true, UNIT_RIFLE,       1, 1, PREREQ_BARRACKS},
-    {"E2",   "Grenadier",       160, 180, true, UNIT_GRENADIER,   1, 1, PREREQ_BARRACKS},
-    {"E3",   "Rocket Soldier",  300, 200, true, UNIT_ROCKET,      1, 1, PREREQ_BARRACKS},
-    {"ENG",  "Engineer",        500, 200, true, UNIT_ENGINEER,    1, 1, PREREQ_BARRACKS},
-    {"HARV", "Harvester",      1400, 400, true, UNIT_HARVESTER,   1, 1, PREREQ_REFINERY},
-    {"1TNK", "Light Tank",      700, 300, true, UNIT_TANK_LIGHT,  1, 1, PREREQ_FACTORY},
-    {"2TNK", "Medium Tank",     800, 350, true, UNIT_TANK_MEDIUM, 1, 1, PREREQ_FACTORY},
+    {"E1",   "Rifle Infantry", 100, 150, true, UNIT_RIFLE,       1,1, PRQ_BAR},
+    {"E2",   "Grenadier",      160, 180, true, UNIT_GRENADIER,   1,1, PRQ_BAR},
+    {"E3",   "Rocket Soldier", 300, 200, true, UNIT_ROCKET,      1,1, PRQ_BAR},
+    {"ENG",  "Engineer",       500, 200, true, UNIT_ENGINEER,    1,1, PRQ_BAR},
+    {"HARV", "Harvester",     1400, 400, true, UNIT_HARVESTER,   1,1, PRQ_REF},
+    {"1TNK", "Light Tank",     700, 300, true, UNIT_TANK_LIGHT,  1,1, PRQ_FAC},
+    {"2TNK", "Medium Tank",    800, 350, true, UNIT_TANK_MEDIUM, 1,1, PRQ_FAC},
 };
 static const int g_unitDefCount = 7;
 
@@ -296,8 +309,9 @@ static bool CheckPrerequisites(const BuildItemDef* item) {
     return (item->prerequisites & g_playerBuildings) == item->prerequisites;
 }
 
-// Get the name of the first missing prerequisite for an item (currently unused but kept for tooltip support)
-static const char* GetMissingPrereq(const BuildItemDef* item) __attribute__((unused));
+// Get first missing prereq for item (unused - kept for tooltip support)
+static const char* GetMissingPrereq(const BuildItemDef* item)
+    __attribute__((unused));
 static const char* GetMissingPrereq(const BuildItemDef* item) {
     uint32_t missing = item->prerequisites & ~g_playerBuildings;
 
@@ -328,9 +342,8 @@ static bool CanPlaceAt(int cellX, int cellY, int width, int height) {
             int cy = cellY + dy;
 
             // Check map bounds
-            if (cx < 0 || cy < 0 || cx >= Map_GetWidth() || cy >= Map_GetHeight()) {
-                return false;
-            }
+            int mw = Map_GetWidth(), mh = Map_GetHeight();
+            if (cx < 0 || cy < 0 || cx >= mw || cy >= mh) return false;
 
             // Check terrain is passable (not water/rock/building)
             MapCell* cell = Map_GetCell(cx, cy);
@@ -375,7 +388,8 @@ void GameUI_UpdatePlacement(int mouseX, int mouseY) {
 
     // Validate placement
     const BuildItemDef* item = &g_structureDefs[g_placementType];
-    g_placementValid = CanPlaceAt(g_placementCellX, g_placementCellY, item->width, item->height);
+    int px = g_placementCellX, py = g_placementCellY;
+    g_placementValid = CanPlaceAt(px, py, item->width, item->height);
 }
 
 /**
@@ -394,9 +408,10 @@ static bool TryPlaceBuilding(void) {
     if (id < 0) return false;
 
     // Mark cells as occupied
+    int px = g_placementCellX, py = g_placementCellY;
     for (int dy = 0; dy < item->height; dy++) {
         for (int dx = 0; dx < item->width; dx++) {
-            MapCell* cell = Map_GetCell(g_placementCellX + dx, g_placementCellY + dy);
+            MapCell* cell = Map_GetCell(px + dx, py + dy);
             if (cell) {
                 cell->terrain = TERRAIN_BUILDING;
                 cell->buildingId = id;
@@ -491,10 +506,12 @@ void GameUI_Update(void) {
             int spawnX = 150 + (rand() % 100);  // Fallback
             int spawnY = 500 + (rand() % 100);
 
-            Building* prodBldg = FindProductionBuilding((UnitType)item->spawnType);
+            UnitType ut = (UnitType)item->spawnType;
+            Building* prodBldg = FindProductionBuilding(ut);
             if (prodBldg) {
                 int bldgSpawnX, bldgSpawnY;
-                if (FindSpawnLocationNearBuilding(prodBldg, &bldgSpawnX, &bldgSpawnY)) {
+                if (FindSpawnLocationNearBuilding(prodBldg,
+                                                  &bldgSpawnX, &bldgSpawnY)) {
                     spawnX = bldgSpawnX;
                     spawnY = bldgSpawnY;
                 }
@@ -512,7 +529,8 @@ void GameUI_Update(void) {
 // Helper: Draw beveled box (3D effect)
 //===========================================================================
 
-static void DrawBeveledBox(int x, int y, int w, int h, uint8_t bgColor, bool raised) {
+static void DrawBeveledBox(int x, int y, int w, int h,
+                           uint8_t bgColor, bool raised) {
     // Fill background
     Renderer_FillRect(x, y, w, h, bgColor);
 
@@ -570,7 +588,8 @@ void GameUI_RenderPlacement(void) {
             if (cellScreenY < 0 || cellScreenY >= SIDEBAR_HEIGHT) continue;
 
             // Check if this specific cell is valid
-            MapCell* cell = Map_GetCell(g_placementCellX + dx, g_placementCellY + dy);
+            int px = g_placementCellX, py = g_placementCellY;
+            MapCell* cell = Map_GetCell(px + dx, py + dy);
             bool cellValid = cell &&
                             cell->terrain != TERRAIN_WATER &&
                             cell->terrain != TERRAIN_ROCK &&
@@ -581,20 +600,22 @@ void GameUI_RenderPlacement(void) {
             uint8_t cellColor = cellValid ? color : PAL_RED;
 
             // Draw cell outline
-            Renderer_DrawRect(cellScreenX, cellScreenY, CELL_SIZE, CELL_SIZE, cellColor);
+            int csx = cellScreenX, csy = cellScreenY;
+            Renderer_DrawRect(csx, csy, CELL_SIZE, CELL_SIZE, cellColor);
 
             // Draw X pattern for invalid cells
             if (!cellValid) {
-                Renderer_DrawLine(cellScreenX + 2, cellScreenY + 2,
-                                  cellScreenX + CELL_SIZE - 3, cellScreenY + CELL_SIZE - 3, PAL_RED);
-                Renderer_DrawLine(cellScreenX + CELL_SIZE - 3, cellScreenY + 2,
-                                  cellScreenX + 2, cellScreenY + CELL_SIZE - 3, PAL_RED);
+                int x1 = csx + 2, y1 = csy + 2;
+                int x2 = csx + CELL_SIZE - 3, y2 = csy + CELL_SIZE - 3;
+                Renderer_DrawLine(x1, y1, x2, y2, PAL_RED);
+                Renderer_DrawLine(x2, y1, x1, y2, PAL_RED);
             }
         }
     }
 
     // Draw outer boundary
-    Renderer_DrawRect(screenX, screenY, width * CELL_SIZE, height * CELL_SIZE, color);
+    int bw = width * CELL_SIZE, bh = height * CELL_SIZE;
+    Renderer_DrawRect(screenX, screenY, bw, bh, color);
 
     // Draw building name above cursor
     if (screenY > 12) {
@@ -610,7 +631,9 @@ void GameUI_Render(void) {
     if (!g_uiInitialized) return;
 
     // Draw sidebar background - dark with bevel
-    Renderer_FillRect(SIDEBAR_X, SIDEBAR_Y, SIDEBAR_WIDTH, SIDEBAR_HEIGHT, PAL_BLACK);
+    int sbx = SIDEBAR_X, sby = SIDEBAR_Y;
+    int sbw = SIDEBAR_WIDTH, sbh = SIDEBAR_HEIGHT;
+    Renderer_FillRect(sbx, sby, sbw, sbh, PAL_BLACK);
 
     // Left border of sidebar (separating from game view)
     Renderer_VLine(SIDEBAR_X, 0, SIDEBAR_HEIGHT - 1, PAL_GREY);
@@ -630,7 +653,8 @@ void GameUI_Render(void) {
 // Input Handling
 //===========================================================================
 
-BOOL GameUI_HandleInput(int mouseX, int mouseY, BOOL leftClick, BOOL rightClick) {
+BOOL GameUI_HandleInput(int mouseX, int mouseY,
+                        BOOL leftClick, BOOL rightClick) {
     // Update placement cursor position (always, for smooth tracking)
     GameUI_UpdatePlacement(mouseX, mouseY);
 
@@ -873,8 +897,9 @@ void GameUI_RenderSidebar(void) {
     int maxY = SELECTION_Y - 4;  // Don't go past selection panel
 
     // Section: STRUCTURES
-    DrawBeveledBox(SIDEBAR_X + 3, startY, SIDEBAR_WIDTH - 6, 10, PAL_GREY, true);
-    Renderer_DrawText("STRUCTURES", SIDEBAR_X + 8, startY + 1, PAL_BLACK, 0);
+    int bx = SIDEBAR_X + 3, bw = SIDEBAR_WIDTH - 6;
+    DrawBeveledBox(bx, startY, bw, 10, PAL_GREY, true);
+    Renderer_DrawText("STRUCT", SIDEBAR_X + 8, startY + 1, PAL_BLACK, 0);
     startY += 12;
 
     // Structure buttons
@@ -886,13 +911,16 @@ void GameUI_RenderSidebar(void) {
         bool canAfford = g_playerCredits >= item->cost;
         bool available = hasPrereqs && canAfford;
         bool isBuilding = (g_structureProducing == i);
-        int progress = isBuilding ? (g_structureProgress / 100) : 0;  // Convert from fixed point
+        int progress = isBuilding ? (g_structureProgress / 100) : 0;
 
         uint8_t bgColor = available ? PAL_GREY : PAL_BLACK;
         uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
 
         // Button with 3D effect
-        DrawBeveledBox(SIDEBAR_X + 4, startY, SIDEBAR_WIDTH - 8, SIDEBAR_BUTTON_HEIGHT, bgColor, available && !isBuilding);
+        int btnX = SIDEBAR_X + 4, btnW = SIDEBAR_WIDTH - 8;
+        int btnH = SIDEBAR_BUTTON_HEIGHT;
+        bool raised = available && !isBuilding;
+        DrawBeveledBox(btnX, startY, btnW, btnH, bgColor, raised);
 
         // Item name and cost/status on same line
         Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 1, textColor, 0);
@@ -901,16 +929,19 @@ void GameUI_RenderSidebar(void) {
         if (isBuilding) {
             if (g_placementMode && g_placementType == i) {
                 // Ready for placement - pulsing text
-                uint8_t readyColor = (g_flashFrame < 10) ? PAL_WHITE : PAL_LTGREEN;
-                Renderer_DrawText("RDY", SIDEBAR_X + 44, startY + 1, readyColor, 0);
+                bool flash = g_flashFrame < 10;
+                uint8_t rdyClr = flash ? PAL_WHITE : PAL_LTGREEN;
+                Renderer_DrawText("RDY", SIDEBAR_X + 44, startY + 1, rdyClr, 0);
             } else {
-                char progressStr[16];
-                snprintf(progressStr, sizeof(progressStr), "%d%%", progress);
-                Renderer_DrawText(progressStr, SIDEBAR_X + 44, startY + 1, PAL_LTGREEN, 0);
+                char pStr[16];
+                snprintf(pStr, sizeof(pStr), "%d%%", progress);
+                int tx = SIDEBAR_X + 44;
+                Renderer_DrawText(pStr, tx, startY + 1, PAL_LTGREEN, 0);
 
                 // Progress bar below
                 int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
-                Renderer_FillRect(SIDEBAR_X + 8, startY + 10, barW, 2, PAL_LTGREEN);
+                int barX = SIDEBAR_X + 8;
+                Renderer_FillRect(barX, startY + 10, barW, 2, PAL_LTGREEN);
             }
         } else if (!hasPrereqs) {
             Renderer_DrawText("---", SIDEBAR_X + 44, startY + 1, PAL_GREY, 0);
@@ -919,9 +950,9 @@ void GameUI_RenderSidebar(void) {
             snprintf(costStr, sizeof(costStr), "$%d", item->cost);
             Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_RED, 0);
         } else {
-            char costStr[16];
-            snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
+            char cs[16];
+            snprintf(cs, sizeof(cs), "$%d", item->cost);
+            Renderer_DrawText(cs, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
         }
 
         startY += SIDEBAR_BUTTON_SPACING;
@@ -929,7 +960,7 @@ void GameUI_RenderSidebar(void) {
 
     // Placement hint (compact)
     if (g_placementMode) {
-        Renderer_DrawText("Click to place", SIDEBAR_X + 6, startY, PAL_WHITE, 0);
+        Renderer_DrawText("Place bldg", SIDEBAR_X + 6, startY, PAL_WHITE, 0);
         startY += 12;
     }
 
@@ -937,7 +968,7 @@ void GameUI_RenderSidebar(void) {
 
     // Section: UNITS
     if (startY + 12 < maxY) {
-        DrawBeveledBox(SIDEBAR_X + 3, startY, SIDEBAR_WIDTH - 6, 10, PAL_GREY, true);
+        DrawBeveledBox(bx, startY, bw, 10, PAL_GREY, true);
         Renderer_DrawText("UNITS", SIDEBAR_X + 8, startY + 1, PAL_BLACK, 0);
         startY += 12;
     }
@@ -953,30 +984,34 @@ void GameUI_RenderSidebar(void) {
         bool isBuilding = (g_unitProducing == i);
         int progress = isBuilding ? (g_unitProgress / 100) : 0;
 
-        uint8_t bgColor = available ? PAL_GREY : PAL_BLACK;
-        uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
+        uint8_t bgCol = available ? PAL_GREY : PAL_BLACK;
+        uint8_t txtCol = available ? PAL_WHITE : PAL_GREY;
 
-        DrawBeveledBox(SIDEBAR_X + 4, startY, SIDEBAR_WIDTH - 8, SIDEBAR_BUTTON_HEIGHT, bgColor, available && !isBuilding);
+        int ux = SIDEBAR_X + 4, uw = SIDEBAR_WIDTH - 8;
+        int uh = SIDEBAR_BUTTON_HEIGHT;
+        bool r = available && !isBuilding;
+        DrawBeveledBox(ux, startY, uw, uh, bgCol, r);
 
-        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 1, textColor, 0);
+        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 1, txtCol, 0);
 
         if (isBuilding) {
-            char progressStr[16];
-            snprintf(progressStr, sizeof(progressStr), "%d%%", progress);
-            Renderer_DrawText(progressStr, SIDEBAR_X + 44, startY + 1, PAL_LTGREEN, 0);
+            char ps[16];
+            snprintf(ps, sizeof(ps), "%d%%", progress);
+            int tx = SIDEBAR_X + 44;
+            Renderer_DrawText(ps, tx, startY + 1, PAL_LTGREEN, 0);
 
-            int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
-            Renderer_FillRect(SIDEBAR_X + 8, startY + 10, barW, 2, PAL_LTGREEN);
+            int bW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
+            Renderer_FillRect(SIDEBAR_X + 8, startY + 10, bW, 2, PAL_LTGREEN);
         } else if (!hasPrereqs) {
             Renderer_DrawText("---", SIDEBAR_X + 44, startY + 1, PAL_GREY, 0);
         } else if (!canAfford) {
-            char costStr[16];
-            snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_RED, 0);
+            char cs[16];
+            snprintf(cs, sizeof(cs), "$%d", item->cost);
+            Renderer_DrawText(cs, SIDEBAR_X + 8, startY + 8, PAL_RED, 0);
         } else {
-            char costStr[16];
-            snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
+            char cs[16];
+            snprintf(cs, sizeof(cs), "$%d", item->cost);
+            Renderer_DrawText(cs, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
         }
 
         startY += SIDEBAR_BUTTON_SPACING;
@@ -1068,16 +1103,21 @@ BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
 
 void GameUI_RenderSelectionPanel(void) {
     // Panel frame
-    DrawBeveledBox(SIDEBAR_X + 3, SELECTION_Y, SIDEBAR_WIDTH - 6, SELECTION_HEIGHT - 4, PAL_GREY, false);
+    int px = SIDEBAR_X + 3, py = SELECTION_Y;
+    int pw = SIDEBAR_WIDTH - 6, ph = SELECTION_HEIGHT - 4;
+    DrawBeveledBox(px, py, pw, ph, PAL_GREY, false);
 
     // Inner area
-    Renderer_FillRect(SIDEBAR_X + 5, SELECTION_Y + 2, SIDEBAR_WIDTH - 10, SELECTION_HEIGHT - 8, PAL_BLACK);
+    int ix = SIDEBAR_X + 5, iy = SELECTION_Y + 2;
+    int iw = SIDEBAR_WIDTH - 10, ih = SELECTION_HEIGHT - 8;
+    Renderer_FillRect(ix, iy, iw, ih, PAL_BLACK);
 
     int selectedCount = Units_GetSelectedCount();
 
     if (selectedCount == 0) {
-        Renderer_DrawText("No unit", SIDEBAR_X + 14, SELECTION_Y + 20, PAL_GREY, 0);
-        Renderer_DrawText("selected", SIDEBAR_X + 12, SELECTION_Y + 32, PAL_GREY, 0);
+        int tx = SIDEBAR_X + 14, ty = SELECTION_Y + 20;
+        Renderer_DrawText("No unit", tx, ty, PAL_GREY, 0);
+        Renderer_DrawText("selected", tx - 2, ty + 12, PAL_GREY, 0);
         return;
     }
 
@@ -1104,7 +1144,8 @@ void GameUI_RenderSelectionPanel(void) {
     Renderer_DrawText(typeName, SIDEBAR_X + 8, SELECTION_Y + 6, PAL_LTGREEN, 0);
 
     // Health bar
-    int healthPct = (unit->maxHealth > 0) ? (unit->health * 100 / unit->maxHealth) : 0;
+    int maxHp = unit->maxHealth;
+    int healthPct = (maxHp > 0) ? (unit->health * 100 / maxHp) : 0;
     int barWidth = SIDEBAR_WIDTH - 20;
     int greenWidth = (healthPct * barWidth) / 100;
 
@@ -1112,40 +1153,41 @@ void GameUI_RenderSelectionPanel(void) {
     Renderer_FillRect(SIDEBAR_X + 8, SELECTION_Y + 18, barWidth, 6, PAL_RED);
 
     // Health
+    int hx = SIDEBAR_X + 8, hy = SELECTION_Y + 18;
     if (greenWidth > 0) {
-        uint8_t healthColor = PAL_LTGREEN;
-        if (healthPct <= 50) healthColor = PAL_YELLOW;
-        if (healthPct <= 25) healthColor = PAL_RED;
-        Renderer_FillRect(SIDEBAR_X + 8, SELECTION_Y + 18, greenWidth, 6, healthColor);
+        uint8_t hc = PAL_LTGREEN;
+        if (healthPct <= 50) hc = PAL_YELLOW;
+        if (healthPct <= 25) hc = PAL_RED;
+        Renderer_FillRect(hx, hy, greenWidth, 6, hc);
     }
 
     // Border
     Renderer_DrawRect(SIDEBAR_X + 8, SELECTION_Y + 18, barWidth, 6, PAL_GREY);
 
     // Health text
-    char healthText[16];
-    snprintf(healthText, sizeof(healthText), "%d/%d", unit->health, unit->maxHealth);
-    Renderer_DrawText(healthText, SIDEBAR_X + 8, SELECTION_Y + 28, PAL_WHITE, 0);
+    char htxt[16];
+    snprintf(htxt, sizeof(htxt), "%d/%d", unit->health, maxHp);
+    Renderer_DrawText(htxt, hx, SELECTION_Y + 28, PAL_WHITE, 0);
 
     // Multi-select count
     if (selectedCount > 1) {
-        char countText[16];
-        snprintf(countText, sizeof(countText), "+%d more", selectedCount - 1);
-        Renderer_DrawText(countText, SIDEBAR_X + 8, SELECTION_Y + 40, PAL_YELLOW, 0);
+        char ctxt[16];
+        snprintf(ctxt, sizeof(ctxt), "+%d more", selectedCount - 1);
+        Renderer_DrawText(ctxt, hx, SELECTION_Y + 40, PAL_YELLOW, 0);
     }
 
     // Unit state
-    const char* stateText = "Idle";
-    uint8_t stateColor = PAL_LTGREY;
+    const char* st = "Idle";
+    uint8_t sc = PAL_LTGREY;
     switch (unit->state) {
-        case STATE_MOVING: stateText = "Moving"; stateColor = PAL_LTCYAN; break;
-        case STATE_ATTACKING: stateText = "Attack!"; stateColor = PAL_RED; break;
-        case STATE_HARVESTING: stateText = "Harvest"; stateColor = PAL_YELLOW; break;
-        case STATE_RETURNING: stateText = "Return"; stateColor = PAL_LTCYAN; break;
-        case STATE_DYING: stateText = "Dying"; stateColor = PAL_RED; break;
+        case STATE_MOVING:     st = "Moving";  sc = PAL_LTCYAN; break;
+        case STATE_ATTACKING:  st = "Attack!"; sc = PAL_RED;    break;
+        case STATE_HARVESTING: st = "Harvest"; sc = PAL_YELLOW; break;
+        case STATE_RETURNING:  st = "Return";  sc = PAL_LTCYAN; break;
+        case STATE_DYING:      st = "Dying";   sc = PAL_RED;    break;
         default: break;
     }
-    Renderer_DrawText(stateText, SIDEBAR_X + 8, SELECTION_Y + 52, stateColor, 0);
+    Renderer_DrawText(st, hx, SELECTION_Y + 52, sc, 0);
 }
 
 //===========================================================================

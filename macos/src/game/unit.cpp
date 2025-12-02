@@ -506,8 +506,9 @@ int UnitClass::ShapeNumber() const {
     if (!typeData) return 0;
 
     // Calculate body frame from facing
-    int bodyFrame = static_cast<int>(bodyFacing_) / (256 / typeData->rotationStages);
-    if (bodyFrame >= typeData->rotationStages) bodyFrame = 0;
+    int stages = typeData->rotationStages;
+    int bodyFrame = static_cast<int>(bodyFacing_) / (256 / stages);
+    if (bodyFrame >= stages) bodyFrame = 0;
 
     // Add track animation offset if moving
     int trackOffset = 0;

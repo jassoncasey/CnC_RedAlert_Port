@@ -122,7 +122,8 @@ TeamTypeClass* TeamTypeClass::From_Name(const char* name) {
     return nullptr;
 }
 
-TeamTypeClass* TeamTypeClass::Suggested_New_Team(HouseClass* house, bool alert) {
+TeamTypeClass* TeamTypeClass::Suggested_New_Team(HouseClass* house,
+                                                  bool alert) {
     if (!house) return nullptr;
 
     TeamTypeClass* best = nullptr;
@@ -415,7 +416,8 @@ bool TeamClass::Execute_Mission() {
 
         case TeamMissionType::JUMP:
             // Jump to mission step
-            currentMission_ = mission.argument - 1;  // -1 because Next_Mission increments
+            // -1 because Next_Mission increments
+            currentMission_ = mission.argument - 1;
             return true;
 
         case TeamMissionType::PATROL:

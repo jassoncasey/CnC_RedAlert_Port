@@ -50,7 +50,8 @@ constexpr int DEFAULT_SPREAD = 128;  // ~1/2 cell
  * 2. Apply distance falloff (further = less damage)
  * 3. Clamp to min/max range
  */
-int Modify_Damage(int damage, WarheadType warhead, ArmorType armor, int distance);
+int Modify_Damage(int damage, WarheadType warhead,
+                  ArmorType armor, int distance);
 
 /**
  * Apply explosion damage to all objects in area.
@@ -63,7 +64,8 @@ int Modify_Damage(int damage, WarheadType warhead, ArmorType armor, int distance
  * Collects all objects in center cell and adjacent 8 cells,
  * calculates distance to each, applies damage based on distance.
  */
-void Explosion_Damage(int32_t coord, int damage, TechnoClass* source, WarheadType warhead);
+void Explosion_Damage(int32_t coord, int damage,
+                      TechnoClass* source, WarheadType warhead);
 
 /**
  * Get warhead damage modifier vs armor type.
@@ -122,7 +124,8 @@ AnimType Combat_Anim(int damage, WarheadType warhead);
  * @param targetCoord Target coordinate
  * @return true if weapon was fired successfully
  */
-bool Fire_Weapon(TechnoClass* source, WeaponTypeEnum weapon, int32_t targetCoord);
+bool Fire_Weapon(TechnoClass* source, WeaponTypeEnum weapon,
+                 int32_t targetCoord);
 
 /**
  * Check if target is in range of weapon.

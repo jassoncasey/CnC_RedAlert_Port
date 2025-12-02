@@ -57,7 +57,8 @@ static const int g_imaIndexTable[16] = {
 };
 
 // Decode a single IMA ADPCM nibble
-static int16_t DecodeIMANibble(uint8_t nibble, int16_t* predictor, int* stepIndex) {
+static int16_t DecodeIMANibble(uint8_t nibble, int16_t* predictor,
+                               int* stepIndex) {
     int step = g_imaStepTable[*stepIndex];
     int diff = step >> 3;
 
@@ -80,7 +81,8 @@ static int16_t DecodeIMANibble(uint8_t nibble, int16_t* predictor, int* stepInde
 }
 
 // Decode IMA ADPCM chunk
-static int DecodeIMAChunk(const uint8_t* src, int srcSize, int16_t* dst, int dstSize, int16_t* predictor, int* stepIndex) {
+static int DecodeIMAChunk(const uint8_t* src, int srcSize, int16_t* dst,
+                          int dstSize, int16_t* predictor, int* stepIndex) {
     int samplesWritten = 0;
     int maxSamples = dstSize / sizeof(int16_t);
 
@@ -89,11 +91,13 @@ static int DecodeIMAChunk(const uint8_t* src, int srcSize, int16_t* dst, int dst
 
         // Low nibble first
         if (samplesWritten < maxSamples) {
-            dst[samplesWritten++] = DecodeIMANibble(byte & 0x0F, predictor, stepIndex);
+            int16_t s = DecodeIMANibble(byte & 0x0F, predictor, stepIndex);
+            dst[samplesWritten++] = s;
         }
         // High nibble
         if (samplesWritten < maxSamples) {
-            dst[samplesWritten++] = DecodeIMANibble((byte >> 4) & 0x0F, predictor, stepIndex);
+            uint8_t hi = (byte >> 4) & 0x0F;
+            dst[samplesWritten++] = DecodeIMANibble(hi, predictor, stepIndex);
         }
     }
 
@@ -104,7 +108,8 @@ static int DecodeIMAChunk(const uint8_t* src, int srcSize, int16_t* dst, int dst
 static const int8_t g_wsIndexAdj[8] = { -1, -1, -1, -1, 2, 4, 6, 8 };
 static const int16_t g_wsStepSize[4] = { 4, 2, 1, 1 };
 
-static int DecodeWestwoodChunk(const uint8_t* src, int srcSize, int16_t* dst, int maxSamples) {
+static int DecodeWestwoodChunk(const uint8_t* src, int srcSize,
+                               int16_t* dst, int maxSamples) {
     int samplesWritten = 0;
     int16_t predictor = 0;
     int step = 0;
@@ -112,8 +117,8 @@ static int DecodeWestwoodChunk(const uint8_t* src, int srcSize, int16_t* dst, in
     for (int i = 0; i < srcSize && samplesWritten < maxSamples; i++) {
         uint8_t byte = src[i];
 
-        for (int nibbleIdx = 0; nibbleIdx < 2 && samplesWritten < maxSamples; nibbleIdx++) {
-            uint8_t nibble = (nibbleIdx == 0) ? (byte & 0x0F) : ((byte >> 4) & 0x0F);
+        for (int ni = 0; ni < 2 && samplesWritten < maxSamples; ni++) {
+            uint8_t nibble = (ni == 0) ? (byte & 0x0F) : (byte >> 4);
 
             int diff = (nibble & 0x07) * g_wsStepSize[step & 3];
             if (nibble & 0x08) diff = -diff;
@@ -145,7 +150,8 @@ AudData* Aud_Load(const void* data, uint32_t dataSize) {
     if (header->sampleRate < 4000 || header->sampleRate > 48000) {
         return nullptr;
     }
-    if (header->uncompSize == 0 || header->uncompSize > 50 * 1024 * 1024) { // 50MB max
+    // 50MB max
+    if (header->uncompSize == 0 || header->uncompSize > 50 * 1024 * 1024) {
         return nullptr;
     }
     if (header->compression != 1 && header->compression != 99) {
@@ -180,7 +186,8 @@ AudData* Aud_Load(const void* data, uint32_t dataSize) {
         int16_t predictor = 0;
         int stepIndex = 0;
 
-        while (srcPtr + sizeof(AudChunkHeader) <= srcEnd && samplesRemaining > 0) {
+        size_t chunkSz = sizeof(AudChunkHeader);
+        while (srcPtr + chunkSz <= srcEnd && samplesRemaining > 0) {
             const AudChunkHeader* chunk = (const AudChunkHeader*)srcPtr;
             srcPtr += sizeof(AudChunkHeader);
 
@@ -201,7 +208,8 @@ AudData* Aud_Load(const void* data, uint32_t dataSize) {
             compSize = (uint32_t)(srcEnd - srcPtr);
         }
 
-        int decoded = DecodeWestwoodChunk(srcPtr, compSize, dstPtr, samplesRemaining);
+        int decoded = DecodeWestwoodChunk(srcPtr, compSize, dstPtr,
+                                          samplesRemaining);
         (void)decoded;
     }
 
@@ -245,7 +253,8 @@ void Aud_Free(AudData* aud) {
     }
 }
 
-BOOL Aud_ConvertTo8Bit(const AudData* aud, uint8_t** outData, uint32_t* outSize, uint32_t* outRate) {
+BOOL Aud_ConvertTo8Bit(const AudData* aud, uint8_t** outData,
+                       uint32_t* outSize, uint32_t* outRate) {
     if (!aud || !outData || !outSize || !outRate) {
         return FALSE;
     }

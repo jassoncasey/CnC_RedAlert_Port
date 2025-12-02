@@ -419,11 +419,15 @@ HANDLE FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData) {
 
             // Get file attributes
             char fullPath[MAX_PATH * 2];
-            snprintf(fullPath, sizeof(fullPath), "%s/%s", ctx->directory, entry->d_name);
+            snprintf(fullPath, sizeof(fullPath),
+                     "%s/%s", ctx->directory, entry->d_name);
 
             struct stat st;
             if (stat(fullPath, &st) == 0) {
-                lpFindFileData->dwFileAttributes = S_ISDIR(st.st_mode) ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+                bool isDir = S_ISDIR(st.st_mode);
+                DWORD attr = isDir ? FILE_ATTRIBUTE_DIRECTORY
+                                   : FILE_ATTRIBUTE_NORMAL;
+                lpFindFileData->dwFileAttributes = attr;
                 lpFindFileData->nFileSizeLow = (DWORD)st.st_size;
                 lpFindFileData->nFileSizeHigh = 0;
             } else {
@@ -463,11 +467,15 @@ BOOL FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData) {
 
             // Get file attributes
             char fullPath[MAX_PATH * 2];
-            snprintf(fullPath, sizeof(fullPath), "%s/%s", ctx->directory, entry->d_name);
+            snprintf(fullPath, sizeof(fullPath),
+                     "%s/%s", ctx->directory, entry->d_name);
 
             struct stat st;
             if (stat(fullPath, &st) == 0) {
-                lpFindFileData->dwFileAttributes = S_ISDIR(st.st_mode) ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+                bool isDir = S_ISDIR(st.st_mode);
+                DWORD attr = isDir ? FILE_ATTRIBUTE_DIRECTORY
+                                   : FILE_ATTRIBUTE_NORMAL;
+                lpFindFileData->dwFileAttributes = attr;
                 lpFindFileData->nFileSizeLow = (DWORD)st.st_size;
                 lpFindFileData->nFileSizeHigh = 0;
             } else {

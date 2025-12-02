@@ -128,7 +128,8 @@ static MixEntry* FindEntry(MixFile* mix, uint32_t crc) {
 }
 
 // Helper to read encrypted MIX file
-static MixFile* OpenEncryptedMix(FILE* f, uint32_t flags, const char* filename) {
+static MixFile* OpenEncryptedMix(FILE* f, uint32_t flags,
+                                 const char* filename) {
     (void)flags;  // Currently unused
 
     // Read the 80-byte RSA-encrypted key block
@@ -158,8 +159,9 @@ static MixFile* OpenEncryptedMix(FILE* f, uint32_t flags, const char* filename) 
     // Parse header (6 bytes: 2-byte count + 4-byte size)
     MixHeader header;
     header.count = (int16_t)(headerBlock[0] | (headerBlock[1] << 8));
-    header.dataSize = (int32_t)(headerBlock[2] | (headerBlock[3] << 8) |
-                                (headerBlock[4] << 16) | (headerBlock[5] << 24));
+    int b2 = headerBlock[2], b3 = headerBlock[3];
+    int b4 = headerBlock[4], b5 = headerBlock[5];
+    header.dataSize = (int32_t)(b2 | (b3 << 8) | (b4 << 16) | (b5 << 24));
 
     // Sanity check
     if (header.count < 0 || header.count > 10000) {
@@ -206,14 +208,16 @@ static MixFile* OpenEncryptedMix(FILE* f, uint32_t flags, const char* filename) 
 
     delete[] encryptedData;
 
-    // Data starts after: flags(4) + key(80) + encrypted_header_index(rounded up to 8)
-    mix->dataStart = 4 + MIXKEY_ENCRYPTED_SIZE + (uint32_t)totalEncrypted;
+    // Data starts after flags(4) + key(80) + encrypted_header_index
+    uint32_t dstart = 4 + MIXKEY_ENCRYPTED_SIZE + (uint32_t)totalEncrypted;
+    mix->dataStart = dstart;
 
     return mix;
 }
 
 // Helper to open encrypted MIX from memory
-static MixFile* OpenEncryptedMixMemory(const uint8_t* data, uint32_t size, bool ownsData) {
+static MixFile* OpenEncryptedMixMemory(const uint8_t* data, uint32_t size,
+                                       bool ownsData) {
     if (size < 4 + MIXKEY_ENCRYPTED_SIZE + 8) {
         return nullptr;  // Too small
     }
@@ -244,8 +248,9 @@ static MixFile* OpenEncryptedMixMemory(const uint8_t* data, uint32_t size, bool 
     // Parse header
     MixHeader header;
     header.count = (int16_t)(headerBlock[0] | (headerBlock[1] << 8));
-    header.dataSize = (int32_t)(headerBlock[2] | (headerBlock[3] << 8) |
-                                (headerBlock[4] << 16) | (headerBlock[5] << 24));
+    int b2 = headerBlock[2], b3 = headerBlock[3];
+    int b4 = headerBlock[4], b5 = headerBlock[5];
+    header.dataSize = (int32_t)(b2 | (b3 << 8) | (b4 << 16) | (b5 << 24));
 
     if (header.count < 0 || header.count > 10000) {
         return nullptr;
@@ -402,7 +407,7 @@ MixFileHandle Mix_Open(const char* filename) {
         bool isEncrypted = (flags & 0x2) != 0;
 
         if (isEncrypted) {
-            // Seek back and use encrypted handler (expects to start at offset 0)
+            // Seek back, use encrypted handler (expects offset 0)
             fseek(f, 0, SEEK_SET);
             uint32_t fullFlags;
             if (fread(&fullFlags, sizeof(fullFlags), 1, f) != 1) {
@@ -495,7 +500,8 @@ uint32_t Mix_GetFileSize(MixFileHandle mix, const char* name) {
     return entry ? entry->size : 0;
 }
 
-uint32_t Mix_ReadFileByCRC(MixFileHandle mix, uint32_t crc, void* buffer, uint32_t bufSize) {
+uint32_t Mix_ReadFileByCRC(MixFileHandle mix, uint32_t crc,
+                           void* buffer, uint32_t bufSize) {
     if (!mix || !buffer) return 0;
 
     MixEntry* entry = FindEntry(mix, crc);
@@ -519,11 +525,13 @@ uint32_t Mix_ReadFileByCRC(MixFileHandle mix, uint32_t crc, void* buffer, uint32
     }
 }
 
-uint32_t Mix_ReadFile(MixFileHandle mix, const char* name, void* buffer, uint32_t bufSize) {
+uint32_t Mix_ReadFile(MixFileHandle mix, const char* name,
+                      void* buffer, uint32_t bufSize) {
     return Mix_ReadFileByCRC(mix, Mix_CalculateCRC(name), buffer, bufSize);
 }
 
-void* Mix_AllocReadFile(MixFileHandle mix, const char* name, uint32_t* outSize) {
+void* Mix_AllocReadFile(MixFileHandle mix, const char* name,
+                        uint32_t* outSize) {
     if (!mix) return nullptr;
 
     MixEntry* entry = FindEntry(mix, Mix_CalculateCRC(name));

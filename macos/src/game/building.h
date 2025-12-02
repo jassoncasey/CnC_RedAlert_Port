@@ -159,7 +159,9 @@ public:
     int ProductionProgress() const { return productionProgress_; }
 
     // Check if production ready
-    bool IsProductionReady() const { return factoryState_ == FactoryState::READY; }
+    bool IsProductionReady() const {
+        return factoryState_ == FactoryState::READY;
+    }
 
     // Complete production (create unit/building)
     bool CompleteProduction();
@@ -181,8 +183,10 @@ public:
     virtual bool CanFire() const override;
     virtual int WeaponRange(int weapon = 0) const override;
     virtual int RearmTime(int weapon = 0) const override;
-    virtual ResultType TakeDamage(int& damage, int distance, WarheadType warhead,
-                                   TechnoClass* source = nullptr, bool forced = false) override;
+    virtual ResultType TakeDamage(int& damage, int distance,
+                                   WarheadType warhead,
+                                   TechnoClass* source = nullptr,
+                                   bool forced = false) override;
 
     // Sell building
     bool Sell();
