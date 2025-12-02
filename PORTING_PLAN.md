@@ -4,6 +4,20 @@
 
 **Current State:** Demo mode works. Real mission loading with simplifications.
 Core triggers working. Unit types complete. Team colors working.
+Audio fully functional (music and video).
+
+---
+
+## Recently Completed
+
+| ID | Item | Date | Notes |
+|----|------|------|-------|
+| **BUG-01** | Music ADPCM distortion | Dec 2 | Partial chunk state tracking |
+| **BUG-02** | Video audio static | Dec 2 | Pre-decode all audio at load |
+| **VIS-1** | Sprite color remapping | Dec 2 | Team colors working |
+| **BUG-07** | Map centering | Dec 2 | Viewport calculation fixed |
+| **BUG-08** | Units not moving | Dec 2 | Unit types array complete |
+| **TR-4** | BEGIN_PROD action | Dec 2 | AI production enabled |
 
 ---
 
@@ -11,48 +25,60 @@ Core triggers working. Unit types complete. Team colors working.
 
 *Sorted by leverage (impact/effort ratio). Work top-to-bottom.*
 
-### HIGH LEVERAGE
+### TIER 1: HIGH IMPACT (User-visible quality)
 
 | ID | Item | Effort | Description |
 |----|------|--------|-------------|
-| **BUG-01** | Music ADPCM distortion | 4-8 hrs | Background music heavily distorted |
-| **BUG-02** | Video audio static | 4-8 hrs | VQA audio has static/noise |
-| **TR-4** | BEGIN_PROD action | 3 hrs | Enable AI production queue |
-| **UI-2** | TEXT action | 3 hrs | Display mission briefing text |
+| **BUG-03** | P for Pause doesn't work | 1 hr | Game pause broken |
+| **BUG-04** | Briefing garbled after video | 2 hrs | Text corruption |
+| **BUG-05** | Fog re-blacks revealed terrain | 2 hrs | Fog persistence |
+| **UI-2** | TEXT action | 2 hrs | Mission briefing text overlay |
+| **UI-1** | Mission timer display | 2 hrs | Show countdown in HUD |
 
-### MEDIUM LEVERAGE
+### TIER 2: GAMEPLAY MECHANICS (Mission completion)
 
 | ID | Item | Effort | Description |
 |----|------|--------|-------------|
-| **VIS-2** | Selection box visibility | 1 hr | Clearer unit selection indicators |
-| **BUG-09** | Target cursor on hover | 2 hrs | Attack cursor when hovering enemies |
-| **UI-1** | Mission timer display | 2 hrs | Show countdown timer in HUD |
-| **EV-4** | CREDITS event | 1 hr | Trigger on credit threshold |
 | **TR-5** | AUTOCREATE action | 2 hrs | Auto team creation for AI |
-| **AI-1** | Hunt mode | 3 hrs | Units seek and destroy enemies |
-
-### LOW LEVERAGE
-
-| ID | Item | Effort | Description |
-|----|------|--------|-------------|
-| **TR-6** | DESTROY_TEAM | 1 hr | Remove team from game |
-| **TR-7** | FIRE_SALE | 2 hrs | AI sells all buildings |
-| **TR-8** | DZ (drop zone) | 2 hrs | Drop zone flare effect |
 | **TR-9** | PLAY_MOVIE | 2 hrs | Trigger mid-mission movies |
 | **TR-10** | START/STOP_TIMER | 2 hrs | Mission timer control |
 | **TR-11** | DESTROY_OBJ | 2 hrs | Destroy trigger-linked object |
+| **EV-4** | CREDITS event | 1 hr | Trigger on credit threshold |
 | **EV-5** | DISCOVERED event | 2 hrs | Trigger on fog reveal |
 | **EV-6** | HOUSE_DISC event | 1 hr | Trigger on enemy sighting |
-| **UI-3** | Radar zoom | 2 hrs | Zoom levels for minimap |
-| **UI-4** | Sidebar scroll | 1 hr | Scroll long build lists |
+
+### TIER 3: AI IMPROVEMENTS (Smarter opponents)
+
+| ID | Item | Effort | Description |
+|----|------|--------|-------------|
+| **AI-1** | Hunt mode improvements | 3 hrs | Better seek and destroy |
 | **AI-2** | Team formations | 4 hrs | Units move in formation |
 | **AI-3** | Threat assessment | 4 hrs | Smarter target selection |
+| **TR-6** | DESTROY_TEAM | 1 hr | Remove team from game |
+| **TR-7** | FIRE_SALE | 2 hrs | AI sells all buildings |
+| **TR-8** | DZ (drop zone) | 2 hrs | Drop zone flare effect |
+
+### TIER 4: MOVEMENT & UNITS (Expanded unit types)
+
+| ID | Item | Effort | Description |
+|----|------|--------|-------------|
 | **MV-1** | Naval pathfinding | 4 hrs | Water-only movement |
 | **MV-2** | Aircraft movement | 4 hrs | Flying unit pathfinding |
 | **MV-3** | Transport load/unload | 3 hrs | APCs, transports |
+
+### TIER 5: POLISH (UI/UX improvements)
+
+| ID | Item | Effort | Description |
+|----|------|--------|-------------|
+| **VIS-2** | Selection box visibility | 1 hr | Clearer unit selection |
+| **BUG-09** | Target cursor on hover | 2 hrs | Attack cursor on enemies |
+| **UI-3** | Radar zoom | 2 hrs | Zoom levels for minimap |
+| **UI-4** | Sidebar scroll | 1 hr | Scroll long build lists |
 | **PR-3** | Power affects production | 2 hrs | Low power slows building |
 
-### SIMPLIFIED (Working but not authentic)
+---
+
+## Simplified Systems (Working but not authentic)
 
 | ID | Item | Effort | What's Simplified |
 |----|------|--------|-------------------|
@@ -62,7 +88,9 @@ Core triggers working. Unit types complete. Team colors working.
 | **PR-1** | Build prerequisites | 3 hrs | No tech tree validation |
 | **PR-2** | Production queue | 2 hrs | Basic queue only |
 
-### CODE QUALITY (No gameplay impact)
+---
+
+## Code Quality (No gameplay impact)
 
 | ID | Item | Effort | Description |
 |----|------|--------|-------------|
@@ -88,7 +116,6 @@ Core triggers working. Unit types complete. Team colors working.
 
 | Action | What's Missing |
 |--------|----------------|
-| BEGIN_PROD | Enable AI build queue |
 | DESTROY_TEAM | Remove team and its units |
 | DZ | Render drop zone flare sprite |
 | FIRE_SALE | AI sells all buildings for credits |
@@ -130,17 +157,20 @@ Core triggers working. Unit types complete. Team colors working.
 - Fog of war
 - Attack commands
 - Campaign mission flow
-- VQA video playback
-- Background music (distorted)
+- VQA video playback (clean audio)
+- Background music (clean audio)
 - Trigger system (parsing, evaluation, chaining)
 
-### Completed Features
+### All Completed Features
 
 | ID | Item | Date |
 |----|------|------|
+| BUG-01 | Music ADPCM distortion | Dec 2 |
+| BUG-02 | Video audio static | Dec 2 |
 | VIS-1 | Sprite color remapping (team colors) | Dec 2 |
 | BUG-07 | Map centering on player start | Dec 2 |
 | BUG-08 | Units not moving (unit types fix) | Dec 2 |
+| TR-4 | BEGIN_PROD action | Dec 2 |
 | TR-1 | CREATE_TEAM action | Nov |
 | TR-2 | REINFORCE action | Nov |
 | TR-3 | ALL_HUNT action | Nov |
@@ -152,22 +182,12 @@ Core triggers working. Unit types complete. Team colors working.
 | - | Complete unit types (50 types) | Dec 2 |
 | - | Complete building types | Nov |
 
-### Fixed Bugs
-
-| ID | Issue | Resolution |
-|----|-------|------------|
-| BUG-07 | Map not centered on player start | Fixed viewport calculation |
-| BUG-08 | Some units won't move | Completed g_unitTypes array |
-
 ---
 
-## Next Step
+## Recommended Next Steps
 
-**BUG-01: Music ADPCM distortion** - HIGH leverage, 4-8 hrs
-
-The background music plays but is heavily distorted. This is the most
-noticeable quality issue affecting the game experience. The ADPCM decoder
-in audfile.cpp may have issues with the IMA ADPCM format used by Red Alert.
-
-Alternative: **TR-4: BEGIN_PROD** (3 hrs) - Enable AI production for more
-dynamic missions. Currently AI doesn't build new units during gameplay.
+1. **BUG-03: P for Pause** (1 hr) - Quick win, improves playability
+2. **BUG-04: Briefing text** (2 hrs) - Campaign flow polish
+3. **UI-2: TEXT action** (2 hrs) - Mission briefings display properly
+4. **TR-5: AUTOCREATE** (2 hrs) - AI spawns teams automatically
+5. **BUG-05: Fog persistence** (2 hrs) - Visual bug affecting gameplay

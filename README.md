@@ -59,16 +59,16 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed task breakdown.
 
 ### Known Issues
 
-| ID | Issue | Severity |
-|----|-------|----------|
-| BUG-01 | Music heavily distorted | High |
-| BUG-02 | Video audio has static | High |
-| BUG-03 | P for Pause doesn't work | Medium |
-| BUG-04 | Briefing garbled after video | Medium |
-| BUG-05 | Fog re-blacks revealed terrain | Medium |
-| BUG-06 | Sound volume untestable | Low |
-| BUG-07 | Map not centered on player units at mission start | Medium |
-| BUG-08 | Some units don't respond to movement commands | High |
+| ID | Issue | Severity | Status |
+|----|-------|----------|--------|
+| BUG-01 | Music heavily distorted | High | **FIXED** |
+| BUG-02 | Video audio has static | High | **FIXED** |
+| BUG-03 | P for Pause doesn't work | Medium | Open |
+| BUG-04 | Briefing garbled after video | Medium | Open |
+| BUG-05 | Fog re-blacks revealed terrain | Medium | Open |
+| BUG-06 | Sound volume untestable | Low | Open |
+| BUG-07 | Map not centered on player units | Medium | **FIXED** |
+| BUG-08 | Some units don't respond to movement | High | **FIXED** |
 
 ### Implementation Simplifications (TODO)
 
