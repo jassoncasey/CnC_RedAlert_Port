@@ -1439,6 +1439,229 @@ static int CountBuildingsByHouse(int houseNum) {
     return count;
 }
 
+// Convert team house number to game Team enum
+static Team HouseToTeam(int houseNum) {
+    // USSR (2) and Ukraine (4) are Soviet -> TEAM_ENEMY
+    // All others (Spain, Greece, England, Germany, France, Turkey) -> TEAM_PLAYER
+    if (houseNum == 2 || houseNum == 4) {
+        return TEAM_ENEMY;
+    }
+    return TEAM_PLAYER;
+}
+
+// Team mission type constants (from original Red Alert)
+enum {
+    TMISSION_ATTACK = 0,        // Attack specified quarry type
+    TMISSION_ATTACK_WP = 1,     // Attack at waypoint
+    TMISSION_FORMATION = 2,     // Change formation
+    TMISSION_MOVE = 3,          // Move to waypoint
+    TMISSION_MOVE_CELL = 4,     // Move to specific cell
+    TMISSION_GUARD = 5,         // Guard current location
+    TMISSION_JUMP = 6,          // Jump to mission step
+    TMISSION_ATTACK_TC = 7,     // Attack target comm
+    TMISSION_UNLOAD = 8,        // Unload transported units
+    TMISSION_DEPLOY = 9,        // Deploy (MCV)
+    TMISSION_FOLLOW = 10,       // Follow leader
+    TMISSION_ENTER = 11,        // Enter building/transport
+    TMISSION_SPY = 12,          // Spy infiltration
+    TMISSION_PATROL = 13,       // Patrol to waypoint
+    TMISSION_SET_GLOBAL = 14,   // Set global variable
+    TMISSION_INVULN = 15,       // Make team invulnerable
+    TMISSION_LOAD = 16,         // Load into transport
+};
+
+// Spawn a team's units at the specified waypoint
+// Returns number of units spawned
+static int SpawnTeamUnits(const MissionTeamType* team,
+                          const MissionData* mission,
+                          int* spawnedIds, int maxSpawned) {
+    if (!team || !mission) return 0;
+
+    // Get origin waypoint coordinates
+    int wpNum = team->origin;
+    if (wpNum < 0 || wpNum >= MAX_MISSION_WAYPOINTS) {
+        fprintf(stderr, "    Team '%s': invalid origin waypoint %d\n",
+                team->name, wpNum);
+        return 0;
+    }
+
+    const MissionWaypoint* wp = &mission->waypoints[wpNum];
+    if (wp->cell < 0) {
+        fprintf(stderr, "    Team '%s': waypoint %d not defined\n",
+                team->name, wpNum);
+        return 0;
+    }
+
+    // Convert waypoint cell to world coordinates
+    // Account for map offset
+    int baseCellX = wp->cellX - mission->mapX;
+    int baseCellY = wp->cellY - mission->mapY;
+    int baseWorldX = baseCellX * CELL_SIZE + CELL_SIZE / 2;
+    int baseWorldY = baseCellY * CELL_SIZE + CELL_SIZE / 2;
+
+    // Determine team (enemy or player based on house)
+    Team gameTeam = HouseToTeam(team->house);
+
+    fprintf(stderr, "    Spawning team '%s' at wp%d (%d,%d) -> world(%d,%d)\n",
+            team->name, wpNum, baseCellX, baseCellY, baseWorldX, baseWorldY);
+
+    int spawned = 0;
+
+    // Spawn each member type
+    for (int m = 0; m < team->memberCount && spawned < maxSpawned; m++) {
+        const TeamMember* member = &team->members[m];
+        UnitType unitType = ParseUnitType(member->unitType);
+
+        if (unitType == UNIT_NONE) {
+            fprintf(stderr, "      Unknown unit type '%s'\n", member->unitType);
+            continue;
+        }
+
+        // Spawn the quantity requested
+        for (int q = 0; q < member->quantity && spawned < maxSpawned; q++) {
+            // Offset each unit slightly to avoid stacking
+            // Use a spiral pattern: (0,0), (1,0), (1,1), (0,1), (-1,1)...
+            int offsetX = 0, offsetY = 0;
+            if (spawned > 0) {
+                // Simple grid offset: row = spawned / 4, col = spawned % 4
+                int col = spawned % 4;
+                int row = spawned / 4;
+                offsetX = (col - 1) * CELL_SIZE / 2;  // -1, 0, 1, 2 cells
+                offsetY = row * CELL_SIZE / 2;
+            }
+
+            int spawnX = baseWorldX + offsetX;
+            int spawnY = baseWorldY + offsetY;
+
+            int unitId = Units_Spawn(unitType, gameTeam, spawnX, spawnY);
+            if (unitId >= 0) {
+                if (spawnedIds) {
+                    spawnedIds[spawned] = unitId;
+                }
+                spawned++;
+                fprintf(stderr, "      Spawned %s (#%d) at (%d,%d)\n",
+                        member->unitType, unitId, spawnX, spawnY);
+            } else {
+                fprintf(stderr, "      Failed to spawn %s\n", member->unitType);
+            }
+        }
+    }
+
+    return spawned;
+}
+
+// Execute a team's first mission for its spawned units
+static void ExecuteTeamMission(const MissionTeamType* team,
+                               const MissionData* mission,
+                               const int* unitIds, int unitCount) {
+    if (!team || !mission || unitCount == 0) return;
+    if (team->missionCount == 0) {
+        // No missions defined - default to guard
+        for (int i = 0; i < unitCount; i++) {
+            Units_CommandGuard(unitIds[i]);
+        }
+        return;
+    }
+
+    // Get first mission
+    const TeamMission* tmission = &team->missions[0];
+    int missionType = tmission->mission;
+    int missionData = tmission->data;
+
+    fprintf(stderr, "    Team '%s' mission: type=%d data=%d\n",
+            team->name, missionType, missionData);
+
+    switch (missionType) {
+        case TMISSION_ATTACK:
+        case TMISSION_ATTACK_WP:
+        case TMISSION_ATTACK_TC:
+            // Attack - set units to attack-move toward a waypoint
+            if (missionData >= 0 && missionData < MAX_MISSION_WAYPOINTS) {
+                const MissionWaypoint* targetWp = &mission->waypoints[missionData];
+                if (targetWp->cell >= 0) {
+                    int targetX = (targetWp->cellX - mission->mapX) * CELL_SIZE;
+                    int targetY = (targetWp->cellY - mission->mapY) * CELL_SIZE;
+                    for (int i = 0; i < unitCount; i++) {
+                        Units_CommandAttackMove(unitIds[i], targetX, targetY);
+                    }
+                    fprintf(stderr, "      -> Attack-move to wp%d (%d,%d)\n",
+                            missionData, targetX, targetY);
+                    return;
+                }
+            }
+            // Fallback: set to attack-move mode at current position
+            for (int i = 0; i < unitCount; i++) {
+                Unit* unit = Units_Get(unitIds[i]);
+                if (unit) {
+                    unit->state = STATE_ATTACK_MOVE;
+                }
+            }
+            break;
+
+        case TMISSION_MOVE:
+        case TMISSION_MOVE_CELL:
+        case TMISSION_PATROL:
+            // Move to waypoint
+            if (missionData >= 0 && missionData < MAX_MISSION_WAYPOINTS) {
+                const MissionWaypoint* targetWp = &mission->waypoints[missionData];
+                if (targetWp->cell >= 0) {
+                    int targetX = (targetWp->cellX - mission->mapX) * CELL_SIZE;
+                    int targetY = (targetWp->cellY - mission->mapY) * CELL_SIZE;
+                    for (int i = 0; i < unitCount; i++) {
+                        Units_CommandMove(unitIds[i], targetX, targetY);
+                    }
+                    fprintf(stderr, "      -> Move to wp%d (%d,%d)\n",
+                            missionData, targetX, targetY);
+                    return;
+                }
+            }
+            break;
+
+        case TMISSION_GUARD:
+            // Guard current position
+            for (int i = 0; i < unitCount; i++) {
+                Units_CommandGuard(unitIds[i]);
+            }
+            fprintf(stderr, "      -> Guard\n");
+            break;
+
+        case TMISSION_UNLOAD:
+            // For transports - unload cargo
+            // For now, treat as guard
+            for (int i = 0; i < unitCount; i++) {
+                Units_CommandGuard(unitIds[i]);
+            }
+            break;
+
+        case TMISSION_DEPLOY:
+            // For MCV - deploy into construction yard
+            // For now, treat as guard
+            for (int i = 0; i < unitCount; i++) {
+                Units_CommandGuard(unitIds[i]);
+            }
+            break;
+
+        case TMISSION_SET_GLOBAL:
+            // Set a global flag
+            if (missionData >= 0 && missionData < MAX_GLOBAL_FLAGS) {
+                g_globalFlags[missionData] = true;
+                fprintf(stderr, "      -> Set global %d\n", missionData);
+            }
+            // Units default to guard
+            for (int i = 0; i < unitCount; i++) {
+                Units_CommandGuard(unitIds[i]);
+            }
+            break;
+
+        default:
+            // Unknown mission - default to guard
+            for (int i = 0; i < unitCount; i++) {
+                Units_CommandGuard(unitIds[i]);
+            }
+            break;
+    }
+}
+
 // Check if a trigger event is satisfied
 static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
                                int param2, int frameCount) {
@@ -1571,17 +1794,27 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             // TODO: Start AI production for house
             break;
 
-        case RA_ACTION_CREATE_TEAM:
+        case RA_ACTION_CREATE_TEAM: {
             // param1 = team type index
             fprintf(stderr, "  TRIGGER: Create team %d\n", param1);
-            // Look up team type and spawn its units
             if (mission && param1 >= 0 && param1 < mission->teamTypeCount) {
                 const MissionTeamType* team = &mission->teamTypes[param1];
                 fprintf(stderr, "    Team '%s': %d members at waypoint %d\n",
                         team->name, team->memberCount, team->origin);
-                // TODO: Spawn team members at origin waypoint
+
+                // Spawn all team members
+                int spawnedIds[32];
+                int spawnCount = SpawnTeamUnits(team, mission, spawnedIds, 32);
+
+                // Execute the team's first mission
+                if (spawnCount > 0) {
+                    ExecuteTeamMission(team, mission, spawnedIds, spawnCount);
+                    fprintf(stderr, "    Created %d units for team '%s'\n",
+                            spawnCount, team->name);
+                }
             }
             break;
+        }
 
         case RA_ACTION_DESTROY_TEAM:
             // param1 = team type index
@@ -1594,17 +1827,31 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             // TODO: Set all enemy units to hunt mode
             break;
 
-        case RA_ACTION_REINFORCE:
+        case RA_ACTION_REINFORCE: {
             // param1 = team type index
+            // Reinforcement spawns at team's origin waypoint (same as CREATE_TEAM)
+            // Difference: REINFORCE typically implies arrival from map edge or
+            // transport, but we spawn at waypoint for simplicity
             fprintf(stderr, "  TRIGGER: Reinforcement action (team %d)\n",
                     param1);
             if (mission && param1 >= 0 && param1 < mission->teamTypeCount) {
                 const MissionTeamType* team = &mission->teamTypes[param1];
-                fprintf(stderr, "    Team '%s': %d members\n",
-                        team->name, team->memberCount);
-                // TODO: Spawn reinforcement team at edge or via transport
+                fprintf(stderr, "    Team '%s': %d members at waypoint %d\n",
+                        team->name, team->memberCount, team->origin);
+
+                // Spawn all team members
+                int spawnedIds[32];
+                int spawnCount = SpawnTeamUnits(team, mission, spawnedIds, 32);
+
+                // Execute the team's first mission
+                if (spawnCount > 0) {
+                    ExecuteTeamMission(team, mission, spawnedIds, spawnCount);
+                    fprintf(stderr, "    Reinforced %d units for team '%s'\n",
+                            spawnCount, team->name);
+                }
             }
             break;
+        }
 
         case RA_ACTION_DZ:
             // param3 = waypoint for drop zone flare
