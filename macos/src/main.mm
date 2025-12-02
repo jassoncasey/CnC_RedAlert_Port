@@ -121,6 +121,28 @@ static void OnBriefingConfirmed(void) {
     StartMission(&g_currentMission);
 }
 
+// Try to load mission from common paths
+static bool TryLoadMission(MissionData* mission, const char* missionName) {
+    // Search paths for mission INI files
+    const char* searchPaths[] = {
+        "/tmp/ra_extract/%s.INI",
+        "../assets/%s.INI",
+        "../../assets/%s.INI",
+        "/Users/jasson/workspace/CnC_Red_Alert/assets/%s.INI",
+        nullptr
+    };
+
+    char path[512];
+    for (int i = 0; searchPaths[i]; i++) {
+        snprintf(path, sizeof(path), searchPaths[i], missionName);
+        if (Mission_LoadFromINI(mission, path)) {
+            NSLog(@"Loaded mission from: %s", path);
+            return true;
+        }
+    }
+    return false;
+}
+
 // Start a campaign mission (shows briefing first)
 static void StartCampaignMission(int campaign, int difficulty) {
     // Set mission name based on campaign and difficulty
@@ -134,34 +156,50 @@ static void StartCampaignMission(int campaign, int difficulty) {
     g_pendingCampaign = campaign;
     g_pendingDifficulty = difficulty;
 
-    // Load demo mission but customize it
-    Mission_GetDemo(&g_currentMission);
+    // Build mission filename
+    // Soviet: SCG01EA, SCG02EA, ...
+    // Allied: SCU01EA, SCU02EA, ...
+    const char* prefix = (campaign == CAMPAIGN_ALLIED) ? "SCU" : "SCG";
+    char missionName[32];
+    snprintf(missionName, sizeof(missionName), "%s01EA", prefix);
 
-    // Update mission name to reflect campaign
-    snprintf(g_currentMission.name, sizeof(g_currentMission.name),
-             "%s Mission 1: In the Thick of It", campaignName);
+    // Try to load real mission
+    bool loaded = TryLoadMission(&g_currentMission, missionName);
+    if (!loaded) {
+        NSLog(@"Could not load mission %s, falling back to demo", missionName);
+        Mission_GetDemo(&g_currentMission);
+        // Update mission name to reflect campaign
+        snprintf(g_currentMission.name, sizeof(g_currentMission.name),
+                 "%s Mission 1 (Demo)", campaignName);
+    } else {
+        NSLog(@"Mission loaded: %s", g_currentMission.name);
+        NSLog(@"  Map: %dx%d at (%d,%d)", g_currentMission.mapWidth, g_currentMission.mapHeight,
+              g_currentMission.mapX, g_currentMission.mapY);
+        NSLog(@"  Terrain data: %s", g_currentMission.terrainType ? "YES" : "NO");
+        NSLog(@"  Units: %d, Buildings: %d", g_currentMission.unitCount, g_currentMission.buildingCount);
+    }
 
     // Adjust starting credits based on difficulty
     if (difficulty == DIFFICULTY_EASY) {
-        g_currentMission.startCredits = 7500;  // More starting money
+        g_currentMission.startCredits = (g_currentMission.startCredits * 150) / 100;
     } else if (difficulty == DIFFICULTY_HARD) {
-        g_currentMission.startCredits = 3000;  // Less starting money
-    } else {
-        g_currentMission.startCredits = 5000;  // Normal
+        g_currentMission.startCredits = (g_currentMission.startCredits * 60) / 100;
     }
 
-    // Set up briefing text based on campaign
-    const char* briefingText;
-    if (campaign == CAMPAIGN_ALLIED) {
-        briefingText = "Commander, Soviet forces have invaded Eastern Europe. "
-                       "Your mission is to establish a base and rescue Allied scientists "
-                       "from the Soviet advance. Build your base and eliminate all Soviet "
-                       "forces in the area. Good luck, Commander.";
-    } else {
-        briefingText = "Comrade Commander, the capitalist West threatens our glorious "
-                       "Soviet Union. Crush the Allied forces in this region and secure "
-                       "our borders. Show them the might of the Red Army! The Motherland "
-                       "is counting on you.";
+    // Use mission description as briefing text, or generate default
+    const char* briefingText = g_currentMission.description;
+    if (!briefingText || strlen(briefingText) < 10) {
+        if (campaign == CAMPAIGN_ALLIED) {
+            briefingText = "Commander, Soviet forces have invaded Eastern Europe. "
+                           "Your mission is to establish a base and rescue Allied scientists "
+                           "from the Soviet advance. Build your base and eliminate all Soviet "
+                           "forces in the area. Good luck, Commander.";
+        } else {
+            briefingText = "Comrade Commander, the capitalist West threatens our glorious "
+                           "Soviet Union. Crush the Allied forces in this region and secure "
+                           "our borders. Show them the might of the Red Army! The Motherland "
+                           "is counting on you.";
+        }
     }
 
     // Set briefing data and show briefing screen

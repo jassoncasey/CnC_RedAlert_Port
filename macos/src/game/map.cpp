@@ -14,6 +14,13 @@ static MapCell g_cells[MAP_MAX_HEIGHT][MAP_MAX_WIDTH];
 static int g_mapWidth = 0;
 static int g_mapHeight = 0;
 static bool g_fogEnabled = true;  // Fog of war enabled by default
+
+// Mission terrain data (for rendering with Terrain_RenderByID)
+static const uint8_t* g_missionTerrainType = nullptr;  // Template IDs
+static const uint8_t* g_missionTerrainIcon = nullptr;  // Tile indices
+static int g_missionMapX = 0;  // Map viewport offset
+static int g_missionMapY = 0;
+static bool g_useMissionTerrain = false;
 // Viewport dimensions (game view area, excluding sidebar)
 static constexpr int GAME_VIEW_WIDTH = 560;   // Screen width minus sidebar
 static constexpr int GAME_VIEW_HEIGHT = 368;  // Screen height minus HUD and control bars
@@ -257,6 +264,88 @@ void Map_GenerateDemo(void) {
     // Initial visibility is set by units/buildings when they spawn
 }
 
+void Map_LoadFromMission(const uint8_t* terrainType, const uint8_t* terrainIcon,
+                         int mapX, int mapY, int mapWidth, int mapHeight) {
+    // Store mission terrain data for rendering
+    g_missionTerrainType = terrainType;
+    g_missionTerrainIcon = terrainIcon;
+    g_missionMapX = mapX;
+    g_missionMapY = mapY;
+    g_useMissionTerrain = (terrainType != nullptr && terrainIcon != nullptr);
+
+    // Create map with mission dimensions
+    // Red Alert maps are 128x128 internally, but visible area is smaller
+    Map_Create(mapWidth, mapHeight);
+
+    // Map mission terrain to our TerrainType enum for passability
+    // The terrainType array contains template IDs from MapPack
+    // We need to map these to passability categories
+    if (g_useMissionTerrain) {
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                // Get cell in the full 128x128 array
+                int fullX = mapX + x;
+                int fullY = mapY + y;
+                int cellIdx = fullY * 128 + fullX;
+
+                if (cellIdx < 0 || cellIdx >= 128 * 128) continue;
+
+                uint8_t templateID = terrainType[cellIdx];
+
+                // Map template IDs to terrain types for passability
+                // Based on OpenRA snow.yaml / temperat.yaml analysis:
+                // 0, 255 (0xFF) = Clear
+                // 1-2 = Water
+                // 3-58 = Shore (partially passable)
+                // 59-134 = Water cliffs (impassable)
+                // 135-172 = Roads/slopes
+                // 173-212 = Debris/rocks
+                // 213-252 = River (water)
+                // 253-260 = Bridges
+
+                TerrainType terrain = TERRAIN_CLEAR;
+
+                if (templateID == 0 || templateID == 255) {
+                    terrain = TERRAIN_CLEAR;
+                } else if (templateID >= 1 && templateID <= 2) {
+                    terrain = TERRAIN_WATER;
+                } else if (templateID >= 3 && templateID <= 58) {
+                    // Shore tiles - check tile index for water vs land
+                    // For now, treat as passable (land portion)
+                    terrain = TERRAIN_CLEAR;
+                } else if (templateID >= 59 && templateID <= 134) {
+                    // Water cliffs - impassable
+                    terrain = TERRAIN_ROCK;
+                } else if (templateID >= 135 && templateID <= 172) {
+                    // Roads/slopes - passable, faster movement
+                    terrain = TERRAIN_ROAD;
+                } else if (templateID >= 173 && templateID <= 212) {
+                    // Debris/rocks - some passable, some not
+                    // Treat as rough terrain (passable)
+                    terrain = TERRAIN_CLEAR;
+                } else if (templateID >= 213 && templateID <= 252) {
+                    // River - water
+                    terrain = TERRAIN_WATER;
+                } else if (templateID >= 253) {
+                    // Bridges (253-255) - passable over water
+                    terrain = TERRAIN_BRIDGE;
+                }
+
+                g_cells[y][x].terrain = (uint8_t)terrain;
+                g_cells[y][x].flags = 0;
+                g_cells[y][x].height = 0;
+                g_cells[y][x].oreAmount = 0;
+                g_cells[y][x].unitId = -1;
+                g_cells[y][x].buildingId = -1;
+            }
+        }
+    }
+
+    // Center viewport on map
+    g_viewport.x = 0;
+    g_viewport.y = 0;
+}
+
 int Map_GetWidth(void) {
     return g_mapWidth;
 }
@@ -399,7 +488,28 @@ void Map_Render(void) {
             // Revealed but not visible (fog) - show terrain but dimmed
             BOOL inFog = !isVisible;
 
-            // Try to render with terrain tiles first
+            // Try to render with mission terrain data first (actual map tiles)
+            if (g_useMissionTerrain && g_missionTerrainType && g_missionTerrainIcon) {
+                // Get cell in the full 128x128 array
+                int fullX = g_missionMapX + cx;
+                int fullY = g_missionMapY + cy;
+                int cellIdx = fullY * 128 + fullX;
+
+                if (cellIdx >= 0 && cellIdx < 128 * 128) {
+                    int templateID = g_missionTerrainType[cellIdx];
+                    int tileIndex = g_missionTerrainIcon[cellIdx];
+
+                    // Render using the template ID from the mission
+                    if (Terrain_RenderByID(templateID, tileIndex, screenX, screenY)) {
+                        if (inFog) {
+                            Renderer_SetAlpha(screenX, screenY, CELL_SIZE, CELL_SIZE, 128);
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            // Fallback: Try procedural terrain tiles
             if (useTiles) {
                 // Use cell coordinates as variant for visual variety
                 int variant = (cx * 7 + cy * 13) % 20;

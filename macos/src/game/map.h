@@ -82,6 +82,18 @@ void Map_Create(int width, int height);
 void Map_GenerateDemo(void);
 
 /**
+ * Load map from mission terrain data
+ * @param terrainType  Template type array (128*128 bytes, 0xFF=clear)
+ * @param terrainIcon  Tile index array (128*128 bytes)
+ * @param mapX         Map viewport X offset
+ * @param mapY         Map viewport Y offset
+ * @param mapWidth     Visible map width in cells
+ * @param mapHeight    Visible map height in cells
+ */
+void Map_LoadFromMission(const uint8_t* terrainType, const uint8_t* terrainIcon,
+                         int mapX, int mapY, int mapWidth, int mapHeight);
+
+/**
  * Get map dimensions
  */
 int Map_GetWidth(void);

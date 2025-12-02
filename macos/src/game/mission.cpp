@@ -473,8 +473,16 @@ void Mission_Start(const MissionData* mission) {
     Units_Init();
     AI_Init();
 
-    // Generate map based on theater
-    Map_GenerateDemo();  // TODO: Load actual map data
+    // Load map from mission data if available, otherwise fall back to demo
+    if (mission->terrainType && mission->terrainIcon) {
+        // Use real mission terrain data
+        Map_LoadFromMission(mission->terrainType, mission->terrainIcon,
+                           mission->mapX, mission->mapY,
+                           mission->mapWidth, mission->mapHeight);
+    } else {
+        // Fall back to procedural demo map
+        Map_GenerateDemo();
+    }
 
     // Set player credits
     // (Credits are managed by GameUI, this is just for reference)
