@@ -104,6 +104,7 @@ static Team ParseTeam(const char* str) {
         strcasecmp(str, "France") == 0 ||
         strcasecmp(str, "Germany") == 0 ||
         strcasecmp(str, "Spain") == 0 ||
+        strcasecmp(str, "Turkey") == 0 ||
         strcasecmp(str, "GoodGuy") == 0 ||
         strcasecmp(str, "Player") == 0 ||
         strcasecmp(str, "Allies") == 0) {
@@ -488,17 +489,47 @@ void Mission_Start(const MissionData* mission) {
     // (Credits are managed by GameUI, this is just for reference)
 
     // Spawn buildings first (they affect map passability)
+    // Convert from 128x128 map coords to local map coords
     for (int i = 0; i < mission->buildingCount; i++) {
         const MissionBuilding* bld = &mission->buildings[i];
-        Buildings_Spawn(bld->type, bld->team, bld->cellX, bld->cellY);
+        int localX = bld->cellX - mission->mapX;
+        int localY = bld->cellY - mission->mapY;
+        // Only spawn if within visible map bounds
+        if (localX >= 0 && localX < mission->mapWidth &&
+            localY >= 0 && localY < mission->mapHeight) {
+            Buildings_Spawn(bld->type, bld->team, localX, localY);
+        }
     }
 
     // Spawn units
+    // Convert from 128x128 map coords to local world coords
     for (int i = 0; i < mission->unitCount; i++) {
         const MissionUnit* unit = &mission->units[i];
-        int worldX = unit->cellX * CELL_SIZE + CELL_SIZE / 2;
-        int worldY = unit->cellY * CELL_SIZE + CELL_SIZE / 2;
-        Units_Spawn(unit->type, unit->team, worldX, worldY);
+        int localCellX = unit->cellX - mission->mapX;
+        int localCellY = unit->cellY - mission->mapY;
+        // Only spawn if within visible map bounds
+        if (localCellX >= 0 && localCellX < mission->mapWidth &&
+            localCellY >= 0 && localCellY < mission->mapHeight) {
+            int worldX = localCellX * CELL_SIZE + CELL_SIZE / 2;
+            int worldY = localCellY * CELL_SIZE + CELL_SIZE / 2;
+            Units_Spawn(unit->type, unit->team, worldX, worldY);
+        }
+    }
+
+    // Center viewport on first player unit
+    for (int i = 0; i < mission->unitCount; i++) {
+        const MissionUnit* unit = &mission->units[i];
+        if (unit->team == TEAM_PLAYER) {
+            int localCellX = unit->cellX - mission->mapX;
+            int localCellY = unit->cellY - mission->mapY;
+            if (localCellX >= 0 && localCellX < mission->mapWidth &&
+                localCellY >= 0 && localCellY < mission->mapHeight) {
+                int worldX = localCellX * CELL_SIZE + CELL_SIZE / 2;
+                int worldY = localCellY * CELL_SIZE + CELL_SIZE / 2;
+                Map_CenterViewport(worldX, worldY);
+                break;
+            }
+        }
     }
 }
 
