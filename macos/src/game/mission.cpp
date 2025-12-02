@@ -14,6 +14,11 @@
 #include <cstdlib>
 #include <cstdio>
 
+// Forward declaration for house production control
+// (Can't include house.h due to type conflicts with units.h/mission.h)
+// Implemented in house_bridge.cpp
+extern void EnableAIProduction(int houseIndex);
+
 // Parsed trigger storage (simplified - stores raw INI data)
 // These will be used to create proper trigger instances when type systems merge
 struct ParsedTrigger {
@@ -2070,7 +2075,6 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
 static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
                                  int param1, int param2, int param3,
                                  const MissionData* mission) {
-    (void)trig;
     (void)param1;
     (void)param2;
     (void)param3;
@@ -2089,11 +2093,13 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             fprintf(stderr, "  TRIGGER: Lose action executed!\n");
             return -1;
 
-        case RA_ACTION_BEGIN_PROD:
-            // param1 = house to begin production
-            fprintf(stderr, "  TRIGGER: Begin production (house %d)\n", param1);
-            // TODO: Start AI production for house
+        case RA_ACTION_BEGIN_PROD: {
+            // Use trigger's house field (like original Data.House)
+            fprintf(stderr, "  TRIGGER: Begin production (house %d)\n",
+                    trig->house);
+            EnableAIProduction(trig->house);
             break;
+        }
 
         case RA_ACTION_CREATE_TEAM: {
             // param1 = team type index

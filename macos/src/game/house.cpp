@@ -7,8 +7,12 @@
 #include "house.h"
 #include "team.h"
 #include "object.h"
+#include "unit_types.h"
+#include "infantry_types.h"
+#include "building_types.h"
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 
 //===========================================================================
 // Global Variables
@@ -88,6 +92,8 @@ HouseClass::HouseClass()
     , isAlerted_(false)
     , isDiscovered_(false)
     , isMaxedOut_(false)
+    , isStarted_(false)
+    , isBaseBuilding_(false)
     , allies_(0)
     , credits_(0)
     , tiberium_(0)
@@ -302,6 +308,14 @@ void HouseClass::AI() {
         // Run expert AI every ~5 seconds (300 frames at 60fps)
         if (!isHuman_) {
             Expert_AI();
+
+            // If production is enabled (BEGIN_PROD triggered), decide builds
+            if (isStarted_) {
+                AI_Unit();
+                AI_Infantry();
+                AI_Building();
+                AI_Aircraft();
+            }
         }
         aiTimer_ = 300;
     }
@@ -419,6 +433,206 @@ int32_t HouseClass::Find_Cell_In_Zone(int zone) const {
 }
 
 //===========================================================================
+// AI Production Functions
+//
+// These functions determine what the AI should build next, based on:
+// - Team requirements (from mission TeamTypes)
+// - Current unit counts
+// - Available money
+//
+// Returns number of game ticks until function should be called again.
+//===========================================================================
+
+// TICKS_PER_SECOND equivalent (60 fps)
+static constexpr int TICKS_PER_SECOND = 60;
+
+int HouseClass::AI_Unit() {
+    // If already building a unit, wait
+    if (buildUnit_ >= 0) return TICKS_PER_SECOND;
+
+    // Check team requirements for units we need to build
+    // Scan through team types looking for units we're short on
+    int counter[static_cast<int>(UnitType::COUNT)];
+    memset(counter, 0, sizeof(counter));
+
+    // Build a list of units needed for teams
+    for (int i = 0; i < TEAMTYPE_MAX; i++) {
+        TeamTypeClass* team = &TeamTypes[i];
+        if (!team->isActive_) continue;
+        if (team->house_ != type_) continue;
+
+        // Check if this team type needs units
+        bool needsUnits = team->isPrebuilt_ || team->isReinforcable_;
+        if (!needsUnits) continue;
+
+        // Only consider prebuilt teams or teams we're alerted about
+        if (team->isAutocreate_ && !isAlerted_) continue;
+
+        // Count needed units from team member specs
+        for (int m = 0; m < team->memberCount_; m++) {
+            if (team->members_[m].type == RTTIType::UNIT) {
+                int typeIdx = team->members_[m].typeIndex;
+                if (typeIdx >= 0 &&
+                    typeIdx < static_cast<int>(UnitType::COUNT)) {
+                    counter[typeIdx] += team->members_[m].count;
+                }
+            }
+        }
+    }
+
+    // Pick the most needed unit type we can afford
+    int bestVal = -1;
+    int bestCount = 0;
+    UnitType bestList[static_cast<int>(UnitType::COUNT)];
+
+    for (int ut = 0; ut < static_cast<int>(UnitType::COUNT); ut++) {
+        if (counter[ut] > 0) {
+            const UnitTypeData* utype = GetUnitType(static_cast<UnitType>(ut));
+            if (utype && utype->cost <= Available_Money()) {
+                if (bestVal == -1 || counter[ut] > bestVal) {
+                    bestVal = counter[ut];
+                    bestCount = 0;
+                }
+                if (counter[ut] == bestVal) {
+                    bestList[bestCount++] = static_cast<UnitType>(ut);
+                }
+            }
+        }
+    }
+
+    // Randomly pick from equally-needed units
+    if (bestCount > 0) {
+        buildUnit_ = static_cast<int8_t>(bestList[rand() % bestCount]);
+        fprintf(stderr, "AI_Unit: House %s queued unit type %d\n",
+                Name(), buildUnit_);
+    }
+
+    return TICKS_PER_SECOND;
+}
+
+int HouseClass::AI_Infantry() {
+    // If already building infantry, wait
+    if (buildInfantry_ >= 0) return TICKS_PER_SECOND;
+
+    // Check team requirements for infantry we need to build
+    int counter[static_cast<int>(InfantryType::COUNT)];
+    memset(counter, 0, sizeof(counter));
+
+    // Build a list of infantry needed for teams
+    for (int i = 0; i < TEAMTYPE_MAX; i++) {
+        TeamTypeClass* team = &TeamTypes[i];
+        if (!team->isActive_) continue;
+        if (team->house_ != type_) continue;
+
+        bool needsInf = team->isPrebuilt_ || team->isReinforcable_;
+        if (!needsInf) continue;
+
+        if (team->isAutocreate_ && !isAlerted_) continue;
+
+        // Count needed infantry from team member specs
+        for (int m = 0; m < team->memberCount_; m++) {
+            if (team->members_[m].type == RTTIType::INFANTRY) {
+                int typeIdx = team->members_[m].typeIndex;
+                if (typeIdx >= 0 &&
+                    typeIdx < static_cast<int>(InfantryType::COUNT)) {
+                    counter[typeIdx] += team->members_[m].count;
+                }
+            }
+        }
+    }
+
+    // Pick the most needed infantry type we can afford
+    int bestVal = -1;
+    int bestCount = 0;
+    InfantryType bestList[static_cast<int>(InfantryType::COUNT)];
+
+    for (int it = 0; it < static_cast<int>(InfantryType::COUNT); it++) {
+        if (counter[it] > 0) {
+            const InfantryTypeData* itype =
+                GetInfantryType(static_cast<InfantryType>(it));
+            if (itype && itype->cost <= Available_Money()) {
+                if (bestVal == -1 || counter[it] > bestVal) {
+                    bestVal = counter[it];
+                    bestCount = 0;
+                }
+                if (counter[it] == bestVal) {
+                    bestList[bestCount++] = static_cast<InfantryType>(it);
+                }
+            }
+        }
+    }
+
+    // Randomly pick from equally-needed infantry
+    if (bestCount > 0) {
+        buildInfantry_ = static_cast<int8_t>(bestList[rand() % bestCount]);
+        fprintf(stderr, "AI_Infantry: House %s queued infantry type %d\n",
+                Name(), buildInfantry_);
+    }
+
+    return TICKS_PER_SECOND;
+}
+
+int HouseClass::AI_Building() {
+    // If already building a building, wait
+    if (buildBuilding_ >= 0) return TICKS_PER_SECOND;
+
+    // AI building logic would go here
+    // For campaign missions, AI typically doesn't build new structures
+    // (they start with a base already)
+
+    return TICKS_PER_SECOND;
+}
+
+int HouseClass::AI_Aircraft() {
+    // If already building aircraft, wait
+    if (buildAircraft_ >= 0) return TICKS_PER_SECOND;
+
+    // Similar to AI_Unit but for aircraft
+    // Not implemented yet as aircraft aren't fully supported
+
+    return TICKS_PER_SECOND;
+}
+
+const TechnoTypeClass* HouseClass::Suggest_New_Object(RTTIType rtti) const {
+    // Return the suggested object based on what AI decided to build
+    switch (rtti) {
+        case RTTIType::INFANTRY:
+            if (buildInfantry_ >= 0) {
+                // Return pointer to infantry type data
+                // (TechnoTypeClass is a base class for type data)
+                return reinterpret_cast<const TechnoTypeClass*>(
+                    GetInfantryType(
+                        static_cast<InfantryType>(buildInfantry_)));
+            }
+            break;
+
+        case RTTIType::UNIT:
+            if (buildUnit_ >= 0) {
+                return reinterpret_cast<const TechnoTypeClass*>(
+                    GetUnitType(static_cast<UnitType>(buildUnit_)));
+            }
+            break;
+
+        case RTTIType::BUILDING:
+            if (buildBuilding_ >= 0) {
+                return reinterpret_cast<const TechnoTypeClass*>(
+                    GetBuildingType(
+                        static_cast<BuildingType>(buildBuilding_)));
+            }
+            break;
+
+        case RTTIType::AIRCRAFT:
+            // Not yet supported
+            break;
+
+        default:
+            break;
+    }
+
+    return nullptr;
+}
+
+//===========================================================================
 // Team Management
 //===========================================================================
 
@@ -533,5 +747,21 @@ void Init_Houses() {
 
     for (int i = 0; i < HOUSE_MAX; i++) {
         Houses[i] = HouseClass();
+    }
+}
+
+//===========================================================================
+// Bridge function for mission.cpp (which has conflicting types)
+//===========================================================================
+
+void EnableAIProduction(int houseIndex) {
+    if (houseIndex < 0 || houseIndex >= HOUSE_MAX) return;
+
+    HousesType htype = static_cast<HousesType>(houseIndex);
+    HouseClass* house = HouseClass::As_Pointer(htype);
+    if (house && !house->isHuman_) {
+        house->Begin_Production();
+        fprintf(stderr, "EnableAIProduction: House %s production enabled\n",
+                house->Name());
     }
 }

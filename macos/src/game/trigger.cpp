@@ -175,7 +175,9 @@ bool TActionClass::Execute(HousesType house, ObjectClass* object,
             {
                 HouseClass* housePtr = HouseClass::As_Pointer(house);
                 if (housePtr && !housePtr->isHuman_) {
-                    // Would enable AI production
+                    housePtr->Begin_Production();
+                    fprintf(stderr, "TRIGGER: BEGIN_PRODUCTION for house %s\n",
+                            housePtr->Name());
                 }
             }
             return true;

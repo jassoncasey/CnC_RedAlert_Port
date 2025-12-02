@@ -15,6 +15,7 @@
 
 // Forward declarations
 class TechnoClass;
+class TechnoTypeClass;
 class BuildingClass;
 class UnitClass;
 class InfantryClass;
@@ -147,6 +148,8 @@ public:
     bool isAlerted_;                    // Enemy spotted
     bool isDiscovered_;                 // Has been discovered by player
     bool isMaxedOut_;                   // Production capacity maxed
+    bool isStarted_;                    // Production enabled (BEGIN_PROD)
+    bool isBaseBuilding_;               // Building a base (skirmish mode)
 
     //-----------------------------------------------------------------------
     // Alliances
@@ -270,11 +273,21 @@ public:
     //-----------------------------------------------------------------------
     void AI();                          // Per-frame AI processing
     void Expert_AI();                   // High-level strategy evaluation
+    int AI_Unit();                      // Decide what unit to build
+    int AI_Infantry();                  // Decide what infantry to build
+    int AI_Building();                  // Decide what building to build
+    int AI_Aircraft();                  // Decide what aircraft to build
     UrgencyType Check_Build_Power() const;
     UrgencyType Check_Build_Defense() const;
     UrgencyType Check_Build_Offense() const;
     UrgencyType Check_Attack() const;
     UrgencyType Check_Fire_Sale() const;
+
+    //-----------------------------------------------------------------------
+    // Production Control
+    //-----------------------------------------------------------------------
+    void Begin_Production() { isStarted_ = true; }
+    const TechnoTypeClass* Suggest_New_Object(RTTIType rtti) const;
 
     HousesType Find_Enemy() const;      // Select best enemy
     int32_t Find_Cell_In_Zone(int zone) const;  // Find cell in threat zone

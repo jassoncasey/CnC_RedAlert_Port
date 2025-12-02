@@ -5,10 +5,16 @@
  */
 
 #include "building.h"
+#include "house.h"
 #include "mapclass.h"
 #include "cell.h"
+#include "unit.h"
+#include "infantry.h"
+#include "unit_types.h"
+#include "infantry_types.h"
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 
 //===========================================================================
 // Global Building Pool
@@ -324,8 +330,62 @@ bool BuildingClass::ResumeProduction() {
 bool BuildingClass::CompleteProduction() {
     if (factoryState_ != FactoryState::READY) return false;
 
-    // Would spawn the produced unit/building
-    // For now, just reset state
+    // Get exit coordinate for spawned unit
+    int32_t exitCoord = ExitCoord();
+    CELL exitCell = Coord_Cell(exitCoord);
+
+    // Find a free cell near the exit
+    CELL spawnCell = exitCell;
+    if (!Map.IsValidCell(spawnCell) ||
+        Map[spawnCell].CellOccupier() != nullptr) {
+        // Try adjacent cells
+        static const int16_t offsets[] = {0, 1, -1, 128, -128, 129, -129};
+        bool found = false;
+        for (int i = 0; i < 7; i++) {
+            CELL test = exitCell + offsets[i];
+            if (Map.IsValidCell(test) &&
+                Map[test].CellOccupier() == nullptr) {
+                spawnCell = test;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            // No space to spawn - keep waiting
+            fprintf(stderr, "CompleteProduction: No space to spawn!\n");
+            return false;
+        }
+    }
+
+    // Get owner house
+    HousesType ownerHouse = Owner();
+
+    // Spawn the produced object
+    bool success = false;
+    if (producingType_ == RTTIType::INFANTRY) {
+        InfantryType itype = static_cast<InfantryType>(producingIndex_);
+        InfantryClass* inf = CreateInfantry(itype, ownerHouse, spawnCell);
+        if (inf) {
+            fprintf(stderr, "CompleteProduction: Spawned infantry %d at %d\n",
+                    producingIndex_, spawnCell);
+            success = true;
+        }
+    } else if (producingType_ == RTTIType::UNIT) {
+        UnitType utype = static_cast<UnitType>(producingIndex_);
+        UnitClass* unit = CreateUnit(utype, ownerHouse, spawnCell);
+        if (unit) {
+            fprintf(stderr, "CompleteProduction: Spawned unit %d at %d\n",
+                    producingIndex_, spawnCell);
+            success = true;
+        }
+    }
+
+    if (!success) {
+        fprintf(stderr, "CompleteProduction: Failed to spawn!\n");
+        return false;
+    }
+
+    // Reset state
     factoryState_ = FactoryState::IDLE;
     producingType_ = RTTIType::NONE;
     producingIndex_ = -1;
@@ -603,6 +663,16 @@ void BuildingClass::AI() {
 }
 
 void BuildingClass::FactoryAI() {
+    // Get owner house
+    HouseClass* house = HouseClass::As_Pointer(Owner());
+    if (!house) return;
+
+    // Get what type this factory produces
+    const BuildingTypeData* typeData = TypeClass();
+    if (!typeData) return;
+    RTTIType produces = typeData->factoryType;
+    if (produces == RTTIType::NONE) return;
+
     if (!isPowered_) {
         // Suspend production when unpowered
         if (factoryState_ == FactoryState::BUILDING) {
@@ -616,11 +686,63 @@ void BuildingClass::FactoryAI() {
         factoryState_ = FactoryState::BUILDING;
     }
 
+    // If idle and AI production enabled, start building something
+    if (factoryState_ == FactoryState::IDLE) {
+        // Only AI houses with isStarted_ auto-produce
+        if (!house->isHuman_ && house->isStarted_) {
+            // Get what the AI wants to build
+            const TechnoTypeClass* toBuild =
+                house->Suggest_New_Object(produces);
+            if (toBuild) {
+                // Start production
+                // Determine what we're building based on factory type
+                if (produces == RTTIType::INFANTRY) {
+                    const InfantryTypeData* idata =
+                        reinterpret_cast<const InfantryTypeData*>(toBuild);
+                    producingType_ = RTTIType::INFANTRY;
+                    producingIndex_ = static_cast<int16_t>(idata->type);
+                    fprintf(stderr, "FactoryAI: %s starting infantry %d\n",
+                            Name(), producingIndex_);
+                } else if (produces == RTTIType::UNIT) {
+                    const UnitTypeData* udata =
+                        reinterpret_cast<const UnitTypeData*>(toBuild);
+                    producingType_ = RTTIType::UNIT;
+                    producingIndex_ = static_cast<int16_t>(udata->type);
+                    fprintf(stderr, "FactoryAI: %s starting unit %d\n",
+                            Name(), producingIndex_);
+                }
+
+                factoryState_ = FactoryState::BUILDING;
+                productionProgress_ = 0;
+            }
+        }
+    }
+
     if (factoryState_ == FactoryState::BUILDING) {
         productionProgress_++;
         if (productionProgress_ >= 100) {
             factoryState_ = FactoryState::READY;
-            // Would notify player that production is ready
+            fprintf(stderr, "FactoryAI: %s production complete!\n", Name());
+        }
+    }
+
+    // When production is ready, spawn the unit (for AI)
+    if (factoryState_ == FactoryState::READY) {
+        if (!house->isHuman_) {
+            // Auto-spawn for AI houses
+            if (CompleteProduction()) {
+                factoryState_ = FactoryState::IDLE;
+                productionProgress_ = 0;
+                producingType_ = RTTIType::NONE;
+                producingIndex_ = -1;
+
+                // Clear house's build queue so AI can pick next item
+                if (produces == RTTIType::INFANTRY) {
+                    house->buildInfantry_ = -1;
+                } else if (produces == RTTIType::UNIT) {
+                    house->buildUnit_ = -1;
+                }
+            }
         }
     }
 }
