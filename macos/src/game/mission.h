@@ -155,6 +155,25 @@ int Mission_CheckVictory(const MissionData* mission);
  */
 void Mission_GetDemo(MissionData* mission);
 
+/**
+ * Process triggers each frame (call from game loop)
+ * @param mission Active mission data
+ * @param frameCount Current game frame number
+ * @return 1=win triggered, -1=lose triggered, 0=continue
+ */
+int Mission_ProcessTriggers(const MissionData* mission, int frameCount);
+
+/**
+ * Get waypoint world coordinates
+ * @param mission Active mission data
+ * @param waypointNum Waypoint number (0-99)
+ * @param outX Output world X coordinate
+ * @param outY Output world Y coordinate
+ * @return true if waypoint exists
+ */
+int Mission_GetWaypoint(const MissionData* mission, int waypointNum,
+                        int* outX, int* outY);
+
 #ifdef __cplusplus
 }
 #endif

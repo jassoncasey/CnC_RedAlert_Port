@@ -794,3 +794,317 @@ void Mission_GetDemo(MissionData* mission) {
     mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 52, 14};
     mission->units[mission->unitCount++] = {UNIT_ROCKET, TEAM_ENEMY, 54, 10};
 }
+
+// ============================================================================
+// Trigger Processing
+// ============================================================================
+
+// Red Alert INI event types (from original game)
+// Note: These match the INI file format, not our internal enum
+enum {
+    RA_EVENT_NONE = 0,
+    RA_EVENT_ENTERED = 1,        // Player entered cell/zone
+    RA_EVENT_SPIED = 2,          // Building spied upon
+    RA_EVENT_THIEVED = 3,        // Thief stole vehicle
+    RA_EVENT_DISCOVERED = 4,     // Object discovered
+    RA_EVENT_HOUSE_DISC = 5,     // House discovered
+    RA_EVENT_ATTACKED = 6,       // Object attacked
+    RA_EVENT_DESTROYED = 7,      // Object destroyed
+    RA_EVENT_ANY = 8,            // Any event
+    RA_EVENT_UNITS_DESTR = 9,    // All units destroyed
+    RA_EVENT_BLDGS_DESTR = 10,   // All buildings destroyed
+    RA_EVENT_ALL_DESTR = 11,     // All units+buildings destroyed
+    RA_EVENT_CREDITS = 12,       // Credits reach amount
+    RA_EVENT_TIME = 13,          // Time elapsed
+    RA_EVENT_TIMER_EXP = 14,     // Mission timer expired
+    RA_EVENT_NOBLDGS = 15,       // No buildings left
+    RA_EVENT_CIVEVAC = 16,       // Civilian evacuated
+    RA_EVENT_OBJBUILT = 17,      // Object built
+    RA_EVENT_LEAVES = 18,        // Team leaves map
+    RA_EVENT_ZONE_ENT = 19,      // Zone entered
+    RA_EVENT_HORZ_CROSS = 20,    // Crosses horizontal line
+    RA_EVENT_VERT_CROSS = 21,    // Crosses vertical line
+    RA_EVENT_GLOBAL_SET = 22,    // Global variable set
+    RA_EVENT_GLOBAL_CLR = 23,    // Global variable cleared
+    RA_EVENT_FAKES_DESTR = 24,   // Fake buildings destroyed
+    RA_EVENT_LOW_POWER = 25,     // Low power
+    RA_EVENT_BRIDGE_DESTR = 26,  // All bridges destroyed
+    RA_EVENT_BUILDING_EXISTS = 27, // Specific building exists
+};
+
+// Red Alert INI action types (from original game)
+enum {
+    RA_ACTION_NONE = 0,
+    RA_ACTION_WIN = 1,           // Player wins
+    RA_ACTION_LOSE = 2,          // Player loses
+    RA_ACTION_BEGIN_PROD = 3,    // Begin production
+    RA_ACTION_CREATE_TEAM = 4,   // Create team
+    RA_ACTION_DESTROY_TEAM = 5,  // Destroy team
+    RA_ACTION_ALL_HUNT = 6,      // All hunt
+    RA_ACTION_REINFORCE = 7,     // Reinforcements arrive
+    RA_ACTION_DZ = 8,            // Drop zone marker
+    RA_ACTION_FIRE_SALE = 9,     // Fire sale
+    RA_ACTION_PLAY_MOVIE = 10,   // Play movie
+    RA_ACTION_TEXT = 11,         // Display text
+    RA_ACTION_DESTR_TRIG = 12,   // Destroy trigger
+    RA_ACTION_AUTOCREATE = 13,   // Auto create teams
+    RA_ACTION_WINLOSE = 14,      // Win/lose based on object
+    RA_ACTION_ALLOWWIN = 15,     // Allow win (same as win?)
+    RA_ACTION_REVEAL_ALL = 16,   // Reveal entire map
+    RA_ACTION_REVEAL_SOME = 17,  // Reveal around waypoint
+    RA_ACTION_REVEAL_ZONE = 18,  // Reveal zone
+    RA_ACTION_PLAY_SOUND = 19,   // Play sound
+    RA_ACTION_PLAY_MUSIC = 20,   // Play music
+    RA_ACTION_PLAY_SPEECH = 21,  // Play speech
+    RA_ACTION_FORCE_TRIG = 22,   // Force trigger
+    RA_ACTION_START_TIMER = 23,  // Start mission timer
+    RA_ACTION_STOP_TIMER = 24,   // Stop mission timer
+    RA_ACTION_ADD_TIMER = 25,    // Add time
+    RA_ACTION_SUB_TIMER = 26,    // Subtract time
+    RA_ACTION_SET_TIMER = 27,    // Set timer
+    RA_ACTION_SET_GLOBAL = 28,   // Set global flag
+    RA_ACTION_CLEAR_GLOBAL = 29, // Clear global flag
+    RA_ACTION_BASE_BUILDING = 30, // Auto base building
+    RA_ACTION_GROW_SHROUD = 31,  // Grow shroud one step
+    RA_ACTION_DESTROY_OBJ = 32,  // Destroy attached object
+    RA_ACTION_1_SPECIAL = 33,    // One-time special
+    RA_ACTION_FULL_SPECIAL = 34, // Full special
+    RA_ACTION_PREF_TARGET = 35,  // Preferred target
+    RA_ACTION_LAUNCH_NUKES = 36, // Launch fake nukes
+};
+
+// Helper: Count units by team (enemy house detection)
+static int CountUnitsByHouse(int houseNum) {
+    // House numbers: 0=Spain, 1=Greece, 2=USSR, 3=England, 4=Ukraine,
+    //                5=Germany, 6=France, 7=Turkey
+    // USSR (2) and Ukraine (4) are Soviet
+    // Others are Allied
+    Team team;
+    if (houseNum == 2 || houseNum == 4) {
+        team = TEAM_ENEMY;  // Soviet houses
+    } else {
+        team = TEAM_PLAYER; // Allied houses
+    }
+    return Units_CountByTeam(team);
+}
+
+// Helper: Count buildings by team
+static int CountBuildingsByHouse(int houseNum) {
+    Team team;
+    if (houseNum == 2 || houseNum == 4) {
+        team = TEAM_ENEMY;
+    } else {
+        team = TEAM_PLAYER;
+    }
+
+    int count = 0;
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (bld && bld->team == team) {
+            count++;
+        }
+    }
+    return count;
+}
+
+// Check if a trigger event is satisfied
+static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
+                               int param2, int frameCount) {
+    (void)trig;
+    (void)param1;
+
+    switch (eventNum) {
+        case RA_EVENT_NONE:
+            return false;
+
+        case RA_EVENT_ALL_DESTR:  // All units+buildings destroyed
+            // param2 is house number
+            if (CountUnitsByHouse(param2) == 0 &&
+                CountBuildingsByHouse(param2) == 0) {
+                return true;
+            }
+            break;
+
+        case RA_EVENT_UNITS_DESTR:  // All units destroyed
+            if (CountUnitsByHouse(param2) == 0) {
+                return true;
+            }
+            break;
+
+        case RA_EVENT_BLDGS_DESTR:  // All buildings destroyed
+            if (CountBuildingsByHouse(param2) == 0) {
+                return true;
+            }
+            break;
+
+        case RA_EVENT_NOBLDGS:  // No buildings (same as BLDGS_DESTR?)
+            if (CountBuildingsByHouse(param2) == 0) {
+                return true;
+            }
+            break;
+
+        case RA_EVENT_TIME:  // Time elapsed
+            // param2 is time in 1/10 seconds, frameCount is in frames at 60fps
+            // Time in frames = param2 * 6 (for 60fps)
+            if (frameCount >= param2 * 6) {
+                return true;
+            }
+            break;
+
+        default:
+            // Unsupported event types - don't trigger
+            break;
+    }
+
+    return false;
+}
+
+// Execute a trigger action
+// Returns: 1=win, -1=lose, 0=continue
+static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
+                                 int param1, int param2, int param3,
+                                 const MissionData* mission) {
+    (void)trig;
+    (void)param1;
+    (void)param2;
+    (void)param3;
+    (void)mission;
+
+    switch (actionNum) {
+        case RA_ACTION_WIN:
+        case RA_ACTION_ALLOWWIN:  // Treat allow-win as win
+            fprintf(stderr, "  TRIGGER: Win action executed!\n");
+            return 1;
+
+        case RA_ACTION_LOSE:
+            fprintf(stderr, "  TRIGGER: Lose action executed!\n");
+            return -1;
+
+        case RA_ACTION_REINFORCE:
+            // param1 = team type index
+            fprintf(stderr, "  TRIGGER: Reinforcement action (team %d)\n",
+                    param1);
+            // TODO: Spawn reinforcement team at waypoint
+            break;
+
+        case RA_ACTION_TEXT:
+            // param3 = text ID
+            fprintf(stderr, "  TRIGGER: Display text ID %d\n", param3);
+            // TODO: Display mission text
+            break;
+
+        case RA_ACTION_REVEAL_SOME:
+            // param3 = waypoint number
+            fprintf(stderr, "  TRIGGER: Reveal around waypoint %d\n", param3);
+            // TODO: Reveal fog around waypoint
+            break;
+
+        default:
+            // Unsupported action - just log it
+            if (actionNum != RA_ACTION_NONE) {
+                fprintf(stderr, "  TRIGGER: Unsupported action %d\n",
+                        actionNum);
+            }
+            break;
+    }
+
+    return 0;
+}
+
+int Mission_ProcessTriggers(const MissionData* mission, int frameCount) {
+    if (!mission) return 0;
+
+    int result = 0;
+
+    for (int i = 0; i < g_parsedTriggerCount; i++) {
+        ParsedTrigger* trig = &g_parsedTriggers[i];
+        if (!trig->active) continue;
+
+        // Check event1
+        bool event1Fired = CheckTriggerEvent(trig, trig->event1,
+                                              trig->e1p1, trig->e1p2,
+                                              frameCount);
+
+        // Check event2 if using AND/OR control
+        bool event2Fired = false;
+        if (trig->eventControl != 0) {  // Not "ONLY"
+            event2Fired = CheckTriggerEvent(trig, trig->event2,
+                                             trig->e2p1, trig->e2p2,
+                                             frameCount);
+        }
+
+        // Determine if trigger should fire
+        bool shouldFire = false;
+        switch (trig->eventControl) {
+            case 0:  // ONLY - just event1
+                shouldFire = event1Fired;
+                break;
+            case 1:  // AND - both events
+                shouldFire = event1Fired && event2Fired;
+                break;
+            case 2:  // OR - either event
+                shouldFire = event1Fired || event2Fired;
+                break;
+            case 3:  // LINKED - events linked to actions
+                shouldFire = event1Fired || event2Fired;
+                break;
+        }
+
+        if (!shouldFire) continue;
+
+        fprintf(stderr, "  TRIGGER '%s' fired!\n", trig->name);
+
+        // Execute action1
+        int actionResult = ExecuteTriggerAction(trig, trig->action1,
+                                                 trig->a1p1, trig->a1p2,
+                                                 trig->a1p3, mission);
+        if (actionResult != 0) {
+            result = actionResult;
+        }
+
+        // Execute action2 if using AND control
+        if (trig->actionControl != 0) {  // Not "ONLY"
+            actionResult = ExecuteTriggerAction(trig, trig->action2,
+                                                 trig->a2p1, trig->a2p2,
+                                                 trig->a2p3, mission);
+            if (actionResult != 0) {
+                result = actionResult;
+            }
+        }
+
+        // Handle persistence
+        if (trig->persist == 0) {  // Volatile - fire once
+            trig->active = false;
+        }
+        // Semi-persistent (1) and persistent (2) can fire again
+    }
+
+    return result;
+}
+
+int Mission_GetWaypoint(const MissionData* mission, int waypointNum,
+                         int* outX, int* outY) {
+    if (!mission || waypointNum < 0 ||
+        waypointNum >= MAX_MISSION_WAYPOINTS) {
+        return 0;
+    }
+
+    const MissionWaypoint* wp = &mission->waypoints[waypointNum];
+    if (wp->cell < 0) {
+        return 0;
+    }
+
+    // Convert from map cell coords to world coords
+    int localCellX = wp->cellX - mission->mapX;
+    int localCellY = wp->cellY - mission->mapY;
+
+    if (localCellX < 0 || localCellX >= mission->mapWidth ||
+        localCellY < 0 || localCellY >= mission->mapHeight) {
+        return 0;
+    }
+
+    *outX = localCellX * CELL_SIZE + CELL_SIZE / 2;
+    *outY = localCellY * CELL_SIZE + CELL_SIZE / 2;
+
+    return 1;
+}
