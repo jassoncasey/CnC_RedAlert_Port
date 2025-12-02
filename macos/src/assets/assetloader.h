@@ -85,6 +85,20 @@ void Assets_SHPToRGBA(const ShpFrame* frame, uint32_t* output,
 void* Assets_LoadRaw(const char* name, uint32_t* outSize);
 
 /**
+ * Load scenario INI data from GENERAL.MIX archive.
+ * @param name      Scenario name (e.g., "SCG01EA" or "SCG01EA.INI")
+ * @param outSize   Output size
+ * @return Allocated INI data, or NULL if not found. Caller must free().
+ */
+void* Assets_LoadScenario(const char* name, uint32_t* outSize);
+
+/**
+ * Check if scenario archives are available.
+ * @return TRUE if GENERAL.MIX is available
+ */
+BOOL Assets_HasScenarios(void);
+
+/**
  * Load VQA video data from MOVIES MIX archive.
  * @param name      Video filename (e.g., "PROLOG.VQA", "ALLY1.VQA")
  * @param outSize   Output size

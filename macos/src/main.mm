@@ -111,9 +111,24 @@ static void OnBriefingConfirmed(void) {
     StartMission(&g_currentMission);
 }
 
-// Try to load mission from common paths
+// Try to load mission from MIX archives or loose files
 static bool TryLoadMission(MissionData* mission, const char* missionName) {
-    // Search paths for mission INI files
+    // First try loading from GENERAL.MIX (original game assets)
+    uint32_t dataSize = 0;
+    void* data = Assets_LoadScenario(missionName, &dataSize);
+    if (data && dataSize > 0) {
+        NSLog(@"Loading mission %s from MIX archive (%u bytes)",
+              missionName, dataSize);
+        int result = Mission_LoadFromBuffer(mission, (const char*)data,
+                                            (int)dataSize);
+        free(data);
+        if (result) {
+            NSLog(@"Loaded mission from GENERAL.MIX: %s", mission->name);
+            return true;
+        }
+    }
+
+    // Fallback: search for loose INI files
     const char* searchPaths[] = {
         "/tmp/ra_extract/%s.INI",
         "../assets/%s.INI",
@@ -126,7 +141,7 @@ static bool TryLoadMission(MissionData* mission, const char* missionName) {
     for (int i = 0; searchPaths[i]; i++) {
         snprintf(path, sizeof(path), searchPaths[i], missionName);
         if (Mission_LoadFromINI(mission, path)) {
-            NSLog(@"Loaded mission from: %s", path);
+            NSLog(@"Loaded mission from file: %s", path);
             return true;
         }
     }

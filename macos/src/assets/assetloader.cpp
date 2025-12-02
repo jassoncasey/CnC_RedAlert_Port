@@ -20,6 +20,7 @@ static MixFileHandle g_soundsMix = nullptr;    // SOUNDS.MIX
 static MixFileHandle g_localMix = nullptr;     // LOCAL.MIX
 static MixFileHandle g_snowMix = nullptr;      // SNOW.MIX
 static MixFileHandle g_temperatMix = nullptr;  // TEMPERAT.MIX
+static MixFileHandle g_generalMix = nullptr;   // GENERAL.MIX (scenarios)
 
 // Memory-backed nested MIX data (kept alive for duration)
 static void* g_conquerData = nullptr;
@@ -28,6 +29,7 @@ static void* g_soundsData = nullptr;
 static void* g_localData = nullptr;
 static void* g_snowData = nullptr;
 static void* g_temperatData = nullptr;
+static void* g_generalData = nullptr;
 
 // Current palette (expanded to 8-bit)
 static uint8_t g_palette[768] = {0};
@@ -117,6 +119,13 @@ static const char* g_scoresPaths[] = {
     nullptr
 };
 
+static const char* g_generalPaths[] = {
+    "../assets/general.mix",
+    "../../assets/general.mix",
+    "/Users/jasson/workspace/CnC_Red_Alert/assets/general.mix",
+    nullptr
+};
+
 static MixFileHandle OpenNestedMix(MixFileHandle parent, const char* name,
                                    void** outData) {
     if (!parent) return nullptr;
@@ -189,6 +198,8 @@ BOOL Assets_Init(void) {
                              g_redalertMix, &g_localData);
     g_snowMix = OpenMixFile(g_snowPaths, nullptr, nullptr, nullptr);
     g_temperatMix = OpenMixFile(g_temperatPaths, nullptr, nullptr, nullptr);
+    g_generalMix = OpenMixFile(g_generalPaths, "GENERAL.MIX",
+                               g_mainMix, &g_generalData);
 
     // Check if we have required archives
     if (!g_conquerMix && !g_hiresMix) {
@@ -220,6 +231,7 @@ BOOL Assets_Init(void) {
 }
 
 void Assets_Shutdown(void) {
+    if (g_generalMix) { Mix_Close(g_generalMix); g_generalMix = nullptr; }
     if (g_snowMix) { Mix_Close(g_snowMix); g_snowMix = nullptr; }
     if (g_temperatMix) { Mix_Close(g_temperatMix); g_temperatMix = nullptr; }
     if (g_conquerMix) { Mix_Close(g_conquerMix); g_conquerMix = nullptr; }
@@ -236,6 +248,7 @@ void Assets_Shutdown(void) {
     g_localData = nullptr;
     g_snowData = nullptr;
     g_temperatData = nullptr;
+    g_generalData = nullptr;
 
     g_paletteLoaded = false;
 }
@@ -409,6 +422,45 @@ void* Assets_LoadRaw(const char* name, uint32_t* outSize) {
     }
 
     return nullptr;
+}
+
+void* Assets_LoadScenario(const char* name, uint32_t* outSize) {
+    if (!name || !outSize) return nullptr;
+    *outSize = 0;
+
+    // Build full filename with .INI extension if not present
+    char filename[64];
+    if (strstr(name, ".INI") || strstr(name, ".ini")) {
+        strncpy(filename, name, sizeof(filename) - 1);
+        filename[sizeof(filename) - 1] = '\0';
+    } else {
+        snprintf(filename, sizeof(filename), "%s.INI", name);
+    }
+
+    // Search in GENERAL.MIX first (contains scenarios)
+    if (g_generalMix && Mix_FileExists(g_generalMix, filename)) {
+        printf("Scenario: Loading %s from GENERAL.MIX\n", filename);
+        return Mix_AllocReadFile(g_generalMix, filename, outSize);
+    }
+
+    // Fallback: search in other archives
+    MixFileHandle searchOrder[] = {
+        g_localMix, g_mainMix, g_redalertMix, nullptr
+    };
+
+    for (int i = 0; searchOrder[i]; i++) {
+        if (Mix_FileExists(searchOrder[i], filename)) {
+            printf("Scenario: Loading %s from archive %d\n", filename, i);
+            return Mix_AllocReadFile(searchOrder[i], filename, outSize);
+        }
+    }
+
+    printf("Scenario: %s not found in any archive\n", filename);
+    return nullptr;
+}
+
+BOOL Assets_HasScenarios(void) {
+    return g_generalMix != nullptr;
 }
 
 // Try to open movies archive (called on first VQA load)
