@@ -206,6 +206,28 @@ void Renderer_BlitSprite(const uint8_t* pixels, int width, int height,
                          BOOL trans);
 
 /**
+ * Blit with color remapping (for team colors)
+ * @param srcData    8-bit indexed pixel data
+ * @param srcWidth   Source width
+ * @param srcHeight  Source height
+ * @param destX      Destination X
+ * @param destY      Destination Y
+ * @param trans      If TRUE, color index 0 is transparent
+ * @param remap      256-byte remap table (NULL = no remapping)
+ */
+void Renderer_BlitRemapped(const uint8_t* srcData, int srcWidth, int srcHeight,
+                           int destX, int destY, BOOL trans,
+                           const uint8_t* remap);
+
+/**
+ * Blit sprite with remapping (convenience wrapper with hotspot)
+ */
+void Renderer_BlitSpriteRemapped(const uint8_t* pixels, int width, int height,
+                                 int destX, int destY,
+                                 int offsetX, int offsetY,
+                                 BOOL trans, const uint8_t* remap);
+
+/**
  * Load a game palette from AssetLoader and set it as current
  * @param name  Palette filename (e.g., "SNOW.PAL", "TEMPERAT.PAL")
  * @return TRUE on success

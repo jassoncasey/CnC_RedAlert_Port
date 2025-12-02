@@ -729,6 +729,43 @@ void Renderer_BlitSprite(const uint8_t* pixels, int width, int height,
     Renderer_Blit(pixels, width, height, dx, dy, trans);
 }
 
+void Renderer_BlitRemapped(const uint8_t* srcData, int srcWidth, int srcHeight,
+                           int destX, int destY, BOOL trans,
+                           const uint8_t* remap) {
+    if (!g_renderer.framebuffer || !srcData) return;
+
+    // If no remap table, fall back to normal blit
+    if (!remap) {
+        Renderer_Blit(srcData, srcWidth, srcHeight, destX, destY, trans);
+        return;
+    }
+
+    for (int sy = 0; sy < srcHeight; sy++) {
+        int dy = destY + sy;
+        if (dy < g_clipY || dy >= g_clipY + g_clipHeight) continue;
+
+        for (int sx = 0; sx < srcWidth; sx++) {
+            int dx = destX + sx;
+            if (dx < g_clipX || dx >= g_clipX + g_clipWidth) continue;
+
+            uint8_t pixel = srcData[sy * srcWidth + sx];
+            if (trans && pixel == 0) continue;  // Transparent
+
+            // Apply remap table
+            g_renderer.framebuffer[dy * FBW + dx] = remap[pixel];
+        }
+    }
+}
+
+void Renderer_BlitSpriteRemapped(const uint8_t* pixels, int width, int height,
+                                 int destX, int destY,
+                                 int offsetX, int offsetY,
+                                 BOOL trans, const uint8_t* remap) {
+    int dx = destX - offsetX;
+    int dy = destY - offsetY;
+    Renderer_BlitRemapped(pixels, width, height, dx, dy, trans, remap);
+}
+
 // Forward declaration for palette loading
 extern "C" {
     BOOL Assets_LoadPalette(const char* name, uint8_t* palette);

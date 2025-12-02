@@ -17,12 +17,12 @@ Items that affect ability to distinguish units and play effectively.
 
 | ID | Item | Effort | Leverage | Status |
 |----|------|--------|----------|--------|
-| **VIS-1** | Sprite color remapping (team colors) | 4 hrs | **HIGH** | TODO |
+| **VIS-1** | Sprite color remapping (team colors) | 4 hrs | **HIGH** | DONE |
 | **VIS-2** | Selection box visibility | 1 hr | MEDIUM | PARTIAL |
 
-**Why important:** Currently all units look identical regardless of team. Color
-remapping applies house colors to sprites so player/enemy units are visually
-distinct. Code passes `teamColor` to sprite functions but it's ignored (TODO stub).
+**Implementation notes:** VIS-1 complete. Palette indices 80-95 are remapped to
+team-specific color gradients (blue for Allies, red for Soviets, etc.) during
+sprite rendering via `Renderer_BlitRemapped()` and `Sprites_GetRemapTable()`.
 
 ### TIER B: Remaining Trigger Actions (MEDIUM LEVERAGE)
 
@@ -195,6 +195,7 @@ Style and maintainability. Do when convenient.
 
 | Date | Description |
 |------|-------------|
+| Dec 2 | VIS-1: Sprite color remapping (team colors) |
 | Dec 2 | BUG-07: Map centering on player start (viewport fix) |
 | Dec 2 | BUG-08: Units not moving (unit types array incomplete) |
 | Dec 2 | Complete g_unitTypes array (50 types with proper speeds) |
@@ -214,25 +215,21 @@ Style and maintainability. Do when convenient.
 | BUG-02 | Video audio has static | High | OPEN |
 | BUG-07 | Map not centered on player start | High | FIXED |
 | BUG-08 | Some units won't move | High | FIXED |
+| BUG-09 | No target cursor on enemy hover | Medium | OPEN |
+
+**BUG-09 details:** In the original game, hovering over enemy units with
+friendly units selected shows a target/attack cursor. Currently the cursor
+doesn't change based on what's under it. Needs cursor state management based
+on hover target and selection context.
 
 ---
 
 ## Recommended Next Step
 
-**VIS-1: Sprite Color Remapping** - 4 hours, HIGH leverage
+**VIS-2: Selection Box Visibility** - 1 hour, MEDIUM leverage
 
-This is the highest-impact visual item. Currently all units look identical
-regardless of team. Player units should be blue/green, enemy should be red.
+Make unit selection boxes more visible. Currently selection is indicated but
+could be clearer, especially in busy combat situations.
 
-The code already:
-- Passes `teamColor` to `Sprites_RenderUnit()` and `Sprites_RenderBuilding()`
-- Has team color array: `g_teamColors[TEAM_COUNT]`
-- Falls back to colored shapes when sprites fail (these DO show team colors)
-
-What's missing:
-1. Color remap tables (16 variants per house color)
-2. Apply remap during sprite pixel copy in sprites.cpp
-3. Palette indices 80-95 (or 176-191) are the "remap range"
-
-Red Alert uses palette remapping: certain palette indices are swapped based
-on house color. This makes the same sprite look different for each team.
+Alternatively, work on **TR-4: BEGIN_PROD** to enable AI production, which
+would make missions more challenging and dynamic.

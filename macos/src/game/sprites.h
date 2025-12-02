@@ -71,6 +71,15 @@ int Sprites_GetUnitFrameCount(UnitType type);
  */
 int Sprites_GetBuildingFrameCount(BuildingType type);
 
+/**
+ * Get the color remap table for a team color.
+ * Used to apply team colors to unit/building sprites.
+ *
+ * @param teamColor  Team color scheme index (from HouseTypeData colorScheme)
+ * @return 256-byte remap table (never NULL)
+ */
+const uint8_t* Sprites_GetRemapTable(uint8_t teamColor);
+
 #ifdef __cplusplus
 }
 #endif

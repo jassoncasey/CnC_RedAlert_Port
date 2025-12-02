@@ -9,6 +9,140 @@
 #include <cstdio>
 #include <cstring>
 
+//===========================================================================
+// Color Remapping for Team Colors
+//===========================================================================
+// Red Alert uses palette indices 80-95 as the "remap range" for unit colors.
+// These 16 indices contain the default (gold/yellow) unit color gradient.
+// For each team, we remap these 16 indices to the team's color gradient.
+//
+// Team color gradients in the palette (from HouseTypeData colorScheme):
+//   - GoodGuy/Allies: 176-191 (blue tones) - colorScheme=1 maps to this range
+//   - USSR/BadGuy: 127-112 (red tones, reversed) - colorScheme=123 region
+//   - Spain: 180-195 (orange/gold)
+//   - Greece: 135-150 (cyan/teal)
+//
+// The remap source range is always 80-95.
+//===========================================================================
+
+#define REMAP_START 80
+#define REMAP_COUNT 16
+
+// Pre-built remap tables for common team colors
+static uint8_t g_remapGold[256];    // Identity (default unit color)
+static uint8_t g_remapBlue[256];    // Player/Allies - blue
+static uint8_t g_remapRed[256];     // Enemy/Soviet - red
+static uint8_t g_remapGreen[256];   // Alternative - green
+static uint8_t g_remapOrange[256];  // Alternative - orange
+static bool g_remapTablesInitialized = false;
+
+// Color gradient tables (16 palette indices each, light to dark)
+// These are the destination colors for each team
+// Source (80-95) goes from light gold to dark gold
+// We need gradients that go light to dark in the same direction
+
+static const uint8_t g_blueGradient[REMAP_COUNT] = {
+    // Blue gradient from TEMPERAT.PAL analysis (161-175, light to dark)
+    161, 162, 163, 164, 165, 166, 167, 168,
+    169, 170, 171, 172, 173, 174, 175, 175
+};
+
+static const uint8_t g_redGradient[REMAP_COUNT] = {
+    // Red gradient from TEMPERAT.PAL (229-239 are pure reds, light to dark)
+    // Pad with darker reds since we have 16 slots
+    229, 230, 231, 232, 233, 234, 235, 236,
+    237, 238, 239, 239, 239, 239, 239, 239
+};
+
+static const uint8_t g_greenGradient[REMAP_COUNT] = {
+    // Green gradient (124-127 are greens in palette)
+    // Need more greens - use what's available
+    124, 124, 125, 125, 126, 126, 127, 127,
+    127, 127, 127, 127, 127, 127, 127, 127
+};
+
+static const uint8_t g_orangeGradient[REMAP_COUNT] = {
+    // Orange gradient (212-221 are orange/brown tones)
+    212, 213, 214, 215, 216, 217, 218, 219,
+    220, 221, 221, 221, 221, 221, 221, 221
+};
+
+static void InitRemapTable(uint8_t* table, const uint8_t* gradient) {
+    // Initialize to identity mapping
+    for (int i = 0; i < 256; i++) {
+        table[i] = (uint8_t)i;
+    }
+    // Apply gradient remapping for indices 80-95
+    for (int i = 0; i < REMAP_COUNT; i++) {
+        table[REMAP_START + i] = gradient[i];
+    }
+}
+
+static void InitRemapTables(void) {
+    if (g_remapTablesInitialized) return;
+
+    // Gold = identity (no remap needed, but initialize for consistency)
+    for (int i = 0; i < 256; i++) {
+        g_remapGold[i] = (uint8_t)i;
+    }
+
+    InitRemapTable(g_remapBlue, g_blueGradient);
+    InitRemapTable(g_remapRed, g_redGradient);
+    InitRemapTable(g_remapGreen, g_greenGradient);
+    InitRemapTable(g_remapOrange, g_orangeGradient);
+
+    g_remapTablesInitialized = true;
+    fprintf(stderr, "Sprites: Color remap tables initialized\n");
+}
+
+// Get remap table for a team color index
+// teamColor comes from units.cpp g_teamColors or house colorScheme
+const uint8_t* Sprites_GetRemapTable(uint8_t teamColor) {
+    if (!g_remapTablesInitialized) {
+        InitRemapTables();
+    }
+
+    // Map team color to remap table
+    // Values come from either:
+    // 1. units.cpp g_teamColors: 7=neutral, 9=player, 4=enemy
+    // 2. house.cpp colorScheme: GoodGuy=1, USSR=123, etc.
+    switch (teamColor) {
+        // From g_teamColors in units.cpp
+        case 9:     // TEAM_PLAYER - light blue
+            return g_remapBlue;
+
+        case 4:     // TEAM_ENEMY - red
+            return g_remapRed;
+
+        case 7:     // TEAM_NEUTRAL - gray (use gold/identity)
+            return g_remapGold;
+
+        // From HouseTypeDataArray colorScheme
+        case 1:     // GoodGuy (Allies) - blue
+        case 135:   // Greece
+        case 159:   // England
+        case 176:   // Blue variant
+            return g_remapBlue;
+
+        case 123:   // USSR (Soviet) - red
+        case 127:   // Red variant
+            return g_remapRed;
+
+        case 5:     // Spain - orange
+        case 184:   // Turkey
+        case 204:   // Neutral
+            return g_remapOrange;
+
+        case 24:    // Ukraine - green
+        case 25:
+            return g_remapGreen;
+
+        default:
+            // Return gold (identity) for unknown colors
+            return g_remapGold;
+    }
+}
+
 // Unit type to SHP filename mapping
 // Names from Red Alert original data files (CONQUER.MIX and HIRES.MIX)
 // Order MUST match UnitType enum in units.h
@@ -225,8 +359,6 @@ BOOL Sprites_Available(void) {
 
 BOOL Sprites_RenderUnit(UnitType type, int facing, int frame,
                         int screenX, int screenY, uint8_t teamColor) {
-    (void)teamColor; // TODO: Color remapping
-
     if (type <= UNIT_NONE || type >= UNIT_TYPE_COUNT) return FALSE;
 
     ShpFileHandle shp = g_unitSprites[type];
@@ -246,19 +378,21 @@ BOOL Sprites_RenderUnit(UnitType type, int facing, int frame,
     const ShpFrame* shpFrame = Shp_GetFrame(shp, frameIndex);
     if (!shpFrame || !shpFrame->pixels) return FALSE;
 
-    // Render centered on position
-    Renderer_BlitSprite(shpFrame->pixels, shpFrame->width, shpFrame->height,
-                        screenX, screenY,
-                        shpFrame->width / 2, shpFrame->height / 2,
-                        TRUE);
+    // Get remap table for team color
+    const uint8_t* remap = Sprites_GetRemapTable(teamColor);
+
+    // Render centered on position with color remapping
+    Renderer_BlitSpriteRemapped(shpFrame->pixels,
+                                shpFrame->width, shpFrame->height,
+                                screenX, screenY,
+                                shpFrame->width / 2, shpFrame->height / 2,
+                                TRUE, remap);
 
     return TRUE;
 }
 
 BOOL Sprites_RenderBuilding(BuildingType type, int frame,
                             int screenX, int screenY, uint8_t teamColor) {
-    (void)teamColor; // TODO: Color remapping
-
     if (type <= BUILDING_NONE || type >= BUILDING_TYPE_COUNT) return FALSE;
 
     ShpFileHandle shp = g_buildingSprites[type];
@@ -273,9 +407,12 @@ BOOL Sprites_RenderBuilding(BuildingType type, int frame,
     const ShpFrame* shpFrame = Shp_GetFrame(shp, frameIndex);
     if (!shpFrame || !shpFrame->pixels) return FALSE;
 
-    // Render at top-left position (buildings are not centered)
-    Renderer_Blit(shpFrame->pixels, shpFrame->width, shpFrame->height,
-                  screenX, screenY, TRUE);
+    // Get remap table for team color
+    const uint8_t* remap = Sprites_GetRemapTable(teamColor);
+
+    // Render at top-left position with color remapping
+    Renderer_BlitRemapped(shpFrame->pixels, shpFrame->width, shpFrame->height,
+                          screenX, screenY, TRUE, remap);
 
     return TRUE;
 }
