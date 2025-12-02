@@ -703,3 +703,31 @@ void Map_SetFogEnabled(BOOL enabled) {
 BOOL Map_IsFogEnabled(void) {
     return g_fogEnabled;
 }
+
+void Map_RevealAll(void) {
+    // Reveal all cells permanently
+    for (int y = 0; y < g_mapHeight; y++) {
+        for (int x = 0; x < g_mapWidth; x++) {
+            g_cells[y][x].flags |= (CELL_FLAG_VISIBLE | CELL_FLAG_REVEALED);
+        }
+    }
+}
+
+void Map_RevealArea(int worldX, int worldY, int radius) {
+    // Convert world coordinates to cell coordinates
+    int cellX = worldX / CELL_SIZE;
+    int cellY = worldY / CELL_SIZE;
+    int cellRadius = radius / CELL_SIZE;
+    if (cellRadius < 1) cellRadius = 1;
+
+    // Reveal cells in a square area (simpler than circular)
+    for (int dy = -cellRadius; dy <= cellRadius; dy++) {
+        for (int dx = -cellRadius; dx <= cellRadius; dx++) {
+            int tx = cellX + dx;
+            int ty = cellY + dy;
+            if (tx >= 0 && tx < g_mapWidth && ty >= 0 && ty < g_mapHeight) {
+                g_cells[ty][tx].flags |= (CELL_FLAG_VISIBLE | CELL_FLAG_REVEALED);
+            }
+        }
+    }
+}

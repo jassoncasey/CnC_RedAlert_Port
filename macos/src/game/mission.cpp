@@ -1172,6 +1172,24 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
         case RA_EVENT_NONE:
             return false;
 
+        case RA_EVENT_ENTERED:  // Player entered cell/zone
+            // param1 = waypoint number (zone center)
+            // For now, always return false - needs zone tracking
+            // TODO: Track player unit positions vs waypoint zones
+            break;
+
+        case RA_EVENT_ATTACKED:  // Object attacked
+            // Triggered when attached object is attacked
+            // For now, return false - needs object attachment tracking
+            // TODO: Track attack events on trigger-linked objects
+            break;
+
+        case RA_EVENT_DESTROYED:  // Object destroyed
+            // param2 might be house, triggered when linked object destroyed
+            // For now, return false - needs object attachment tracking
+            // TODO: Track destruction events on trigger-linked objects
+            break;
+
         case RA_EVENT_ALL_DESTR:  // All units+buildings destroyed
             // param2 is house number
             if (CountUnitsByHouse(param2) == 0 &&
@@ -1206,6 +1224,24 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
             }
             break;
 
+        case RA_EVENT_CREDITS:  // Credits reach amount
+            // param2 = amount needed
+            // TODO: Check player credits >= param2
+            break;
+
+        case RA_EVENT_ANY:  // Any event (always triggers)
+            return true;
+
+        case RA_EVENT_DISCOVERED:  // Object discovered (revealed)
+            // Triggered when unit/building is first seen
+            // TODO: Track fog reveal events
+            break;
+
+        case RA_EVENT_HOUSE_DISC:  // House discovered
+            // Triggered when any unit of a house is discovered
+            // TODO: Track house discovery via fog reveal
+            break;
+
         default:
             // Unsupported event types - don't trigger
             break;
@@ -1226,6 +1262,9 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
     (void)mission;
 
     switch (actionNum) {
+        case RA_ACTION_NONE:
+            break;
+
         case RA_ACTION_WIN:
         case RA_ACTION_ALLOWWIN:  // Treat allow-win as win
             fprintf(stderr, "  TRIGGER: Win action executed!\n");
@@ -1235,31 +1274,135 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             fprintf(stderr, "  TRIGGER: Lose action executed!\n");
             return -1;
 
+        case RA_ACTION_BEGIN_PROD:
+            // param1 = house to begin production
+            fprintf(stderr, "  TRIGGER: Begin production (house %d)\n", param1);
+            // TODO: Start AI production for house
+            break;
+
+        case RA_ACTION_CREATE_TEAM:
+            // param1 = team type index
+            fprintf(stderr, "  TRIGGER: Create team %d\n", param1);
+            // Look up team type and spawn its units
+            if (mission && param1 >= 0 && param1 < mission->teamTypeCount) {
+                const MissionTeamType* team = &mission->teamTypes[param1];
+                fprintf(stderr, "    Team '%s': %d members at waypoint %d\n",
+                        team->name, team->memberCount, team->origin);
+                // TODO: Spawn team members at origin waypoint
+            }
+            break;
+
+        case RA_ACTION_DESTROY_TEAM:
+            // param1 = team type index
+            fprintf(stderr, "  TRIGGER: Destroy team %d\n", param1);
+            // TODO: Remove all units from team
+            break;
+
+        case RA_ACTION_ALL_HUNT:
+            fprintf(stderr, "  TRIGGER: All hunt\n");
+            // TODO: Set all enemy units to hunt mode
+            break;
+
         case RA_ACTION_REINFORCE:
             // param1 = team type index
             fprintf(stderr, "  TRIGGER: Reinforcement action (team %d)\n",
                     param1);
-            // TODO: Spawn reinforcement team at waypoint
+            if (mission && param1 >= 0 && param1 < mission->teamTypeCount) {
+                const MissionTeamType* team = &mission->teamTypes[param1];
+                fprintf(stderr, "    Team '%s': %d members\n",
+                        team->name, team->memberCount);
+                // TODO: Spawn reinforcement team at edge or via transport
+            }
+            break;
+
+        case RA_ACTION_DZ:
+            // param3 = waypoint for drop zone flare
+            fprintf(stderr, "  TRIGGER: Drop zone at waypoint %d\n", param3);
+            break;
+
+        case RA_ACTION_FIRE_SALE:
+            fprintf(stderr, "  TRIGGER: Fire sale\n");
+            // TODO: Sell all AI buildings
+            break;
+
+        case RA_ACTION_PLAY_MOVIE:
+            // param3 = movie name (usually via text lookup)
+            fprintf(stderr, "  TRIGGER: Play movie\n");
             break;
 
         case RA_ACTION_TEXT:
             // param3 = text ID
             fprintf(stderr, "  TRIGGER: Display text ID %d\n", param3);
-            // TODO: Display mission text
+            // TODO: Display mission text from strings
+            break;
+
+        case RA_ACTION_DESTR_TRIG:
+            // param3 = trigger ID to destroy
+            fprintf(stderr, "  TRIGGER: Destroy trigger %d\n", param3);
+            // Deactivate the specified trigger
+            if (param3 >= 0 && param3 < g_parsedTriggerCount) {
+                g_parsedTriggers[param3].active = false;
+            }
+            break;
+
+        case RA_ACTION_AUTOCREATE:
+            fprintf(stderr, "  TRIGGER: Auto-create teams ON\n");
+            // TODO: Enable automatic team creation for AI
+            break;
+
+        case RA_ACTION_REVEAL_ALL:
+            fprintf(stderr, "  TRIGGER: Reveal entire map\n");
+            Map_RevealAll();
             break;
 
         case RA_ACTION_REVEAL_SOME:
             // param3 = waypoint number
             fprintf(stderr, "  TRIGGER: Reveal around waypoint %d\n", param3);
-            // TODO: Reveal fog around waypoint
+            if (mission && param3 >= 0 && param3 < MAX_MISSION_WAYPOINTS &&
+                mission->waypoints[param3].cell >= 0) {
+                // Convert waypoint cell to world coordinates
+                int wpX = (mission->waypoints[param3].cellX - mission->mapX) * CELL_SIZE;
+                int wpY = (mission->waypoints[param3].cellY - mission->mapY) * CELL_SIZE;
+                // Reveal 5-cell radius around waypoint
+                Map_RevealArea(wpX, wpY, 5 * CELL_SIZE);
+            }
+            break;
+
+        case RA_ACTION_FORCE_TRIG:
+            // param3 = trigger ID to force
+            fprintf(stderr, "  TRIGGER: Force trigger %d\n", param3);
+            // TODO: Immediately execute specified trigger
+            break;
+
+        case RA_ACTION_START_TIMER:
+            fprintf(stderr, "  TRIGGER: Start mission timer\n");
+            // TODO: Start countdown timer UI
+            break;
+
+        case RA_ACTION_STOP_TIMER:
+            fprintf(stderr, "  TRIGGER: Stop mission timer\n");
+            break;
+
+        case RA_ACTION_SET_GLOBAL:
+            // param3 = global flag number
+            fprintf(stderr, "  TRIGGER: Set global flag %d\n", param3);
+            // TODO: Set global flag for trigger system
+            break;
+
+        case RA_ACTION_CLEAR_GLOBAL:
+            // param3 = global flag number
+            fprintf(stderr, "  TRIGGER: Clear global flag %d\n", param3);
+            break;
+
+        case RA_ACTION_DESTROY_OBJ:
+            // Destroy the object attached to this trigger
+            fprintf(stderr, "  TRIGGER: Destroy attached object\n");
+            // TODO: Track trigger-object attachment and destroy
             break;
 
         default:
-            // Unsupported action - just log it
-            if (actionNum != RA_ACTION_NONE) {
-                fprintf(stderr, "  TRIGGER: Unsupported action %d\n",
-                        actionNum);
-            }
+            // Log unsupported actions for debugging
+            fprintf(stderr, "  TRIGGER: Unsupported action %d\n", actionNum);
             break;
     }
 

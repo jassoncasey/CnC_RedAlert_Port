@@ -212,6 +212,16 @@ void Map_SetFogEnabled(BOOL enabled);
  */
 BOOL Map_IsFogEnabled(void);
 
+/**
+ * Fog of War: Reveal entire map (trigger action)
+ */
+void Map_RevealAll(void);
+
+/**
+ * Fog of War: Reveal area around world coordinates (trigger action)
+ */
+void Map_RevealArea(int worldX, int worldY, int radius);
+
 #ifdef __cplusplus
 }
 #endif
