@@ -67,6 +67,21 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed task breakdown.
 | BUG-04 | Briefing garbled after video | Medium |
 | BUG-05 | Fog re-blacks revealed terrain | Medium |
 | BUG-06 | Sound volume untestable | Low |
+| BUG-07 | Map not centered on player units at mission start | Medium |
+| BUG-08 | Some units don't respond to movement commands | High |
+
+### Implementation Simplifications (TODO)
+
+Items that were simplified during implementation and need completion:
+
+| Area | Simplification | Notes |
+|------|---------------|-------|
+| EV-2/EV-3 | Trigger fires once per event, not per-hit | Original may track multiple attacks |
+| EV-2/EV-3 | No attacker source tracking | Original passes attacker to trigger |
+| Triggers | Dual type system (TechnoClass + Unit/Building) | Both paths hooked but may have edge cases |
+| Mission spawn | No health scaling from INI | Spawns at full health, ignores health field |
+| Mission spawn | No facing from INI | Units spawn facing default direction |
+| Mission spawn | No initial mission from INI | Units start IDLE, not mission-specified state |
 
 ---
 
