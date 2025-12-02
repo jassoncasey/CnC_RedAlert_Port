@@ -241,6 +241,495 @@ static int ParseHouseName(const char* str) {
 #define CELL_TO_X(cell) ((cell) % 128)
 #define CELL_TO_Y(cell) ((cell) / 128)
 
+// ============================================================================
+// INI Section Parsers - each parses one section of mission INI
+// ============================================================================
+
+// Forward declaration for pack section parser
+static uint8_t* ParsePackSection(INIClass* ini, const char* section,
+                                  int* outSize);
+
+// Parse [Basic] section - mission name, player, brief/win/lose videos
+static void ParseBasicSection(MissionData* mission, INIClass* ini) {
+    ini->GetString("Basic", "Name", "Mission",
+                   mission->name, sizeof(mission->name));
+
+    char playerStr[32];
+    ini->GetString("Basic", "Player", "Greece", playerStr, sizeof(playerStr));
+    mission->playerTeam = ParseTeam(playerStr);
+
+    ini->GetString("Basic", "Brief", "",
+                   mission->briefVideo, sizeof(mission->briefVideo));
+    ini->GetString("Basic", "Win", "",
+                   mission->winVideo, sizeof(mission->winVideo));
+    ini->GetString("Basic", "Lose", "",
+                   mission->loseVideo, sizeof(mission->loseVideo));
+}
+
+// Parse [Map] section - theater and dimensions
+static void ParseMapSection(MissionData* mission, INIClass* ini) {
+    char theaterStr[32];
+    ini->GetString("Map", "Theater", "TEMPERATE", theaterStr, sizeof(theaterStr));
+    if (strcasecmp(theaterStr, "SNOW") == 0) mission->theater = 1;
+    else if (strcasecmp(theaterStr, "INTERIOR") == 0) mission->theater = 2;
+    else if (strcasecmp(theaterStr, "DESERT") == 0) mission->theater = 3;
+    else mission->theater = 0;
+
+    mission->mapX = ini->GetInt("Map", "X", 0);
+    mission->mapY = ini->GetInt("Map", "Y", 0);
+    mission->mapWidth = ini->GetInt("Map", "Width", 64);
+    mission->mapHeight = ini->GetInt("Map", "Height", 64);
+}
+
+// Parse [Briefing] section - concatenate all lines
+static void ParseBriefingSection(MissionData* mission, INIClass* ini) {
+    int briefCount = ini->EntryCount("Briefing");
+    mission->description[0] = '\0';
+    size_t descLen = 0;
+
+    for (int i = 0; i < briefCount && i < 10; i++) {
+        char lineKey[8];
+        snprintf(lineKey, sizeof(lineKey), "%d", i + 1);
+        char line[256];
+        ini->GetString("Briefing", lineKey, "", line, sizeof(line));
+
+        if (strlen(line) > 0 && descLen < sizeof(mission->description) - 2) {
+            size_t lineLen = strlen(line);
+            if (descLen + lineLen + 1 < sizeof(mission->description)) {
+                if (descLen > 0) mission->description[descLen++] = ' ';
+                strcpy(mission->description + descLen, line);
+                descLen += lineLen;
+            }
+        }
+    }
+}
+
+// Parse [UNITS] section - vehicles
+static void ParseUnitsSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("UNITS");
+    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
+        const char* entry = ini->GetEntry("UNITS", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("UNITS", entry, "", value, sizeof(value));
+
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, facing;
+        missionStr[0] = trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
+                   house, type, &health, &cell, &facing,
+                   missionStr, trigger) >= 5) {
+            MissionUnit* unit = &mission->units[mission->unitCount];
+            unit->type = ParseUnitType(type);
+            unit->team = ParseTeam(house);
+            unit->cellX = CELL_TO_X(cell);
+            unit->cellY = CELL_TO_Y(cell);
+            unit->health = (int16_t)health;
+            unit->facing = (int16_t)facing;
+            unit->mission = ParseMissionType(missionStr);
+            unit->subCell = 0;
+
+            if (unit->type != UNIT_NONE) mission->unitCount++;
+        }
+    }
+}
+
+// Parse [STRUCTURES] section - buildings
+static void ParseStructuresSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("STRUCTURES");
+    for (int i = 0; i < count && mission->buildingCount < MAX_MISSION_BUILDINGS;
+         i++) {
+        const char* entry = ini->GetEntry("STRUCTURES", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("STRUCTURES", entry, "", value, sizeof(value));
+
+        char house[32], type[32], trigger[32];
+        int health, cell, facing, sellable = 1, rebuild = 0;
+        trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%d",
+                   house, type, &health, &cell, &facing,
+                   trigger, &sellable, &rebuild) >= 4) {
+            MissionBuilding* bld = &mission->buildings[mission->buildingCount];
+            bld->type = ParseBuildingType(type);
+            bld->team = ParseTeam(house);
+            bld->cellX = CELL_TO_X(cell);
+            bld->cellY = CELL_TO_Y(cell);
+            bld->health = (int16_t)health;
+            bld->facing = (int16_t)facing;
+            bld->sellable = (int8_t)sellable;
+            bld->rebuild = (int8_t)rebuild;
+
+            if (bld->type != BUILDING_NONE) mission->buildingCount++;
+        }
+    }
+}
+
+// Parse [INFANTRY] section
+static void ParseInfantrySection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("INFANTRY");
+    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
+        const char* entry = ini->GetEntry("INFANTRY", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("INFANTRY", entry, "", value, sizeof(value));
+
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, subCell, facing = 0;
+        missionStr[0] = trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%31s",
+                   house, type, &health, &cell, &subCell,
+                   missionStr, &facing, trigger) >= 5) {
+            MissionUnit* unit = &mission->units[mission->unitCount];
+            unit->type = ParseUnitType(type);
+            unit->team = ParseTeam(house);
+            unit->cellX = CELL_TO_X(cell);
+            unit->cellY = CELL_TO_Y(cell);
+            unit->health = (int16_t)health;
+            unit->facing = (int16_t)facing;
+            unit->mission = ParseMissionType(missionStr);
+            unit->subCell = (int16_t)subCell;
+
+            if (unit->type != UNIT_NONE) mission->unitCount++;
+        }
+    }
+}
+
+// Parse [SHIPS] section - naval units (same format as UNITS)
+static void ParseShipsSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("SHIPS");
+    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
+        const char* entry = ini->GetEntry("SHIPS", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("SHIPS", entry, "", value, sizeof(value));
+
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, facing;
+        missionStr[0] = trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
+                   house, type, &health, &cell, &facing,
+                   missionStr, trigger) >= 5) {
+            MissionUnit* unit = &mission->units[mission->unitCount];
+            unit->type = ParseUnitType(type);
+            unit->team = ParseTeam(house);
+            unit->cellX = CELL_TO_X(cell);
+            unit->cellY = CELL_TO_Y(cell);
+            unit->health = (int16_t)health;
+            unit->facing = (int16_t)facing;
+            unit->mission = ParseMissionType(missionStr);
+            unit->subCell = 0;
+
+            if (unit->type != UNIT_NONE) mission->unitCount++;
+        }
+    }
+}
+
+// Parse [Trigs] section - trigger definitions
+static void ParseTrigsSection(INIClass* ini) {
+    int count = ini->EntryCount("Trigs");
+    g_parsedTriggerCount = 0;
+
+    for (int i = 0; i < count && g_parsedTriggerCount < MAX_PARSED_TRIGGERS;
+         i++) {
+        const char* trigName = ini->GetEntry("Trigs", i);
+        if (!trigName) continue;
+
+        char value[256];
+        ini->GetString("Trigs", trigName, "", value, sizeof(value));
+
+        int persist, house, eventCtrl, actionCtrl;
+        int event1, e1p1, e1p2, event2, e2p1, e2p2;
+        int action1, a1p1, a1p2, a1p3, action2, a2p1, a2p2, a2p3;
+
+        int parsed = sscanf(value,
+            "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+            &persist, &house, &eventCtrl, &actionCtrl,
+            &event1, &e1p1, &e1p2, &event2, &e2p1, &e2p2,
+            &action1, &a1p1, &a1p2, &a1p3, &action2, &a2p1, &a2p2, &a2p3);
+
+        if (parsed >= 11) {
+            ParsedTrigger* trig = &g_parsedTriggers[g_parsedTriggerCount];
+            memset(trig, 0, sizeof(ParsedTrigger));
+
+            strncpy(trig->name, trigName, 23);
+            trig->name[23] = '\0';
+            trig->active = true;
+
+            trig->persist = persist;
+            trig->house = house;
+            trig->eventControl = eventCtrl;
+            trig->actionControl = actionCtrl;
+            trig->event1 = event1;
+            trig->e1p1 = e1p1;
+            trig->e1p2 = e1p2;
+            trig->event2 = event2;
+            trig->e2p1 = e2p1;
+            trig->e2p2 = e2p2;
+            trig->action1 = action1;
+            trig->a1p1 = a1p1;
+            trig->a1p2 = a1p2;
+            trig->a1p3 = a1p3;
+
+            if (parsed >= 18) {
+                trig->action2 = action2;
+                trig->a2p1 = a2p1;
+                trig->a2p2 = a2p2;
+                trig->a2p3 = a2p3;
+            }
+
+            g_parsedTriggerCount++;
+        }
+    }
+}
+
+// Parse [Waypoints] section
+static void ParseWaypointsSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("Waypoints");
+    mission->waypointCount = 0;
+
+    for (int i = 0; i < MAX_MISSION_WAYPOINTS; i++) {
+        mission->waypoints[i].cell = -1;
+        mission->waypoints[i].cellX = -1;
+        mission->waypoints[i].cellY = -1;
+    }
+
+    for (int i = 0; i < count; i++) {
+        const char* entry = ini->GetEntry("Waypoints", i);
+        if (!entry) continue;
+
+        int wpNum = atoi(entry);
+        if (wpNum < 0 || wpNum >= MAX_MISSION_WAYPOINTS) continue;
+
+        int cell = ini->GetInt("Waypoints", entry, -1);
+        if (cell < 0) continue;
+
+        mission->waypoints[wpNum].cell = cell;
+        mission->waypoints[wpNum].cellX = CELL_TO_X(cell);
+        mission->waypoints[wpNum].cellY = CELL_TO_Y(cell);
+
+        if (wpNum >= mission->waypointCount) {
+            mission->waypointCount = wpNum + 1;
+        }
+    }
+}
+
+// Parse single team type member (type:qty)
+static bool ParseTeamMember(char** ptr, TeamMember* member) {
+    char* colon = strchr(*ptr, ':');
+    if (!colon) return false;
+
+    int typeLen = (int)(colon - *ptr);
+    if (typeLen > 7) typeLen = 7;
+    strncpy(member->unitType, *ptr, typeLen);
+    member->unitType[typeLen] = '\0';
+
+    *ptr = colon + 1;
+    char* next;
+    member->quantity = strtol(*ptr, &next, 10);
+    *ptr = (*next == ',') ? next + 1 : next;
+    return true;
+}
+
+// Parse single team mission (mission:data)
+static bool ParseTeamMission(char** ptr, TeamMission* tmission) {
+    char* colon = strchr(*ptr, ':');
+    if (!colon) return false;
+
+    char* next;
+    tmission->mission = strtol(*ptr, &colon, 10);
+    *ptr = colon + 1;
+    tmission->data = strtol(*ptr, &next, 10);
+    *ptr = (*next == ',') ? next + 1 : next;
+    return true;
+}
+
+// Parse [TeamTypes] section
+static void ParseTeamTypesSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("TeamTypes");
+    mission->teamTypeCount = 0;
+
+    for (int i = 0; i < count && mission->teamTypeCount < MAX_TEAM_TYPES; i++) {
+        const char* teamName = ini->GetEntry("TeamTypes", i);
+        if (!teamName) continue;
+
+        char value[512];
+        ini->GetString("TeamTypes", teamName, "", value, sizeof(value));
+        if (value[0] == '\0') continue;
+
+        MissionTeamType* team = &mission->teamTypes[mission->teamTypeCount];
+        memset(team, 0, sizeof(MissionTeamType));
+        strncpy(team->name, teamName, sizeof(team->name) - 1);
+
+        char* ptr = value;
+        char* next;
+
+        // Parse fixed fields: house,flags,recruit,init,max,origin,trigger
+        team->house = strtol(ptr, &next, 10);
+        if (*next != ',') continue; ptr = next + 1;
+        team->flags = strtol(ptr, &next, 10);
+        if (*next != ',') continue; ptr = next + 1;
+        team->recruitPriority = strtol(ptr, &next, 10);
+        if (*next != ',') continue; ptr = next + 1;
+        team->initNum = strtol(ptr, &next, 10);
+        if (*next != ',') continue; ptr = next + 1;
+        team->maxAllowed = strtol(ptr, &next, 10);
+        if (*next != ',') continue; ptr = next + 1;
+        team->origin = strtol(ptr, &next, 10);
+        if (*next != ',') continue; ptr = next + 1;
+        team->trigger = strtol(ptr, &next, 10);
+        if (*next != ',') continue; ptr = next + 1;
+
+        // numMembers
+        int numMembers = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1;
+
+        // Parse members
+        team->memberCount = 0;
+        for (int m = 0; m < numMembers && m < MAX_TEAM_MEMBERS; m++) {
+            if (!ParseTeamMember(&ptr, &team->members[m])) break;
+            team->memberCount++;
+        }
+
+        // numMissions
+        int numMissions = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1;
+
+        // Parse missions
+        team->missionCount = 0;
+        for (int m = 0; m < numMissions && m < MAX_TEAM_MISSIONS; m++) {
+            if (!ParseTeamMission(&ptr, &team->missions[m])) break;
+            team->missionCount++;
+        }
+
+        mission->teamTypeCount++;
+    }
+}
+
+// Parse [Base] section
+static void ParseBaseSection(MissionData* mission, INIClass* ini) {
+    char basePlayer[32];
+    ini->GetString("Base", "Player", "", basePlayer, sizeof(basePlayer));
+    if (basePlayer[0] != '\0') {
+        mission->baseHouse = ParseHouseName(basePlayer);
+    }
+    mission->baseCount = ini->GetInt("Base", "Count", 0);
+}
+
+// Parse [TERRAIN] section - trees and terrain objects
+static void ParseTerrainSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("TERRAIN");
+    mission->terrainObjCount = 0;
+
+    for (int i = 0; i < count && mission->terrainObjCount < MAX_MISSION_TERRAIN;
+         i++) {
+        const char* entry = ini->GetEntry("TERRAIN", i);
+        if (!entry) continue;
+
+        int cell = atoi(entry);
+        if (cell < 0) continue;
+
+        char terrType[16];
+        ini->GetString("TERRAIN", entry, "", terrType, sizeof(terrType));
+        if (terrType[0] == '\0') continue;
+
+        MissionTerrainObj* obj = &mission->terrainObjs[mission->terrainObjCount];
+        strncpy(obj->type, terrType, sizeof(obj->type) - 1);
+        obj->type[sizeof(obj->type) - 1] = '\0';
+        obj->cellX = CELL_TO_X(cell);
+        obj->cellY = CELL_TO_Y(cell);
+        mission->terrainObjCount++;
+    }
+}
+
+// Parse [SMUDGE] section - craters and scorch marks
+static void ParseSmudgeSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("SMUDGE");
+    mission->smudgeCount = 0;
+
+    for (int i = 0; i < count && mission->smudgeCount < MAX_MISSION_SMUDGE;
+         i++) {
+        const char* entry = ini->GetEntry("SMUDGE", i);
+        if (!entry) continue;
+
+        int cell = atoi(entry);
+        if (cell < 0) continue;
+
+        char value[64];
+        ini->GetString("SMUDGE", entry, "", value, sizeof(value));
+        if (value[0] == '\0') continue;
+
+        char smudgeType[16];
+        int smudgeCell, smudgeData = 0;
+        if (sscanf(value, "%15[^,],%d,%d",
+                   smudgeType, &smudgeCell, &smudgeData) >= 2) {
+            MissionSmudge* smudge = &mission->smudges[mission->smudgeCount];
+            strncpy(smudge->type, smudgeType, sizeof(smudge->type) - 1);
+            smudge->type[sizeof(smudge->type) - 1] = '\0';
+            smudge->cellX = CELL_TO_X(smudgeCell);
+            smudge->cellY = CELL_TO_Y(smudgeCell);
+            smudge->data = (int16_t)smudgeData;
+            mission->smudgeCount++;
+        }
+    }
+}
+
+// Parse [MapPack] section - terrain data
+static void ParseMapPackSection(MissionData* mission, INIClass* ini) {
+    int mapPackSize = 0;
+    uint8_t* mapPackData = ParsePackSection(ini, "MapPack", &mapPackSize);
+
+    if (mapPackData && mapPackSize >= MAP_CELL_TOTAL * 3) {
+        mission->terrainType = (uint8_t*)malloc(MAP_CELL_TOTAL);
+        mission->terrainIcon = (uint8_t*)malloc(MAP_CELL_TOTAL);
+
+        if (mission->terrainType && mission->terrainIcon) {
+            for (int i = 0; i < MAP_CELL_TOTAL; i++) {
+                uint16_t tileID = mapPackData[i * 2] |
+                                  (mapPackData[i * 2 + 1] << 8);
+                mission->terrainType[i] = (tileID == 0 || tileID == 0xFFFF)
+                                          ? 0xFF : (uint8_t)(tileID & 0xFF);
+            }
+            memcpy(mission->terrainIcon,
+                   mapPackData + MAP_CELL_TOTAL * 2,
+                   MAP_CELL_TOTAL);
+        }
+        free(mapPackData);
+    }
+}
+
+// Parse [OverlayPack] section - overlay data (ore, walls, etc.)
+static void ParseOverlayPackSection(MissionData* mission, INIClass* ini) {
+    int overlayPackSize = 0;
+    uint8_t* overlayPackData = ParsePackSection(ini, "OverlayPack",
+                                                 &overlayPackSize);
+
+    if (overlayPackData && overlayPackSize >= MAP_CELL_TOTAL) {
+        mission->overlayType = (uint8_t*)malloc(MAP_CELL_TOTAL);
+        if (mission->overlayType) {
+            memcpy(mission->overlayType, overlayPackData, MAP_CELL_TOTAL);
+        }
+
+        if (overlayPackSize >= MAP_CELL_TOTAL * 2) {
+            mission->overlayData = (uint8_t*)malloc(MAP_CELL_TOTAL);
+            if (mission->overlayData) {
+                memcpy(mission->overlayData,
+                       overlayPackData + MAP_CELL_TOTAL,
+                       MAP_CELL_TOTAL);
+            }
+        }
+        free(overlayPackData);
+    }
+}
+
 // Parse [MapPack] or [OverlayPack] section
 // Format: Base64-encoded, chunked LCW compression
 // Each chunk: 4-byte length (& 0xDFFFFFFF) + LCW data -> 8192 bytes
@@ -364,503 +853,40 @@ int Mission_LoadFromINI(MissionData* mission, const char* filename) {
 int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
     if (!mission || !ini) return 0;
 
-    // Initialize defaults
     Mission_Init(mission);
 
-    // [Basic] section
-    ini->GetString("Basic", "Name", "Mission", mission->name, sizeof(mission->name));
+    // Parse each INI section via dedicated helpers
+    ParseBasicSection(mission, ini);
+    ParseMapSection(mission, ini);
+    ParseBriefingSection(mission, ini);
 
-    // Theater from [Map] section (not [Basic])
-    char theaterStr[32];
-    ini->GetString("Map", "Theater", "TEMPERATE", theaterStr, sizeof(theaterStr));
-    if (strcasecmp(theaterStr, "SNOW") == 0) mission->theater = 1;
-    else if (strcasecmp(theaterStr, "INTERIOR") == 0) mission->theater = 2;
-    else if (strcasecmp(theaterStr, "DESERT") == 0) mission->theater = 3;
-    else mission->theater = 0;
-
-    // Player
+    // Credits from player's house section (needs player from Basic)
     char playerStr[32];
     ini->GetString("Basic", "Player", "Greece", playerStr, sizeof(playerStr));
-    mission->playerTeam = ParseTeam(playerStr);
-
-    // Briefing video
-    char briefStr[64];
-    ini->GetString("Basic", "Brief", "", briefStr, sizeof(briefStr));
-    strncpy(mission->briefVideo, briefStr, sizeof(mission->briefVideo) - 1);
-
-    // Win/Lose videos
-    char winStr[64], loseStr[64];
-    ini->GetString("Basic", "Win", "", winStr, sizeof(winStr));
-    ini->GetString("Basic", "Lose", "", loseStr, sizeof(loseStr));
-    strncpy(mission->winVideo, winStr, sizeof(mission->winVideo) - 1);
-    strncpy(mission->loseVideo, loseStr, sizeof(mission->loseVideo) - 1);
-
-    // [Briefing] section for mission description
-    int briefCount = ini->EntryCount("Briefing");
-    mission->description[0] = '\0';
-    size_t descLen = 0;
-    for (int i = 0; i < briefCount && i < 10; i++) {
-        char lineKey[8];
-        snprintf(lineKey, sizeof(lineKey), "%d", i + 1);
-        char line[256];
-        ini->GetString("Briefing", lineKey, "", line, sizeof(line));
-        if (strlen(line) > 0 && descLen < sizeof(mission->description) - 2) {
-            size_t lineLen = strlen(line);
-            if (descLen + lineLen + 1 < sizeof(mission->description)) {
-                if (descLen > 0) {
-                    mission->description[descLen++] = ' ';
-                }
-                strcpy(mission->description + descLen, line);
-                descLen += lineLen;
-            }
-        }
-    }
-
-    // Map dimensions from [Map] section
-    mission->mapX = ini->GetInt("Map", "X", 0);
-    mission->mapY = ini->GetInt("Map", "Y", 0);
-    mission->mapWidth = ini->GetInt("Map", "Width", 64);
-    mission->mapHeight = ini->GetInt("Map", "Height", 64);
-
-    // Credits from player's house section
     mission->startCredits = ini->GetInt(playerStr, "Credits", 5000);
     if (mission->startCredits == 0) {
         mission->startCredits = ini->GetInt("Basic", "Credits", 5000);
     }
 
-    // [UNITS] section - Format: ID=House,Type,Health,Cell,Facing,Mission,Trigger
-    // Example: 0=Greece,JEEP,256,6463,128,Guard,None
-    int count = ini->EntryCount("UNITS");
-    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
-        const char* entry = ini->GetEntry("UNITS", i);
-        if (!entry) continue;
-
-        char value[128];
-        ini->GetString("UNITS", entry, "", value, sizeof(value));
-
-        char house[32], type[32], missionStr[32], trigger[32];
-        int health, cell, facing;
-        missionStr[0] = '\0';
-        trigger[0] = '\0';
-
-        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
-                   house, type, &health, &cell, &facing, missionStr, trigger) >= 5) {
-            MissionUnit* unit = &mission->units[mission->unitCount];
-            unit->type = ParseUnitType(type);
-            unit->team = ParseTeam(house);
-            unit->cellX = CELL_TO_X(cell);
-            unit->cellY = CELL_TO_Y(cell);
-            unit->health = (int16_t)health;
-            unit->facing = (int16_t)facing;
-            unit->mission = ParseMissionType(missionStr);
-            unit->subCell = 0;  // Vehicles don't have sub-cells
-
-            if (unit->type != UNIT_NONE) {
-                mission->unitCount++;
-            }
-        }
-    }
-
-    // [STRUCTURES] section - Format: ID=House,Type,Health,Cell,Facing,Trigger,Sellable,Rebuilt
-    // Example: 0=USSR,TSLA,256,7623,0,None,1,0
-    count = ini->EntryCount("STRUCTURES");
-    for (int i = 0; i < count && mission->buildingCount < MAX_MISSION_BUILDINGS; i++) {
-        const char* entry = ini->GetEntry("STRUCTURES", i);
-        if (!entry) continue;
-
-        char value[128];
-        ini->GetString("STRUCTURES", entry, "", value, sizeof(value));
-
-        char house[32], type[32], trigger[32];
-        int health, cell, facing, sellable = 1, rebuild = 0;
-        trigger[0] = '\0';
-
-        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%d",
-                   house, type, &health, &cell, &facing, trigger, &sellable, &rebuild) >= 4) {
-            MissionBuilding* bld = &mission->buildings[mission->buildingCount];
-            bld->type = ParseBuildingType(type);
-            bld->team = ParseTeam(house);
-            bld->cellX = CELL_TO_X(cell);
-            bld->cellY = CELL_TO_Y(cell);
-            bld->health = (int16_t)health;
-            bld->facing = (int16_t)facing;
-            bld->sellable = (int8_t)sellable;
-            bld->rebuild = (int8_t)rebuild;
-
-            if (bld->type != BUILDING_NONE) {
-                mission->buildingCount++;
-            }
-        }
-    }
-
-    // [INFANTRY] section - Format: ID=House,Type,Health,Cell,SubCell,Mission,Facing,Trigger
-    // Example: 0=USSR,DOG,256,7615,2,Hunt,0,dwig
-    count = ini->EntryCount("INFANTRY");
-    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
-        const char* entry = ini->GetEntry("INFANTRY", i);
-        if (!entry) continue;
-
-        char value[128];
-        ini->GetString("INFANTRY", entry, "", value, sizeof(value));
-
-        char house[32], type[32], missionStr[32], trigger[32];
-        int health, cell, subCell, facing = 0;
-        missionStr[0] = '\0';
-        trigger[0] = '\0';
-
-        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%31s",
-                   house, type, &health, &cell, &subCell, missionStr, &facing, trigger) >= 5) {
-            MissionUnit* unit = &mission->units[mission->unitCount];
-            unit->type = ParseUnitType(type);
-            unit->team = ParseTeam(house);
-            unit->cellX = CELL_TO_X(cell);
-            unit->cellY = CELL_TO_Y(cell);
-            unit->health = (int16_t)health;
-            unit->facing = (int16_t)facing;
-            unit->mission = ParseMissionType(missionStr);
-            unit->subCell = (int16_t)subCell;
-
-            if (unit->type != UNIT_NONE) {
-                mission->unitCount++;
-            }
-        }
-    }
-
-    // [Trigs] section - trigger definitions
-    // Format: name=persist,house,event_control,action_control,
-    //         event1,e1p1,e1p2,event2,e2p1,e2p2,
-    //         action1,a1p1,a1p2,a1p3,action2,a2p1,a2p2,a2p3
-    count = ini->EntryCount("Trigs");
-    g_parsedTriggerCount = 0;  // Clear existing triggers
-    for (int i = 0; i < count && g_parsedTriggerCount < MAX_PARSED_TRIGGERS; i++) {
-        const char* trigName = ini->GetEntry("Trigs", i);
-        if (!trigName) continue;
-
-        char value[256];
-        ini->GetString("Trigs", trigName, "", value, sizeof(value));
-
-        // Parse trigger definition
-        int persist, house, eventCtrl, actionCtrl;
-        int event1, e1p1, e1p2, event2, e2p1, e2p2;
-        int action1, a1p1, a1p2, a1p3, action2, a2p1, a2p2, a2p3;
-
-        int parsed = sscanf(value,
-            "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
-            &persist, &house, &eventCtrl, &actionCtrl,
-            &event1, &e1p1, &e1p2, &event2, &e2p1, &e2p2,
-            &action1, &a1p1, &a1p2, &a1p3, &action2, &a2p1, &a2p2, &a2p3);
-
-        if (parsed >= 11) {
-            ParsedTrigger* trig = &g_parsedTriggers[g_parsedTriggerCount];
-            memset(trig, 0, sizeof(ParsedTrigger));
-
-            // Name (max 23 chars)
-            strncpy(trig->name, trigName, 23);
-            trig->name[23] = '\0';
-            trig->active = true;
-
-            // Store all parsed values
-            trig->persist = persist;
-            trig->house = house;
-            trig->eventControl = eventCtrl;
-            trig->actionControl = actionCtrl;
-            trig->event1 = event1;
-            trig->e1p1 = e1p1;
-            trig->e1p2 = e1p2;
-            trig->event2 = event2;
-            trig->e2p1 = e2p1;
-            trig->e2p2 = e2p2;
-            trig->action1 = action1;
-            trig->a1p1 = a1p1;
-            trig->a1p2 = a1p2;
-            trig->a1p3 = a1p3;
-
-            if (parsed >= 18) {
-                trig->action2 = action2;
-                trig->a2p1 = a2p1;
-                trig->a2p2 = a2p2;
-                trig->a2p3 = a2p3;
-            }
-
-            g_parsedTriggerCount++;
-        }
-    }
-
-    // [Waypoints] section - spawn points, movement targets
-    // Format: waypoint_number=cell_number
-    count = ini->EntryCount("Waypoints");
-    mission->waypointCount = 0;
-    // Initialize all waypoints to invalid (-1)
-    for (int i = 0; i < MAX_MISSION_WAYPOINTS; i++) {
-        mission->waypoints[i].cell = -1;
-        mission->waypoints[i].cellX = -1;
-        mission->waypoints[i].cellY = -1;
-    }
-    for (int i = 0; i < count; i++) {
-        const char* entry = ini->GetEntry("Waypoints", i);
-        if (!entry) continue;
-
-        int wpNum = atoi(entry);
-        if (wpNum < 0 || wpNum >= MAX_MISSION_WAYPOINTS) continue;
-
-        int cell = ini->GetInt("Waypoints", entry, -1);
-        if (cell < 0) continue;
-
-        mission->waypoints[wpNum].cell = cell;
-        mission->waypoints[wpNum].cellX = CELL_TO_X(cell);
-        mission->waypoints[wpNum].cellY = CELL_TO_Y(cell);
-
-        if (wpNum >= mission->waypointCount) {
-            mission->waypointCount = wpNum + 1;
-        }
-    }
-
-    // [MapPack] section - base64 LCW-compressed terrain data
-    // RA format: 16-bit tile IDs (128*128*2=32KB) + 8-bit indices (128*128=16KB)
-    // Total: 49152 bytes = MAP_CELL_TOTAL * 3
-    int mapPackSize = 0;
-    uint8_t* mapPackData = ParsePackSection(ini, "MapPack", &mapPackSize);
-    if (mapPackData && mapPackSize >= MAP_CELL_TOTAL * 3) {
-        // Allocate arrays - store low byte of 16-bit tile ID as type
-        mission->terrainType = (uint8_t*)malloc(MAP_CELL_TOTAL);
-        mission->terrainIcon = (uint8_t*)malloc(MAP_CELL_TOTAL);
-
-        if (mission->terrainType && mission->terrainIcon) {
-            // Extract low byte of each 16-bit tile ID as terrain type
-            // (High byte is rarely used, usually 0 or 0xFF for special)
-            for (int i = 0; i < MAP_CELL_TOTAL; i++) {
-                uint16_t tileID = mapPackData[i * 2] |
-                                  (mapPackData[i * 2 + 1] << 8);
-                // 0 and 0xFFFF are "clear" terrain
-                mission->terrainType[i] = (tileID == 0 || tileID == 0xFFFF)
-                                          ? 0xFF : (uint8_t)(tileID & 0xFF);
-            }
-            // Copy tile indices from second half
-            memcpy(mission->terrainIcon,
-                   mapPackData + MAP_CELL_TOTAL * 2,
-                   MAP_CELL_TOTAL);
-        }
-        free(mapPackData);
-    }
-
-    // [OverlayPack] section - base64 LCW-compressed overlay data
-    int overlayPackSize = 0;
-    uint8_t* overlayPackData = ParsePackSection(ini, "OverlayPack",
-                                                 &overlayPackSize);
-    if (overlayPackData && overlayPackSize >= MAP_CELL_TOTAL) {
-        mission->overlayType = (uint8_t*)malloc(MAP_CELL_TOTAL);
-        if (mission->overlayType) {
-            memcpy(mission->overlayType, overlayPackData, MAP_CELL_TOTAL);
-        }
-        // Overlay data (variant/frame) if present
-        if (overlayPackSize >= MAP_CELL_TOTAL * 2) {
-            mission->overlayData = (uint8_t*)malloc(MAP_CELL_TOTAL);
-            if (mission->overlayData) {
-                memcpy(mission->overlayData, overlayPackData + MAP_CELL_TOTAL,
-                       MAP_CELL_TOTAL);
-            }
-        }
-        free(overlayPackData);
-    }
-
-    // [TeamTypes] section - AI team definitions
-    // Format: name=house,flags,recruitPriority,initNum,maxAllowed,origin,trigger,
-    //         numMembers,memberType1:qty1,memberType2:qty2,...,
-    //         numMissions,mission1:data1,mission2:data2,...
-    count = ini->EntryCount("TeamTypes");
-    mission->teamTypeCount = 0;
-    for (int i = 0; i < count && mission->teamTypeCount < MAX_TEAM_TYPES; i++) {
-        const char* teamName = ini->GetEntry("TeamTypes", i);
-        if (!teamName) continue;
-
-        char value[512];
-        ini->GetString("TeamTypes", teamName, "", value, sizeof(value));
-        if (value[0] == '\0') continue;
-
-        MissionTeamType* team = &mission->teamTypes[mission->teamTypeCount];
-        memset(team, 0, sizeof(MissionTeamType));
-
-        // Store team name
-        strncpy(team->name, teamName, sizeof(team->name) - 1);
-
-        // Parse comma-separated values
-        char* ptr = value;
-        char* next;
-
-        // house (0-7)
-        team->house = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // flags (packed: roundabout, suicide, autocreate, etc.)
-        team->flags = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // recruitPriority
-        team->recruitPriority = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // initNum
-        team->initNum = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // maxAllowed
-        team->maxAllowed = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // origin waypoint
-        team->origin = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // trigger ID (or -1 for none)
-        team->trigger = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // numMembers
-        int numMembers = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1; else continue;
-
-        // Parse member entries (type:qty)
-        team->memberCount = 0;
-        for (int m = 0; m < numMembers && m < MAX_TEAM_MEMBERS; m++) {
-            // Find colon separating type:qty
-            char* colon = strchr(ptr, ':');
-            if (!colon) break;
-
-            // Extract type name
-            int typeLen = (int)(colon - ptr);
-            if (typeLen > 7) typeLen = 7;
-            strncpy(team->members[m].unitType, ptr, typeLen);
-            team->members[m].unitType[typeLen] = '\0';
-
-            // Extract quantity
-            ptr = colon + 1;
-            team->members[m].quantity = strtol(ptr, &next, 10);
-            team->memberCount++;
-
-            if (*next == ',') ptr = next + 1;
-            else break;
-        }
-
-        // numMissions
-        int numMissions = strtol(ptr, &next, 10);
-        if (*next == ',') ptr = next + 1;
-
-        // Parse mission entries (mission:data)
-        team->missionCount = 0;
-        for (int m = 0; m < numMissions && m < MAX_TEAM_MISSIONS; m++) {
-            // Find colon separating mission:data
-            char* colon = strchr(ptr, ':');
-            if (!colon) break;
-
-            // Extract mission type
-            team->missions[m].mission = strtol(ptr, &colon, 10);
-
-            // Extract data
-            ptr = colon + 1;
-            team->missions[m].data = strtol(ptr, &next, 10);
-            team->missionCount++;
-
-            if (*next == ',') ptr = next + 1;
-            else break;
-        }
-
-        mission->teamTypeCount++;
-    }
-
-    // [Base] section - AI base rebuild info
-    // Format: Player=<house>, Count=<number>
-    char basePlayer[32];
-    ini->GetString("Base", "Player", "", basePlayer, sizeof(basePlayer));
-    if (basePlayer[0] != '\0') {
-        // Map house name to number
-        mission->baseHouse = ParseHouseName(basePlayer);
-    }
-    mission->baseCount = ini->GetInt("Base", "Count", 0);
-
-    // [TERRAIN] section - trees and terrain objects
-    // Format: cell=TerrainType (e.g., 11584=T16, 10676=TC04)
-    count = ini->EntryCount("TERRAIN");
-    mission->terrainObjCount = 0;
-    for (int i = 0; i < count && mission->terrainObjCount < MAX_MISSION_TERRAIN; i++) {
-        const char* entry = ini->GetEntry("TERRAIN", i);
-        if (!entry) continue;
-
-        int cell = atoi(entry);
-        if (cell < 0) continue;
-
-        char terrType[16];
-        ini->GetString("TERRAIN", entry, "", terrType, sizeof(terrType));
-        if (terrType[0] == '\0') continue;
-
-        MissionTerrainObj* obj = &mission->terrainObjs[mission->terrainObjCount];
-        strncpy(obj->type, terrType, sizeof(obj->type) - 1);
-        obj->type[sizeof(obj->type) - 1] = '\0';
-        obj->cellX = CELL_TO_X(cell);
-        obj->cellY = CELL_TO_Y(cell);
-        mission->terrainObjCount++;
-    }
-
-    // [SMUDGE] section - craters and scorch marks
-    // Format: cell=SmudgeType,cell,data (e.g., 10172=CR1,10172,0)
-    count = ini->EntryCount("SMUDGE");
-    mission->smudgeCount = 0;
-    for (int i = 0; i < count && mission->smudgeCount < MAX_MISSION_SMUDGE; i++) {
-        const char* entry = ini->GetEntry("SMUDGE", i);
-        if (!entry) continue;
-
-        int cell = atoi(entry);
-        if (cell < 0) continue;
-
-        char value[64];
-        ini->GetString("SMUDGE", entry, "", value, sizeof(value));
-        if (value[0] == '\0') continue;
-
-        char smudgeType[16];
-        int smudgeCell, smudgeData = 0;
-        if (sscanf(value, "%15[^,],%d,%d", smudgeType, &smudgeCell, &smudgeData) >= 2) {
-            MissionSmudge* smudge = &mission->smudges[mission->smudgeCount];
-            strncpy(smudge->type, smudgeType, sizeof(smudge->type) - 1);
-            smudge->type[sizeof(smudge->type) - 1] = '\0';
-            smudge->cellX = CELL_TO_X(smudgeCell);
-            smudge->cellY = CELL_TO_Y(smudgeCell);
-            smudge->data = (int16_t)smudgeData;
-            mission->smudgeCount++;
-        }
-    }
-
-    // [SHIPS] section - naval units (same format as [UNITS])
-    // Format: ID=House,Type,Health,Cell,Facing,Mission,Trigger
-    // Example: 0=USSR,SS,256,9165,192,Guard,sea3
-    count = ini->EntryCount("SHIPS");
-    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
-        const char* entry = ini->GetEntry("SHIPS", i);
-        if (!entry) continue;
-
-        char value[128];
-        ini->GetString("SHIPS", entry, "", value, sizeof(value));
-
-        char house[32], type[32], missionStr[32], trigger[32];
-        int health, cell, facing;
-        missionStr[0] = '\0';
-        trigger[0] = '\0';
-
-        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
-                   house, type, &health, &cell, &facing, missionStr, trigger) >= 5) {
-            MissionUnit* unit = &mission->units[mission->unitCount];
-            unit->type = ParseUnitType(type);
-            unit->team = ParseTeam(house);
-            unit->cellX = CELL_TO_X(cell);
-            unit->cellY = CELL_TO_Y(cell);
-            unit->health = (int16_t)health;
-            unit->facing = (int16_t)facing;
-            unit->mission = ParseMissionType(missionStr);
-            unit->subCell = 0;  // Ships don't have sub-cells
-
-            if (unit->type != UNIT_NONE) {
-                mission->unitCount++;
-            }
-        }
-    }
+    // Entity sections
+    ParseUnitsSection(mission, ini);
+    ParseStructuresSection(mission, ini);
+    ParseInfantrySection(mission, ini);
+    ParseShipsSection(mission, ini);
+
+    // Scripting sections
+    ParseTrigsSection(ini);
+    ParseWaypointsSection(mission, ini);
+    ParseTeamTypesSection(mission, ini);
+    ParseBaseSection(mission, ini);
+
+    // Map data sections
+    ParseMapPackSection(mission, ini);
+    ParseOverlayPackSection(mission, ini);
+
+    // Decoration sections
+    ParseTerrainSection(mission, ini);
+    ParseSmudgeSection(mission, ini);
 
     return 1;
 }
