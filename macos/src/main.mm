@@ -162,9 +162,9 @@ static void StartCampaignMission(int campaign, int difficulty) {
     g_pendingDifficulty = difficulty;
 
     // Build mission filename
-    // Soviet: SCG01EA, SCG02EA, ...
-    // Allied: SCU01EA, SCU02EA, ...
-    const char* prefix = (campaign == CAMPAIGN_ALLIED) ? "SCU" : "SCG";
+    // Allied: SCG01EA, SCG02EA, ... (G = Greece/GoodGuy)
+    // Soviet: SCU01EA, SCU02EA, ... (U = USSR)
+    const char* prefix = (campaign == CAMPAIGN_ALLIED) ? "SCG" : "SCU";
     char missionName[32];
     snprintf(missionName, sizeof(missionName), "%s01EA", prefix);
 
