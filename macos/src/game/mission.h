@@ -26,6 +26,8 @@ class INIClass;
 #define MAX_TEAM_TYPES          32
 #define MAX_TEAM_MEMBERS        5
 #define MAX_TEAM_MISSIONS       20
+#define MAX_MISSION_TERRAIN     64
+#define MAX_MISSION_SMUDGE      32
 
 // Map constants (Red Alert uses 128x128 cell maps)
 #define MAP_CELL_W              128
@@ -110,6 +112,21 @@ typedef struct {
     int missionCount;
 } MissionTeamType;
 
+// Terrain object (trees, etc. from [TERRAIN] section)
+typedef struct {
+    char type[8];           // Type name (T01, TC03, etc.)
+    int16_t cellX;
+    int16_t cellY;
+} MissionTerrainObj;
+
+// Smudge (craters, scorch marks from [SMUDGE] section)
+typedef struct {
+    char type[8];           // Type name (CR1, SC2, etc.)
+    int16_t cellX;
+    int16_t cellY;
+    int16_t data;           // Smudge variant/frame
+} MissionSmudge;
+
 // Mission data
 typedef struct {
     // Identity
@@ -151,6 +168,14 @@ typedef struct {
     // Team types (AI team definitions)
     MissionTeamType teamTypes[MAX_TEAM_TYPES];
     int teamTypeCount;
+
+    // Terrain objects (trees, etc. from [TERRAIN])
+    MissionTerrainObj terrainObjs[MAX_MISSION_TERRAIN];
+    int terrainObjCount;
+
+    // Smudges (craters, scorch marks from [SMUDGE])
+    MissionSmudge smudges[MAX_MISSION_SMUDGE];
+    int smudgeCount;
 
     // Base section (AI build order info)
     int baseHouse;          // House that owns the base (-1 if not set)

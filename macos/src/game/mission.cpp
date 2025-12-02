@@ -776,6 +776,91 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
     }
     mission->baseCount = ini->GetInt("Base", "Count", 0);
 
+    // [TERRAIN] section - trees and terrain objects
+    // Format: cell=TerrainType (e.g., 11584=T16, 10676=TC04)
+    count = ini->EntryCount("TERRAIN");
+    mission->terrainObjCount = 0;
+    for (int i = 0; i < count && mission->terrainObjCount < MAX_MISSION_TERRAIN; i++) {
+        const char* entry = ini->GetEntry("TERRAIN", i);
+        if (!entry) continue;
+
+        int cell = atoi(entry);
+        if (cell < 0) continue;
+
+        char terrType[16];
+        ini->GetString("TERRAIN", entry, "", terrType, sizeof(terrType));
+        if (terrType[0] == '\0') continue;
+
+        MissionTerrainObj* obj = &mission->terrainObjs[mission->terrainObjCount];
+        strncpy(obj->type, terrType, sizeof(obj->type) - 1);
+        obj->type[sizeof(obj->type) - 1] = '\0';
+        obj->cellX = CELL_TO_X(cell);
+        obj->cellY = CELL_TO_Y(cell);
+        mission->terrainObjCount++;
+    }
+
+    // [SMUDGE] section - craters and scorch marks
+    // Format: cell=SmudgeType,cell,data (e.g., 10172=CR1,10172,0)
+    count = ini->EntryCount("SMUDGE");
+    mission->smudgeCount = 0;
+    for (int i = 0; i < count && mission->smudgeCount < MAX_MISSION_SMUDGE; i++) {
+        const char* entry = ini->GetEntry("SMUDGE", i);
+        if (!entry) continue;
+
+        int cell = atoi(entry);
+        if (cell < 0) continue;
+
+        char value[64];
+        ini->GetString("SMUDGE", entry, "", value, sizeof(value));
+        if (value[0] == '\0') continue;
+
+        char smudgeType[16];
+        int smudgeCell, smudgeData = 0;
+        if (sscanf(value, "%15[^,],%d,%d", smudgeType, &smudgeCell, &smudgeData) >= 2) {
+            MissionSmudge* smudge = &mission->smudges[mission->smudgeCount];
+            strncpy(smudge->type, smudgeType, sizeof(smudge->type) - 1);
+            smudge->type[sizeof(smudge->type) - 1] = '\0';
+            smudge->cellX = CELL_TO_X(smudgeCell);
+            smudge->cellY = CELL_TO_Y(smudgeCell);
+            smudge->data = (int16_t)smudgeData;
+            mission->smudgeCount++;
+        }
+    }
+
+    // [SHIPS] section - naval units (same format as [UNITS])
+    // Format: ID=House,Type,Health,Cell,Facing,Mission,Trigger
+    // Example: 0=USSR,SS,256,9165,192,Guard,sea3
+    count = ini->EntryCount("SHIPS");
+    for (int i = 0; i < count && mission->unitCount < MAX_MISSION_UNITS; i++) {
+        const char* entry = ini->GetEntry("SHIPS", i);
+        if (!entry) continue;
+
+        char value[128];
+        ini->GetString("SHIPS", entry, "", value, sizeof(value));
+
+        char house[32], type[32], missionStr[32], trigger[32];
+        int health, cell, facing;
+        missionStr[0] = '\0';
+        trigger[0] = '\0';
+
+        if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
+                   house, type, &health, &cell, &facing, missionStr, trigger) >= 5) {
+            MissionUnit* unit = &mission->units[mission->unitCount];
+            unit->type = ParseUnitType(type);
+            unit->team = ParseTeam(house);
+            unit->cellX = CELL_TO_X(cell);
+            unit->cellY = CELL_TO_Y(cell);
+            unit->health = (int16_t)health;
+            unit->facing = (int16_t)facing;
+            unit->mission = ParseMissionType(missionStr);
+            unit->subCell = 0;  // Ships don't have sub-cells
+
+            if (unit->type != UNIT_NONE) {
+                mission->unitCount++;
+            }
+        }
+    }
+
     return 1;
 }
 
@@ -923,6 +1008,18 @@ void Mission_Start(const MissionData* mission) {
         if (mission->teamTypeCount > 5) {
             fprintf(stderr, "    ... and %d more\n", mission->teamTypeCount - 5);
         }
+    }
+
+    // Log terrain objects
+    if (mission->terrainObjCount > 0) {
+        fprintf(stderr, "  Loaded %d terrain objects (trees, etc.)\n",
+                mission->terrainObjCount);
+    }
+
+    // Log smudges
+    if (mission->smudgeCount > 0) {
+        fprintf(stderr, "  Loaded %d smudges (craters, etc.)\n",
+                mission->smudgeCount);
     }
 }
 

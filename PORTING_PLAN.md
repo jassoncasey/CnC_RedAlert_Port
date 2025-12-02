@@ -67,15 +67,18 @@ Mission INI files now parse all entity types correctly.
 | 5.1 | TD-5c | ~~Parse [TeamTypes], [Base], [Reinforcements]~~ | ~~4 hrs~~ | **DONE** |
 | 5.2 | TD-4 | ~~Use health, facing, mission fields~~ | ~~2 hrs~~ | **DONE** |
 | 5.3 | B3-full | ~~Remaining trigger events/actions~~ | ~~8 hrs~~ | **DONE** (basic) |
-| 5.4 | TD-5d | Parse [Terrain], [Smudge], [Ships] | 4 hrs | |
+| 5.4 | TD-5d | ~~Parse [Terrain], [Smudge], [Ships]~~ | ~~4 hrs~~ | **DONE** |
 
-**Status:**
+**Status:** TIER 5 COMPLETE
 - TeamTypes parsing complete (15 teams parse from SCU01EA)
 - Base section parsing complete ([Reinforcements] not in files - via triggers)
 - Entity data parsing: health, facing, mission, subCell now stored
 - Trigger events: ENTERED, ATTACKED, DESTROYED, ALL_DESTR, TIME, ANY, DISCOVERED
 - Trigger actions: Win/Lose, CreateTeam, Reinforce, Text, RevealAll, RevealArea, DestroyTrigger, etc.
 - Map_RevealAll() and Map_RevealArea() implemented
+- [TERRAIN] section parsed (trees T01-T17, tree clumps TC01-TC05)
+- [SMUDGE] section parsed (craters CR1-CR6, scorch marks SC1-SC6)
+- [SHIPS] section parsed (naval units: SS, DD, CA, LST, PT, GNBT)
 
 ### TIER 6: UI Polish
 
