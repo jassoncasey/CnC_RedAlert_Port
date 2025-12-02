@@ -2,6 +2,17 @@
 
 ## December 2, 2024
 
+### Campaign Phase 1 Complete
+
+All Phase 1 campaign infrastructure is now working:
+
+| ID | Item | Description |
+|----|------|-------------|
+| CAM-1 | INI-based mission loading | Loads SCG/SCU missions from GENERAL.MIX |
+| CAM-2 | Complete trigger actions | All critical actions implemented |
+| CAM-3 | Unit/building carryover | Save_Carryover/Load_Carryover system |
+| CAM-4 | Briefing video integration | VQA playback for Brief/Win/Lose |
+
 ### Trigger Actions
 | ID | Item | Notes |
 |----|------|-------|
@@ -12,6 +23,10 @@
 | TR-9 | PLAY_MOVIE | Mid-mission VQA playback |
 | TR-10 | START/STOP_TIMER | Mission timer control |
 | TR-11 | DESTROY_OBJ | Trigger-linked destruction |
+| TR-12 | ALL_HUNT | Set all units to hunt mode |
+| TR-13 | REVEAL_ALL | Full map reveal |
+| TR-14 | REVEAL_SOME | Waypoint-based reveal |
+| TR-15 | REINFORCE | Spawn units at waypoint |
 
 ### Trigger Events
 | ID | Item | Notes |
@@ -45,8 +60,38 @@
 | BUG-09 | Attack cursor | Context-sensitive cursor system |
 | BUG-10 | Units cross cliffs | Terrain passability check added |
 | BUG-11 | Teal dots sprites | Sprite loading fixed |
-| BUG-12/13 | Building render order | Y-sorted rendering + placement check |
+| BUG-12/13 | Building render order | Y-sorted rendering + placement |
 | BUG-14 | Chinook transport | Full transport load/unload system |
-| BUG-15 | Helicopter blocked | Aircraft skip cell occupancy checks |
-| BUG-16 | Group transport load | loadTarget tracking, angle-spread pathing, retry rotation |
-| BUG-17 | Jeep climbs cliffs | Fixed template ID mapping (135-172 = cliffs) |
+| BUG-15 | Helicopter blocked | Aircraft skip cell occupancy |
+| BUG-16 | Group transport load | loadTarget tracking, retry rotation |
+| BUG-17 | Jeep climbs cliffs | Fixed template ID mapping |
+
+---
+
+## November 2024
+
+### Core Systems
+
+| ID | Item | Notes |
+|----|------|-------|
+| SYS-1 | Metal renderer | 60 FPS palette rendering |
+| SYS-2 | Theater loading | TEMPERAT, SNOW, INTERIOR MIX |
+| SYS-3 | Team color remap | Sprite palette remapping |
+| SYS-4 | A* pathfinding | Ground unit movement |
+| SYS-5 | Aircraft flight | Direct flight pathing |
+| SYS-6 | VQA playback | Video with audio sync |
+| SYS-7 | AUD streaming | Background music |
+| SYS-8 | Save/Load | Game state persistence |
+| SYS-9 | Fog of war | Shroud + fog system |
+| SYS-10 | Menu system | Main menu, options |
+
+### Configuration
+
+| ID | Item | Notes |
+|----|------|-------|
+| CFG-1 | Mutable type data | Runtime type modification |
+| CFG-2 | Unit/Infantry loading | RULES.INI parsing |
+| CFG-3 | Building loading | Structure data from INI |
+| CFG-4 | Weapon/Warhead | Combat data from INI |
+| CFG-5 | Game constants | Speed, costs, etc. |
+| CFG-6 | Aircraft flight | Direct flight mode |
