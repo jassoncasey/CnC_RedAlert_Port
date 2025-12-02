@@ -22,34 +22,79 @@ extern "C" {
 typedef enum {
     UNIT_NONE = 0,
     // Infantry
-    UNIT_RIFLE,         // Rifle infantry
-    UNIT_GRENADIER,     // Grenade infantry
-    UNIT_ROCKET,        // Rocket soldier
-    UNIT_ENGINEER,      // Engineer
+    UNIT_RIFLE,         // E1 - Rifle infantry
+    UNIT_GRENADIER,     // E2 - Grenade infantry
+    UNIT_ROCKET,        // E3 - Rocket soldier
+    UNIT_ENGINEER,      // E6 - Engineer
+    UNIT_DOG,           // DOG - Attack dog
+    UNIT_SPY,           // SPY/E5 - Spy
+    UNIT_MEDIC,         // MEDI - Medic
+    UNIT_THIEF,         // THF - Thief
+    UNIT_SHOCK,         // SHOK - Shock trooper
     // Vehicles
-    UNIT_HARVESTER,     // Ore harvester
-    UNIT_TANK_LIGHT,    // Light tank
-    UNIT_TANK_MEDIUM,   // Medium tank
-    UNIT_TANK_HEAVY,    // Heavy/Mammoth tank
-    UNIT_APC,           // Armored personnel carrier
-    UNIT_ARTILLERY,     // Artillery
+    UNIT_HARVESTER,     // HARV - Ore harvester
+    UNIT_TANK_LIGHT,    // 1TNK - Light tank
+    UNIT_TANK_MEDIUM,   // 2TNK - Medium tank
+    UNIT_TANK_HEAVY,    // 3TNK - Heavy/Mammoth tank
+    UNIT_TANK_MAMMOTH,  // 4TNK - Mammoth tank (Soviet)
+    UNIT_APC,           // APC - Armored personnel carrier
+    UNIT_ARTILLERY,     // ARTY - Artillery
+    UNIT_JEEP,          // JEEP - Ranger/Jeep
+    UNIT_MCV,           // MCV - Mobile construction vehicle
+    UNIT_V2RL,          // V2RL - V2 Rocket Launcher
+    UNIT_MINELAYER,     // MNLY - Minelayer
+    UNIT_TRUCK,         // TRUK - Supply truck
+    UNIT_CHRONO,        // CTNK - Chrono tank
     // Naval
-    UNIT_GUNBOAT,       // Gunboat
-    UNIT_DESTROYER,     // Destroyer
+    UNIT_GUNBOAT,       // GNBT - Gunboat
+    UNIT_DESTROYER,     // DD - Destroyer
+    UNIT_SUBMARINE,     // SS - Submarine
+    UNIT_CRUISER,       // CA - Cruiser
+    UNIT_TRANSPORT,     // LST - Transport
+    UNIT_PT_BOAT,       // PT - PT Boat
+    // Aircraft
+    UNIT_HIND,          // HIND - Hind helicopter
+    UNIT_LONGBOW,       // HELI - Longbow helicopter
+    UNIT_CHINOOK,       // TRAN - Transport helicopter
+    UNIT_YAK,           // YAK - Yak attack plane
+    UNIT_MIG,           // MIG - MiG attack plane
     UNIT_TYPE_COUNT
 } UnitType;
 
 // Building types
 typedef enum {
     BUILDING_NONE = 0,
-    BUILDING_CONSTRUCTION,  // Construction yard
-    BUILDING_POWER,         // Power plant
-    BUILDING_REFINERY,      // Ore refinery
-    BUILDING_BARRACKS,      // Infantry production
-    BUILDING_FACTORY,       // Vehicle production
-    BUILDING_RADAR,         // Radar dome
-    BUILDING_TURRET,        // Gun turret
-    BUILDING_SAM,           // SAM site
+    // Core structures
+    BUILDING_CONSTRUCTION,  // FACT - Construction yard
+    BUILDING_POWER,         // POWR - Power plant
+    BUILDING_ADV_POWER,     // APWR - Advanced power plant
+    BUILDING_REFINERY,      // PROC - Ore refinery
+    BUILDING_SILO,          // SILO - Ore silo
+    // Production
+    BUILDING_BARRACKS,      // TENT/BARR - Infantry production
+    BUILDING_FACTORY,       // WEAP - Vehicle production
+    BUILDING_AIRFIELD,      // AFLD - Airfield
+    BUILDING_HELIPAD,       // HPAD - Helipad
+    BUILDING_SHIPYARD,      // SYRD - Naval yard
+    BUILDING_SUB_PEN,       // SPEN - Submarine pen
+    // Tech
+    BUILDING_RADAR,         // DOME - Radar dome
+    BUILDING_TECH_CENTER,   // ATEK/STEK - Tech center
+    BUILDING_KENNEL,        // KENN - Kennel (dog training)
+    // Defense
+    BUILDING_TURRET,        // GUN - Gun turret
+    BUILDING_SAM,           // SAM - SAM site
+    BUILDING_TESLA,         // TSLA - Tesla coil
+    BUILDING_AA_GUN,        // AGUN - Anti-aircraft gun
+    BUILDING_PILLBOX,       // PBOX - Pillbox
+    BUILDING_CAMO_PILLBOX,  // HBOX - Camo pillbox
+    BUILDING_FLAME_TOWER,   // FTUR - Flame tower
+    BUILDING_GAP,           // GAP - Gap generator
+    // Special
+    BUILDING_FIX,           // FIX - Service depot
+    BUILDING_IRON_CURTAIN,  // IRON - Iron curtain
+    BUILDING_CHRONOSPHERE,  // PDOX - Chronosphere
+    BUILDING_MISSILE_SILO,  // MSLO - Missile silo
     BUILDING_TYPE_COUNT
 } BuildingType;
 

@@ -77,22 +77,45 @@ static UnitType ParseUnitType(const char* str) {
     if (!str) return UNIT_NONE;
 
     // Infantry
-    if (strcasecmp(str, "E1") == 0 || strcasecmp(str, "RIFLE") == 0) return UNIT_RIFLE;
-    if (strcasecmp(str, "E2") == 0 || strcasecmp(str, "GRENADIER") == 0) return UNIT_GRENADIER;
-    if (strcasecmp(str, "E3") == 0 || strcasecmp(str, "ROCKET") == 0) return UNIT_ROCKET;
-    if (strcasecmp(str, "E6") == 0 || strcasecmp(str, "ENGINEER") == 0) return UNIT_ENGINEER;
+    if (strcasecmp(str, "E1") == 0) return UNIT_RIFLE;
+    if (strcasecmp(str, "E2") == 0) return UNIT_GRENADIER;
+    if (strcasecmp(str, "E3") == 0) return UNIT_ROCKET;
+    if (strcasecmp(str, "E6") == 0) return UNIT_ENGINEER;
+    if (strcasecmp(str, "E5") == 0 || strcasecmp(str, "SPY") == 0) return UNIT_SPY;
+    if (strcasecmp(str, "DOG") == 0) return UNIT_DOG;
+    if (strcasecmp(str, "MEDI") == 0) return UNIT_MEDIC;
+    if (strcasecmp(str, "THF") == 0) return UNIT_THIEF;
+    if (strcasecmp(str, "SHOK") == 0) return UNIT_SHOCK;
 
     // Vehicles
-    if (strcasecmp(str, "HARV") == 0 || strcasecmp(str, "HARVESTER") == 0) return UNIT_HARVESTER;
-    if (strcasecmp(str, "1TNK") == 0 || strcasecmp(str, "LTANK") == 0) return UNIT_TANK_LIGHT;
-    if (strcasecmp(str, "2TNK") == 0 || strcasecmp(str, "MTANK") == 0) return UNIT_TANK_MEDIUM;
-    if (strcasecmp(str, "3TNK") == 0 || strcasecmp(str, "HTANK") == 0) return UNIT_TANK_HEAVY;
+    if (strcasecmp(str, "HARV") == 0) return UNIT_HARVESTER;
+    if (strcasecmp(str, "1TNK") == 0) return UNIT_TANK_LIGHT;
+    if (strcasecmp(str, "2TNK") == 0) return UNIT_TANK_MEDIUM;
+    if (strcasecmp(str, "3TNK") == 0) return UNIT_TANK_HEAVY;
+    if (strcasecmp(str, "4TNK") == 0) return UNIT_TANK_MAMMOTH;
     if (strcasecmp(str, "APC") == 0) return UNIT_APC;
-    if (strcasecmp(str, "ARTY") == 0 || strcasecmp(str, "ARTILLERY") == 0) return UNIT_ARTILLERY;
+    if (strcasecmp(str, "ARTY") == 0) return UNIT_ARTILLERY;
+    if (strcasecmp(str, "JEEP") == 0) return UNIT_JEEP;
+    if (strcasecmp(str, "MCV") == 0) return UNIT_MCV;
+    if (strcasecmp(str, "V2RL") == 0) return UNIT_V2RL;
+    if (strcasecmp(str, "MNLY") == 0) return UNIT_MINELAYER;
+    if (strcasecmp(str, "TRUK") == 0) return UNIT_TRUCK;
+    if (strcasecmp(str, "CTNK") == 0) return UNIT_CHRONO;
 
     // Naval
-    if (strcasecmp(str, "GNBT") == 0 || strcasecmp(str, "GUNBOAT") == 0) return UNIT_GUNBOAT;
-    if (strcasecmp(str, "DD") == 0 || strcasecmp(str, "DESTROYER") == 0) return UNIT_DESTROYER;
+    if (strcasecmp(str, "GNBT") == 0) return UNIT_GUNBOAT;
+    if (strcasecmp(str, "DD") == 0) return UNIT_DESTROYER;
+    if (strcasecmp(str, "SS") == 0) return UNIT_SUBMARINE;
+    if (strcasecmp(str, "CA") == 0) return UNIT_CRUISER;
+    if (strcasecmp(str, "LST") == 0) return UNIT_TRANSPORT;
+    if (strcasecmp(str, "PT") == 0) return UNIT_PT_BOAT;
+
+    // Aircraft
+    if (strcasecmp(str, "HIND") == 0) return UNIT_HIND;
+    if (strcasecmp(str, "HELI") == 0) return UNIT_LONGBOW;
+    if (strcasecmp(str, "TRAN") == 0) return UNIT_CHINOOK;
+    if (strcasecmp(str, "YAK") == 0) return UNIT_YAK;
+    if (strcasecmp(str, "MIG") == 0) return UNIT_MIG;
 
     return UNIT_NONE;
 }
@@ -101,14 +124,41 @@ static UnitType ParseUnitType(const char* str) {
 static BuildingType ParseBuildingType(const char* str) {
     if (!str) return BUILDING_NONE;
 
-    if (strcasecmp(str, "FACT") == 0 || strcasecmp(str, "CONSTRUCTION") == 0) return BUILDING_CONSTRUCTION;
-    if (strcasecmp(str, "POWR") == 0 || strcasecmp(str, "POWER") == 0) return BUILDING_POWER;
-    if (strcasecmp(str, "PROC") == 0 || strcasecmp(str, "REFINERY") == 0) return BUILDING_REFINERY;
-    if (strcasecmp(str, "TENT") == 0 || strcasecmp(str, "BARR") == 0 || strcasecmp(str, "BARRACKS") == 0) return BUILDING_BARRACKS;
-    if (strcasecmp(str, "WEAP") == 0 || strcasecmp(str, "FACTORY") == 0) return BUILDING_FACTORY;
-    if (strcasecmp(str, "DOME") == 0 || strcasecmp(str, "RADAR") == 0) return BUILDING_RADAR;
-    if (strcasecmp(str, "GUN") == 0 || strcasecmp(str, "TURRET") == 0) return BUILDING_TURRET;
+    // Core structures
+    if (strcasecmp(str, "FACT") == 0) return BUILDING_CONSTRUCTION;
+    if (strcasecmp(str, "POWR") == 0) return BUILDING_POWER;
+    if (strcasecmp(str, "APWR") == 0) return BUILDING_ADV_POWER;
+    if (strcasecmp(str, "PROC") == 0) return BUILDING_REFINERY;
+    if (strcasecmp(str, "SILO") == 0) return BUILDING_SILO;
+
+    // Production
+    if (strcasecmp(str, "TENT") == 0 || strcasecmp(str, "BARR") == 0) return BUILDING_BARRACKS;
+    if (strcasecmp(str, "WEAP") == 0) return BUILDING_FACTORY;
+    if (strcasecmp(str, "AFLD") == 0) return BUILDING_AIRFIELD;
+    if (strcasecmp(str, "HPAD") == 0) return BUILDING_HELIPAD;
+    if (strcasecmp(str, "SYRD") == 0) return BUILDING_SHIPYARD;
+    if (strcasecmp(str, "SPEN") == 0) return BUILDING_SUB_PEN;
+
+    // Tech
+    if (strcasecmp(str, "DOME") == 0) return BUILDING_RADAR;
+    if (strcasecmp(str, "ATEK") == 0 || strcasecmp(str, "STEK") == 0) return BUILDING_TECH_CENTER;
+    if (strcasecmp(str, "KENN") == 0) return BUILDING_KENNEL;
+
+    // Defense
+    if (strcasecmp(str, "GUN") == 0) return BUILDING_TURRET;
     if (strcasecmp(str, "SAM") == 0) return BUILDING_SAM;
+    if (strcasecmp(str, "TSLA") == 0) return BUILDING_TESLA;
+    if (strcasecmp(str, "AGUN") == 0) return BUILDING_AA_GUN;
+    if (strcasecmp(str, "PBOX") == 0) return BUILDING_PILLBOX;
+    if (strcasecmp(str, "HBOX") == 0) return BUILDING_CAMO_PILLBOX;
+    if (strcasecmp(str, "FTUR") == 0) return BUILDING_FLAME_TOWER;
+    if (strcasecmp(str, "GAP") == 0) return BUILDING_GAP;
+
+    // Special
+    if (strcasecmp(str, "FIX") == 0) return BUILDING_FIX;
+    if (strcasecmp(str, "IRON") == 0) return BUILDING_IRON_CURTAIN;
+    if (strcasecmp(str, "PDOX") == 0) return BUILDING_CHRONOSPHERE;
+    if (strcasecmp(str, "MSLO") == 0) return BUILDING_MISSILE_SILO;
 
     return BUILDING_NONE;
 }
