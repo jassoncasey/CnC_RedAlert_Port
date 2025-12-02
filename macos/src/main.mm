@@ -84,22 +84,8 @@ static void StartMission(const MissionData* mission) {
     GameUI_Init();
 
     // Start the mission (spawns map, units, buildings)
+    // Mission_Start centers viewport on first player unit
     Mission_Start(mission);
-
-    // Center viewport on player base
-    // Find player construction yard to center on
-    int centerX = 150, centerY = 450;
-    for (int i = 0; i < MAX_BUILDINGS; i++) {
-        Building* bld = Buildings_Get(i);
-        bool isPlayerConYard = bld && bld->team == TEAM_PLAYER &&
-                              bld->type == BUILDING_CONSTRUCTION;
-        if (isPlayerConYard) {
-            centerX = bld->cellX * CELL_SIZE + (bld->width * CELL_SIZE) / 2;
-            centerY = bld->cellY * CELL_SIZE + (bld->height * CELL_SIZE) / 2;
-            break;
-        }
-    }
-    Map_CenterViewport(centerX, centerY);
 
     NSLog(@"Mission started: %s", mission->name);
 }

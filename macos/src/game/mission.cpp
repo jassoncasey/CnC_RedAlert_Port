@@ -1267,8 +1267,23 @@ static void SpawnMissionUnits(const MissionData* mission) {
     }
 }
 
-// Helper: Center viewport on first player unit
-static void CenterOnPlayerUnit(const MissionData* mission) {
+// Helper: Center viewport on player start position
+// Priority: waypoint 98 (player start) > first player unit > default (0,0)
+static void CenterOnPlayerStart(const MissionData* mission) {
+    // Try waypoint 98 first (standard player start waypoint)
+    if (mission->waypointCount > 98 && mission->waypoints[98].cell >= 0) {
+        int localCellX = mission->waypoints[98].cellX - mission->mapX;
+        int localCellY = mission->waypoints[98].cellY - mission->mapY;
+        if (localCellX >= 0 && localCellX < mission->mapWidth &&
+            localCellY >= 0 && localCellY < mission->mapHeight) {
+            int worldX = localCellX * CELL_SIZE + CELL_SIZE / 2;
+            int worldY = localCellY * CELL_SIZE + CELL_SIZE / 2;
+            Map_CenterViewport(worldX, worldY);
+            return;
+        }
+    }
+
+    // Fall back to first player unit
     for (int i = 0; i < mission->unitCount; i++) {
         const MissionUnit* unit = &mission->units[i];
         if (unit->team == TEAM_PLAYER) {
@@ -1347,7 +1362,7 @@ void Mission_Start(const MissionData* mission) {
     LoadMissionMap(mission);
     SpawnMissionBuildings(mission);
     SpawnMissionUnits(mission);
-    CenterOnPlayerUnit(mission);
+    CenterOnPlayerStart(mission);
     LogMissionData(mission);
 }
 

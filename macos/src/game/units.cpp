@@ -33,33 +33,115 @@ struct UnitTypeDef {
     BOOL isNaval;
 };
 
+// Unit type definitions - MUST match enum order in units.h exactly!
+// Format: { maxHealth, speed, attackRange, attackDamage, attackRate,
+//           sightRange, size, color, isInfantry, isNaval }
 static const UnitTypeDef g_unitTypes[UNIT_TYPE_COUNT] = {
-    // UNIT_NONE                                                  sight
+    // 0: UNIT_NONE
     { 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE },
-    // UNIT_RIFLE
+    // Infantry - Military
+    // 1: UNIT_RIFLE (E1)
     { 50, 2, 64, 8, 30, 5, 6, 15, TRUE, FALSE },
-    // UNIT_GRENADIER
+    // 2: UNIT_GRENADIER (E2)
     { 60, 2, 96, 20, 45, 5, 8, 15, TRUE, FALSE },
-    // UNIT_ROCKET
+    // 3: UNIT_ROCKET (E3)
     { 45, 2, 128, 30, 60, 6, 8, 15, TRUE, FALSE },
-    // UNIT_ENGINEER
+    // 4: UNIT_FLAMETHROWER (E4)
+    { 70, 2, 48, 25, 25, 4, 8, 15, TRUE, FALSE },
+    // 5: UNIT_ENGINEER (E6)
     { 25, 2, 0, 0, 0, 4, 6, 15, TRUE, FALSE },
-    // UNIT_HARVESTER
+    // 6: UNIT_TANYA (E7)
+    { 100, 3, 80, 40, 15, 6, 8, 15, TRUE, FALSE },
+    // 7: UNIT_DOG
+    { 25, 4, 16, 100, 20, 5, 6, 8, TRUE, FALSE },
+    // 8: UNIT_SPY (E5)
+    { 25, 2, 0, 0, 0, 5, 6, 15, TRUE, FALSE },
+    // 9: UNIT_MEDIC
+    { 80, 2, 64, -30, 30, 5, 6, 15, TRUE, FALSE },  // Negative = heal
+    // 10: UNIT_THIEF
+    { 25, 3, 0, 0, 0, 5, 6, 15, TRUE, FALSE },
+    // 11: UNIT_SHOCK
+    { 110, 2, 96, 50, 35, 5, 8, 15, TRUE, FALSE },
+    // 12: UNIT_GENERAL
+    { 100, 2, 0, 0, 0, 5, 8, 15, TRUE, FALSE },
+    // Infantry - Civilians (13-23)
+    // 13: UNIT_CIVILIAN_1 (C1)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 14: UNIT_CIVILIAN_2 (C2)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 15: UNIT_CIVILIAN_3 (C3)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 16: UNIT_CIVILIAN_4 (C4)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 17: UNIT_CIVILIAN_5 (C5)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 18: UNIT_CIVILIAN_6 (C6)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 19: UNIT_CIVILIAN_7 (C7)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 20: UNIT_CIVILIAN_8 (C8 - Einstein)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 21: UNIT_CIVILIAN_9 (C9)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 22: UNIT_CIVILIAN_10 (C10)
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // 23: UNIT_CHAN
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    // Vehicles (24-37)
+    // 24: UNIT_HARVESTER
     { 200, 3, 0, 0, 0, 4, 18, 14, FALSE, FALSE },
-    // UNIT_TANK_LIGHT
+    // 25: UNIT_TANK_LIGHT (1TNK)
     { 150, 5, 96, 25, 30, 6, 14, 7, FALSE, FALSE },
-    // UNIT_TANK_MEDIUM
+    // 26: UNIT_TANK_MEDIUM (2TNK)
     { 250, 4, 112, 40, 35, 6, 16, 7, FALSE, FALSE },
-    // UNIT_TANK_HEAVY
+    // 27: UNIT_TANK_HEAVY (3TNK)
     { 500, 3, 128, 60, 40, 7, 20, 7, FALSE, FALSE },
-    // UNIT_APC
+    // 28: UNIT_TANK_MAMMOTH (4TNK)
+    { 600, 2, 128, 80, 45, 8, 22, 9, FALSE, FALSE },
+    // 29: UNIT_APC
     { 150, 6, 48, 10, 20, 6, 14, 7, FALSE, FALSE },
-    // UNIT_ARTILLERY
+    // 30: UNIT_ARTILLERY
     { 100, 3, 192, 50, 60, 8, 16, 7, FALSE, FALSE },
-    // UNIT_GUNBOAT
+    // 31: UNIT_JEEP
+    { 100, 7, 80, 15, 20, 6, 12, 7, FALSE, FALSE },
+    // 32: UNIT_MCV
+    { 400, 2, 0, 0, 0, 5, 20, 7, FALSE, FALSE },
+    // 33: UNIT_V2RL
+    { 125, 3, 256, 100, 90, 6, 16, 9, FALSE, FALSE },
+    // 34: UNIT_MINELAYER
+    { 100, 4, 0, 0, 0, 5, 14, 7, FALSE, FALSE },
+    // 35: UNIT_TRUCK
+    { 100, 5, 0, 0, 0, 4, 14, 7, FALSE, FALSE },
+    // 36: UNIT_CHRONO
+    { 150, 4, 96, 30, 30, 5, 14, 7, FALSE, FALSE },
+    // 37: UNIT_MOBILE_GAP
+    { 150, 3, 0, 0, 0, 6, 16, 7, FALSE, FALSE },
+    // 38: UNIT_MOBILE_RADAR
+    { 100, 4, 0, 0, 0, 8, 14, 7, FALSE, FALSE },
+    // Naval (39-44)
+    // 39: UNIT_GUNBOAT
     { 200, 4, 96, 20, 30, 7, 16, 1, FALSE, TRUE },
-    // UNIT_DESTROYER
+    // 40: UNIT_DESTROYER
     { 350, 5, 128, 40, 35, 8, 20, 1, FALSE, TRUE },
+    // 41: UNIT_SUBMARINE
+    { 200, 4, 160, 50, 50, 6, 16, 9, FALSE, TRUE },
+    // 42: UNIT_CRUISER
+    { 500, 3, 192, 80, 45, 9, 24, 1, FALSE, TRUE },
+    // 43: UNIT_TRANSPORT
+    { 250, 3, 0, 0, 0, 5, 20, 1, FALSE, TRUE },
+    // 44: UNIT_PT_BOAT
+    { 150, 6, 64, 15, 20, 6, 14, 1, FALSE, TRUE },
+    // Aircraft (45-49)
+    // 45: UNIT_HIND
+    { 150, 6, 96, 30, 25, 7, 16, 9, FALSE, FALSE },
+    // 46: UNIT_LONGBOW
+    { 120, 7, 128, 40, 30, 8, 16, 7, FALSE, FALSE },
+    // 47: UNIT_CHINOOK
+    { 150, 5, 0, 0, 0, 6, 18, 7, FALSE, FALSE },
+    // 48: UNIT_YAK
+    { 100, 8, 80, 25, 20, 7, 14, 9, FALSE, FALSE },
+    // 49: UNIT_MIG
+    { 100, 9, 96, 50, 25, 8, 14, 9, FALSE, FALSE },
 };
 
 // Building type definitions

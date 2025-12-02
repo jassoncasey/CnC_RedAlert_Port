@@ -3,7 +3,7 @@
 **Goal:** Full playable game with all 44 campaign missions and skirmish mode.
 
 **Current State:** Demo mode works. Real mission loading implemented with
-simplifications. Triggers parsed but many actions stubbed.
+simplifications. Core triggers working. Unit types complete. Map centering fixed.
 
 ---
 
@@ -11,39 +11,41 @@ simplifications. Triggers parsed but many actions stubbed.
 
 *Ordered by leverage - highest impact items first.*
 
-### TIER A: Mission Playability (HIGH LEVERAGE)
+### TIER A: Visual Clarity (HIGH LEVERAGE)
 
-These items block campaign missions from being completable.
-
-| ID | Item | Effort | Leverage | Status |
-|----|------|--------|----------|--------|
-| **TR-1** | CREATE_TEAM action (spawn AI teams) | 4 hrs | **CRITICAL** | DONE |
-| **TR-2** | REINFORCE action (spawn units at edge) | 4 hrs | **CRITICAL** | DONE |
-| **TR-3** | ALL_HUNT action (AI attack mode) | 2 hrs | HIGH | DONE |
-| **TR-4** | BEGIN_PROD action (AI production) | 3 hrs | HIGH | STUB |
-| **TR-5** | AUTOCREATE action (auto team creation) | 2 hrs | MEDIUM | STUB |
-
-**Why critical:** Most campaign missions use CREATE_TEAM and REINFORCE to spawn
-enemy waves. Without these, missions have no enemy reinforcements and are
-trivially easy or broken.
-
-### TIER B: Trigger Event Completion (HIGH LEVERAGE)
-
-Events that control when triggers fire.
+Items that affect ability to distinguish units and play effectively.
 
 | ID | Item | Effort | Leverage | Status |
 |----|------|--------|----------|--------|
-| **EV-1** | ENTERED event (unit in waypoint zone) | 3 hrs | **CRITICAL** | DONE |
-| **EV-2** | ATTACKED event (trigger-linked attacked) | 2 hrs | HIGH | DONE |
-| **EV-3** | DESTROYED event (trigger-linked destroyed) | 2 hrs | HIGH | DONE |
+| **VIS-1** | Sprite color remapping (team colors) | 4 hrs | **HIGH** | TODO |
+| **VIS-2** | Selection box visibility | 1 hr | MEDIUM | PARTIAL |
+
+**Why important:** Currently all units look identical regardless of team. Color
+remapping applies house colors to sprites so player/enemy units are visually
+distinct. Code passes `teamColor` to sprite functions but it's ignored (TODO stub).
+
+### TIER B: Remaining Trigger Actions (MEDIUM LEVERAGE)
+
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **TR-4** | BEGIN_PROD action (AI production) | 3 hrs | MEDIUM | STUB |
+| **TR-5** | AUTOCREATE action (auto team creation) | 2 hrs | LOW | STUB |
+| **TR-6** | DESTROY_TEAM action | 1 hr | LOW | STUB |
+| **TR-7** | FIRE_SALE action (sell all buildings) | 2 hrs | LOW | STUB |
+| **TR-8** | DZ action (drop zone flare) | 2 hrs | LOW | STUB |
+| **TR-9** | PLAY_MOVIE action | 2 hrs | LOW | STUB |
+| **TR-10** | START_TIMER/STOP_TIMER actions | 2 hrs | LOW | STUB |
+| **TR-11** | DESTROY_OBJ action | 2 hrs | LOW | STUB |
+
+### TIER C: Remaining Trigger Events
+
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
 | **EV-4** | CREDITS event (player credits threshold) | 1 hr | MEDIUM | STUB |
-| **EV-5** | DISCOVERED event (fog reveal) | 2 hrs | MEDIUM | STUB |
+| **EV-5** | DISCOVERED event (fog reveal) | 2 hrs | LOW | STUB |
 | **EV-6** | HOUSE_DISC event (house discovery) | 1 hr | LOW | STUB |
 
-**Why critical:** ENTERED triggers ambushes, mission objectives, and scripted
-events. Many missions won't progress without it.
-
-### TIER C: UI Features (MEDIUM LEVERAGE)
+### TIER D: UI Features (MEDIUM LEVERAGE)
 
 User-visible features that affect gameplay clarity.
 
@@ -54,7 +56,7 @@ User-visible features that affect gameplay clarity.
 | **UI-3** | Radar zoom levels | 2 hrs | LOW | MISSING |
 | **UI-4** | Sidebar scroll | 1 hr | LOW | MISSING |
 
-### TIER D: Audio Bugs (MEDIUM LEVERAGE)
+### TIER E: Audio Bugs (MEDIUM LEVERAGE)
 
 High annoyance but don't block gameplay.
 
@@ -63,7 +65,7 @@ High annoyance but don't block gameplay.
 | **BUG-01** | Music ADPCM distortion | 4-8 hrs | HIGH | OPEN |
 | **BUG-02** | Video audio static | 4-8 hrs | HIGH | OPEN |
 
-### TIER E: Combat/AI Refinement (LOW LEVERAGE)
+### TIER F: Combat/AI Refinement (LOW LEVERAGE)
 
 Affects realism but game is playable without.
 
@@ -75,19 +77,6 @@ Affects realism but game is playable without.
 | **CB-1** | Armor types (light/medium/heavy) | 3 hrs | LOW | SIMPLIFIED |
 | **CB-2** | Weapon damage modifiers | 2 hrs | LOW | SIMPLIFIED |
 | **CB-3** | Scatter on explosion | 1 hr | LOW | SIMPLIFIED |
-
-### TIER F: Additional Trigger Actions (LOW LEVERAGE)
-
-Used by specific missions, not all.
-
-| ID | Item | Effort | Leverage | Status |
-|----|------|--------|----------|--------|
-| **TR-6** | DESTROY_TEAM action | 1 hr | LOW | STUB |
-| **TR-7** | FIRE_SALE action (sell all buildings) | 2 hrs | LOW | STUB |
-| **TR-8** | DZ action (drop zone flare) | 2 hrs | LOW | STUB |
-| **TR-9** | PLAY_MOVIE action | 2 hrs | LOW | STUB |
-| **TR-10** | START_TIMER/STOP_TIMER actions | 2 hrs | LOW | STUB |
-| **TR-11** | DESTROY_OBJ action | 2 hrs | LOW | STUB |
 
 ### TIER G: Production/Economy (LOW LEVERAGE)
 
@@ -204,11 +193,16 @@ Style and maintainability. Do when convenient.
 
 ### Recently Completed
 
-| Commit | Description |
-|--------|-------------|
+| Date | Description |
+|------|-------------|
+| Dec 2 | BUG-07: Map centering on player start (viewport fix) |
+| Dec 2 | BUG-08: Units not moving (unit types array incomplete) |
+| Dec 2 | Complete g_unitTypes array (50 types with proper speeds) |
 | bba4184 | Complete unit/building types (E4, E7, C1-C10, civilians, fakes) |
 | | Global flags for trigger inter-communication |
 | | FORCE_TRIG action for trigger chaining |
+| | TR-1: CREATE_TEAM, TR-2: REINFORCE, TR-3: ALL_HUNT |
+| | EV-1: ENTERED, EV-2: ATTACKED, EV-3: DESTROYED |
 
 ---
 
@@ -218,25 +212,27 @@ Style and maintainability. Do when convenient.
 |----|-------|----------|--------|
 | BUG-01 | Music heavily distorted | High | OPEN |
 | BUG-02 | Video audio has static | High | OPEN |
+| BUG-07 | Map not centered on player start | High | FIXED |
+| BUG-08 | Some units won't move | High | FIXED |
 
 ---
 
 ## Recommended Next Step
 
-**TR-1: CREATE_TEAM action** - 4 hours, CRITICAL leverage
+**VIS-1: Sprite Color Remapping** - 4 hours, HIGH leverage
 
-This is the highest-impact single item. Most campaign missions use triggers
-like:
+This is the highest-impact visual item. Currently all units look identical
+regardless of team. Player units should be blue/green, enemy should be red.
 
-```
-[Trigs]
-atk1=USSR,Time,90,Create Team,badat,0,1,1,0
-```
+The code already:
+- Passes `teamColor` to `Sprites_RenderUnit()` and `Sprites_RenderBuilding()`
+- Has team color array: `g_teamColors[TEAM_COUNT]`
+- Falls back to colored shapes when sprites fail (these DO show team colors)
 
-Without CREATE_TEAM, these do nothing. Implementing it requires:
+What's missing:
+1. Color remap tables (16 variants per house color)
+2. Apply remap during sprite pixel copy in sprites.cpp
+3. Palette indices 80-95 (or 176-191) are the "remap range"
 
-1. Look up team definition from parsed TeamTypes
-2. Spawn each member unit at the team's origin waypoint
-3. Set units to team's initial mission (Guard, Hunt, etc.)
-
-Once CREATE_TEAM works, enemy waves will spawn and missions become playable.
+Red Alert uses palette remapping: certain palette indices are swapped based
+on house color. This makes the same sprite look different for each team.
