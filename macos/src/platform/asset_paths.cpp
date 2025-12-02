@@ -12,8 +12,55 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <mach-o/dyld.h>
+
+// Bundle assets path (computed at runtime)
+static char g_bundleAssetsPath[512] = {0};
+static bool g_bundlePathComputed = false;
+
+/**
+ * Get the path to assets bundled inside the .app
+ * Returns path to Contents/Resources/assets or empty string if not found
+ */
+static const char* GetBundleAssetsPath(void) {
+    if (g_bundlePathComputed) {
+        return g_bundleAssetsPath;
+    }
+    g_bundlePathComputed = true;
+
+    // Get path to executable
+    char execPath[1024];
+    uint32_t size = sizeof(execPath);
+    if (_NSGetExecutablePath(execPath, &size) != 0) {
+        return "";
+    }
+
+    // Resolve symlinks
+    char realPath[1024];
+    if (!realpath(execPath, realPath)) {
+        return "";
+    }
+
+    // Navigate from .app/Contents/MacOS/RedAlert to .app/Contents/Resources/assets
+    // Find last /Contents/MacOS and replace with /Contents/Resources/assets
+    char* contentsPos = strstr(realPath, "/Contents/MacOS");
+    if (contentsPos) {
+        *contentsPos = '\0';
+        snprintf(g_bundleAssetsPath, sizeof(g_bundleAssetsPath),
+                 "%s/Contents/Resources/assets", realPath);
+
+        // Verify the path exists
+        struct stat st;
+        if (stat(g_bundleAssetsPath, &st) != 0) {
+            g_bundleAssetsPath[0] = '\0';
+        }
+    }
+
+    return g_bundleAssetsPath;
+}
 
 // Asset search paths in priority order
+// Note: Bundle path is checked first dynamically
 static const char* SEARCH_PATHS[] = {
     "~/Library/Application Support/RedAlert/assets",  // User installation
     "./assets",                                        // Portable/adjacent to app
@@ -90,7 +137,17 @@ bool Assets_FindPath(char* outPath, size_t outSize) {
         return true;
     }
 
-    // Search through all paths
+    // First, check for bundled assets (self-contained distribution)
+    const char* bundlePath = GetBundleAssetsPath();
+    if (bundlePath[0] != '\0' && DirectoryHasAsset(bundlePath, REQUIRED_ASSETS[0])) {
+        strncpy(g_assetPath, bundlePath, sizeof(g_assetPath) - 1);
+        g_assetPathValid = true;
+        strncpy(outPath, bundlePath, outSize - 1);
+        outPath[outSize - 1] = '\0';
+        return true;
+    }
+
+    // Search through external paths
     for (int i = 0; SEARCH_PATHS[i] != nullptr; i++) {
         char expandedPath[512];
         ExpandPath(SEARCH_PATHS[i], expandedPath, sizeof(expandedPath));
@@ -106,6 +163,16 @@ bool Assets_FindPath(char* outPath, size_t outSize) {
     }
 
     // Also check for unencrypted MIX files (AUD.MIX) as fallback
+    // First in bundle
+    if (bundlePath[0] != '\0' && DirectoryHasAsset(bundlePath, "AUD.MIX")) {
+        strncpy(g_assetPath, bundlePath, sizeof(g_assetPath) - 1);
+        g_assetPathValid = true;
+        strncpy(outPath, bundlePath, outSize - 1);
+        outPath[outSize - 1] = '\0';
+        return true;
+    }
+
+    // Then in external paths
     for (int i = 0; SEARCH_PATHS[i] != nullptr; i++) {
         char expandedPath[512];
         ExpandPath(SEARCH_PATHS[i], expandedPath, sizeof(expandedPath));
@@ -140,6 +207,21 @@ void Assets_ClearCache(void) {
 
 void Assets_PrintSearchPaths(void) {
     printf("Asset search paths:\n");
+
+    // First show bundle path
+    const char* bundlePath = GetBundleAssetsPath();
+    if (bundlePath[0] != '\0') {
+        bool hasAssets = DirectoryHasAsset(bundlePath, REQUIRED_ASSETS[0]);
+        printf("  0. %s (bundled)", bundlePath);
+        if (hasAssets) {
+            printf(" [FOUND - has REDALERT.MIX]");
+        } else {
+            printf(" [exists but no REDALERT.MIX]");
+        }
+        printf("\n");
+    }
+
+    // Then show external paths
     for (int i = 0; SEARCH_PATHS[i] != nullptr; i++) {
         char expandedPath[512];
         ExpandPath(SEARCH_PATHS[i], expandedPath, sizeof(expandedPath));

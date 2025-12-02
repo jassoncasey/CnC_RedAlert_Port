@@ -80,7 +80,7 @@
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
 | TD-6 | MapPack chunk mask (0xDFFFFFFF) | 30 min | Quick fix |
-| TD-12 | Hardcoded paths | 2 hrs | Distribution |
+| TD-12 | ~~Hardcoded paths~~ | ~~2 hrs~~ | **DONE** - `make dist-full` bundles assets |
 | TD-3 | Full 8-house system | 8 hrs | Only if needed |
 | TD-10 | Complex win/lose conditions | 4 hrs | After triggers |
 
@@ -206,11 +206,17 @@ Only destroy_all, destroy_buildings. Missing time-based, protect, capture.
 
 INTERIOR/DESERT return nullptr (fall back to SNOW).
 
-### TD-12: Hardcoded Paths
+### TD-12: Hardcoded Paths ✓ RESOLVED
 
-**Location:** `assetloader.cpp:48-117`
+**Location:** `asset_paths.cpp`
 
-Absolute paths need bundle/library discovery.
+**Solution:** Added bundle asset discovery. The `make dist-full` target creates
+a self-contained DMG (~729MB) with all game assets bundled inside the .app.
+Assets are searched in this order:
+1. Bundle: `Contents/Resources/assets` (for dist-full builds)
+2. User: `~/Library/Application Support/RedAlert/assets`
+3. Portable: `./assets`, `../assets`
+4. Mounted ISOs: `/Volumes/CD1/INSTALL`, `/Volumes/CD2/INSTALL`
 
 ---
 

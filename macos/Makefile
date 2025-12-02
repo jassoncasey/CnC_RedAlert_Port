@@ -104,6 +104,40 @@ dmg: $(APP_BUNDLE)
 	@echo "Created $(APP_NAME).dmg"
 	@ls -lh $(APP_NAME).dmg
 
+# Asset directory (relative to Makefile)
+ASSET_DIR = ../assets
+
+# Required assets for full distribution
+DIST_ASSETS = REDALERT.MIX MAIN_ALLIED.MIX MAIN_SOVIET.MIX \
+              conquer.mix hires.mix local.mix snow.mix temperat.mix \
+              sounds.mix speech.mix interior.mix lores.mix \
+              allies.mix russian.mix AUD.MIX SETUP.MIX
+
+# Self-contained distribution with bundled assets (~1GB)
+# Creates DMG that works without external asset installation
+dist-full: $(APP_BUNDLE)
+	@echo "=== Building self-contained distribution ==="
+	@echo "Copying assets to bundle..."
+	@mkdir -p $(APP_BUNDLE)/Contents/Resources/assets
+	@for asset in $(DIST_ASSETS); do \
+		if [ -f "$(ASSET_DIR)/$$asset" ]; then \
+			echo "  Copying $$asset..."; \
+			cp "$(ASSET_DIR)/$$asset" $(APP_BUNDLE)/Contents/Resources/assets/; \
+		else \
+			echo "  WARNING: $$asset not found in $(ASSET_DIR)"; \
+		fi \
+	done
+	@echo "Signing app bundle (ad-hoc)..."
+	codesign --force --deep --sign - $(APP_BUNDLE)
+	@echo "Creating DMG..."
+	hdiutil create -volname "Red Alert" -srcfolder $(APP_BUNDLE) -ov -format UDZO $(APP_NAME)-Full.dmg
+	@echo ""
+	@echo "=== Distribution complete ==="
+	@ls -lh $(APP_NAME)-Full.dmg
+	@echo ""
+	@echo "This DMG is self-contained and includes all game assets."
+	@echo "Users can run it without installing assets separately."
+
 # Test asset loading
 test_assets: $(BUILD_DIR)/test_assets
 	@echo "Running asset loading test..."
@@ -298,4 +332,4 @@ $(BUILD_DIR)/test_mix_decrypt: $(SRC_DIR)/tests/test_mix_decrypt.cpp $(MIX_DECRY
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music test_mix_decrypt
+.PHONY: all clean run dist dmg dist-full test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music test_mix_decrypt
