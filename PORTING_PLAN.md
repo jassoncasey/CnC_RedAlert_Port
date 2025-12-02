@@ -19,7 +19,7 @@ These items block campaign missions from being completable.
 |----|------|--------|----------|--------|
 | **TR-1** | CREATE_TEAM action (spawn AI teams) | 4 hrs | **CRITICAL** | DONE |
 | **TR-2** | REINFORCE action (spawn units at edge) | 4 hrs | **CRITICAL** | DONE |
-| **TR-3** | ALL_HUNT action (AI attack mode) | 2 hrs | HIGH | STUB |
+| **TR-3** | ALL_HUNT action (AI attack mode) | 2 hrs | HIGH | DONE |
 | **TR-4** | BEGIN_PROD action (AI production) | 3 hrs | HIGH | STUB |
 | **TR-5** | AUTOCREATE action (auto team creation) | 2 hrs | MEDIUM | STUB |
 
@@ -142,7 +142,6 @@ Style and maintainability. Do when convenient.
 |--------|------|----------------|
 | BEGIN_PROD | 1571 | AI production not started - need to enable AI build queue |
 | DESTROY_TEAM | 1589 | Team removal not implemented |
-| ALL_HUNT | 1594 | Hunt mode not in AI - need to set all enemy units to attack-move |
 | DZ | 1610 | Drop zone flare not implemented |
 | FIRE_SALE | 1616 | AI sell-all not implemented |
 | TEXT | 1627 | Mission text not displayed - need UI overlay |

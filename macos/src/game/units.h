@@ -401,6 +401,14 @@ int House_IsAlly(HouseType h1, HouseType h2);
  */
 const char* House_GetName(HouseType house);
 
+/**
+ * Command all units of a team to hunt (seek and destroy enemies)
+ * Units will attack-move toward the nearest enemy unit
+ * @param team The team whose units should hunt
+ * @return Number of units set to hunt
+ */
+int Units_CommandAllHunt(Team team);
+
 #ifdef __cplusplus
 }
 #endif

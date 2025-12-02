@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <climits>
 #include <queue>
 #include <vector>
 #include <algorithm>
@@ -517,6 +518,98 @@ void Units_ScatterInfantryNear(int worldX, int worldY, int radius) {
             unit->scatterTimer = 30;  // Cooldown before can scatter again
         }
     }
+}
+
+int Units_CommandAllHunt(Team team) {
+    int count = 0;
+    Team enemyTeam = (team == TEAM_PLAYER) ? TEAM_ENEMY : TEAM_PLAYER;
+
+    // Find nearest enemy unit to use as attack target for all hunters
+    int nearestEnemy = -1;
+    int nearestDist = INT_MAX;
+    int centerX = 0, centerY = 0;
+    int teamUnitCount = 0;
+
+    // Calculate center of our units
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = &g_units[i];
+        if (!unit->active || unit->team != team) continue;
+        if (unit->state == STATE_DYING) continue;
+        centerX += unit->worldX;
+        centerY += unit->worldY;
+        teamUnitCount++;
+    }
+
+    if (teamUnitCount > 0) {
+        centerX /= teamUnitCount;
+        centerY /= teamUnitCount;
+    }
+
+    // Find nearest enemy to our center
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = &g_units[i];
+        if (!unit->active || unit->team != enemyTeam) continue;
+        if (unit->state == STATE_DYING) continue;
+
+        int dx = unit->worldX - centerX;
+        int dy = unit->worldY - centerY;
+        int dist = dx * dx + dy * dy;
+
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestEnemy = i;
+        }
+    }
+
+    // Also check buildings for nearest enemy
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = &g_buildings[i];
+        if (!bld->active || bld->team != enemyTeam) continue;
+
+        int bx = bld->cellX * CELL_SIZE + (bld->width * CELL_SIZE / 2);
+        int by = bld->cellY * CELL_SIZE + (bld->height * CELL_SIZE / 2);
+        int dx = bx - centerX;
+        int dy = by - centerY;
+        int dist = dx * dx + dy * dy;
+
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            // Use building center as target
+            nearestEnemy = -1;  // No unit, use position
+            centerX = bx;
+            centerY = by;
+        }
+    }
+
+    // Get target position
+    int targetX, targetY;
+    if (nearestEnemy >= 0) {
+        targetX = g_units[nearestEnemy].worldX;
+        targetY = g_units[nearestEnemy].worldY;
+    } else if (nearestDist < INT_MAX) {
+        // Building was nearest
+        targetX = centerX;
+        targetY = centerY;
+    } else {
+        // No enemy found - move toward map center
+        targetX = 64 * CELL_SIZE;
+        targetY = 64 * CELL_SIZE;
+    }
+
+    // Command all team units to attack-move toward target
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = &g_units[i];
+        if (!unit->active || unit->team != team) continue;
+        if (unit->state == STATE_DYING) continue;
+
+        // Skip harvesters - they should keep harvesting
+        if (unit->type == UNIT_HARVESTER) continue;
+
+        Units_CommandAttackMove(i, targetX, targetY);
+        count++;
+    }
+
+    return count;
 }
 
 void Units_Select(int unitId, BOOL addToSelection) {

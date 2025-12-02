@@ -1822,10 +1822,15 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             // TODO: Remove all units from team
             break;
 
-        case RA_ACTION_ALL_HUNT:
-            fprintf(stderr, "  TRIGGER: All hunt\n");
-            // TODO: Set all enemy units to hunt mode
+        case RA_ACTION_ALL_HUNT: {
+            // Get the team for this trigger's house
+            Team huntTeam = HouseToTeam(trig->house);
+            int huntCount = Units_CommandAllHunt(huntTeam);
+            fprintf(stderr, "  TRIGGER: All hunt (house %d -> team %d)\n",
+                    trig->house, huntTeam);
+            fprintf(stderr, "    Set %d units to hunt mode\n", huntCount);
             break;
+        }
 
         case RA_ACTION_REINFORCE: {
             // param1 = team type index
