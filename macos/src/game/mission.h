@@ -22,6 +22,7 @@ class INIClass;
 #define MAX_MISSION_UNITS       64
 #define MAX_MISSION_BUILDINGS   32
 #define MAX_MISSION_TRIGGERS    32
+#define MAX_MISSION_WAYPOINTS   100
 
 // Map constants (Red Alert uses 128x128 cell maps)
 #define MAP_CELL_W              128
@@ -50,6 +51,13 @@ typedef struct {
     int actionType;     // TActionType
     int value;          // Event/action data
 } MissionTrigger;
+
+// Waypoint (spawn point, movement target, etc.)
+typedef struct {
+    int cell;           // Cell number (128-width map)
+    int16_t cellX;      // Extracted X coordinate
+    int16_t cellY;      // Extracted Y coordinate
+} MissionWaypoint;
 
 // Mission data
 typedef struct {
@@ -84,6 +92,10 @@ typedef struct {
     // Triggers
     MissionTrigger triggers[MAX_MISSION_TRIGGERS];
     int triggerCount;
+
+    // Waypoints (indexed by waypoint number)
+    MissionWaypoint waypoints[MAX_MISSION_WAYPOINTS];
+    int waypointCount;
 
     // Win/Lose conditions (simplified)
     int winCondition;   // 0=destroy all, 1=destroy buildings, 2=survive time

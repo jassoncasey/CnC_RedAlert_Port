@@ -12,6 +12,25 @@
 #include <cstdlib>
 #include <cstdio>
 
+// Parsed trigger storage (simplified - stores raw INI data)
+// These will be used to create proper trigger instances when type systems merge
+struct ParsedTrigger {
+    char name[24];
+    int persist;        // 0=volatile, 1=semi, 2=persistent
+    int house;          // Country number
+    int eventControl;   // 0=only, 1=and, 2=or, 3=linked
+    int actionControl;  // 0=only, 1=and
+    int event1, e1p1, e1p2;
+    int event2, e2p1, e2p2;
+    int action1, a1p1, a1p2, a1p3;
+    int action2, a2p1, a2p2, a2p3;
+    bool active;
+};
+
+#define MAX_PARSED_TRIGGERS 80
+static ParsedTrigger g_parsedTriggers[MAX_PARSED_TRIGGERS];
+static int g_parsedTriggerCount = 0;
+
 void Mission_Init(MissionData* mission) {
     if (!mission) return;
 
@@ -395,6 +414,95 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
         }
     }
 
+    // [Trigs] section - trigger definitions
+    // Format: name=persist,house,event_control,action_control,
+    //         event1,e1p1,e1p2,event2,e2p1,e2p2,
+    //         action1,a1p1,a1p2,a1p3,action2,a2p1,a2p2,a2p3
+    count = ini->EntryCount("Trigs");
+    g_parsedTriggerCount = 0;  // Clear existing triggers
+    for (int i = 0; i < count && g_parsedTriggerCount < MAX_PARSED_TRIGGERS; i++) {
+        const char* trigName = ini->GetEntry("Trigs", i);
+        if (!trigName) continue;
+
+        char value[256];
+        ini->GetString("Trigs", trigName, "", value, sizeof(value));
+
+        // Parse trigger definition
+        int persist, house, eventCtrl, actionCtrl;
+        int event1, e1p1, e1p2, event2, e2p1, e2p2;
+        int action1, a1p1, a1p2, a1p3, action2, a2p1, a2p2, a2p3;
+
+        int parsed = sscanf(value,
+            "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+            &persist, &house, &eventCtrl, &actionCtrl,
+            &event1, &e1p1, &e1p2, &event2, &e2p1, &e2p2,
+            &action1, &a1p1, &a1p2, &a1p3, &action2, &a2p1, &a2p2, &a2p3);
+
+        if (parsed >= 11) {
+            ParsedTrigger* trig = &g_parsedTriggers[g_parsedTriggerCount];
+            memset(trig, 0, sizeof(ParsedTrigger));
+
+            // Name (max 23 chars)
+            strncpy(trig->name, trigName, 23);
+            trig->name[23] = '\0';
+            trig->active = true;
+
+            // Store all parsed values
+            trig->persist = persist;
+            trig->house = house;
+            trig->eventControl = eventCtrl;
+            trig->actionControl = actionCtrl;
+            trig->event1 = event1;
+            trig->e1p1 = e1p1;
+            trig->e1p2 = e1p2;
+            trig->event2 = event2;
+            trig->e2p1 = e2p1;
+            trig->e2p2 = e2p2;
+            trig->action1 = action1;
+            trig->a1p1 = a1p1;
+            trig->a1p2 = a1p2;
+            trig->a1p3 = a1p3;
+
+            if (parsed >= 18) {
+                trig->action2 = action2;
+                trig->a2p1 = a2p1;
+                trig->a2p2 = a2p2;
+                trig->a2p3 = a2p3;
+            }
+
+            g_parsedTriggerCount++;
+        }
+    }
+
+    // [Waypoints] section - spawn points, movement targets
+    // Format: waypoint_number=cell_number
+    count = ini->EntryCount("Waypoints");
+    mission->waypointCount = 0;
+    // Initialize all waypoints to invalid (-1)
+    for (int i = 0; i < MAX_MISSION_WAYPOINTS; i++) {
+        mission->waypoints[i].cell = -1;
+        mission->waypoints[i].cellX = -1;
+        mission->waypoints[i].cellY = -1;
+    }
+    for (int i = 0; i < count; i++) {
+        const char* entry = ini->GetEntry("Waypoints", i);
+        if (!entry) continue;
+
+        int wpNum = atoi(entry);
+        if (wpNum < 0 || wpNum >= MAX_MISSION_WAYPOINTS) continue;
+
+        int cell = ini->GetInt("Waypoints", entry, -1);
+        if (cell < 0) continue;
+
+        mission->waypoints[wpNum].cell = cell;
+        mission->waypoints[wpNum].cellX = CELL_TO_X(cell);
+        mission->waypoints[wpNum].cellY = CELL_TO_Y(cell);
+
+        if (wpNum >= mission->waypointCount) {
+            mission->waypointCount = wpNum + 1;
+        }
+    }
+
     // [MapPack] section - base64 LCW-compressed terrain data
     // RA format: 16-bit tile IDs (128*128*2=32KB) + 8-bit indices (128*128=16KB)
     // Total: 49152 bytes = MAP_CELL_TOTAL * 3
@@ -528,6 +636,36 @@ void Mission_Start(const MissionData* mission) {
                 int worldY = localCellY * CELL_SIZE + CELL_SIZE / 2;
                 Map_CenterViewport(worldX, worldY);
                 break;
+            }
+        }
+    }
+
+    // Log parsed triggers (from [Trigs] section)
+    if (g_parsedTriggerCount > 0) {
+        fprintf(stderr, "  Loaded %d triggers from mission INI\n",
+                g_parsedTriggerCount);
+        for (int i = 0; i < g_parsedTriggerCount && i < 5; i++) {
+            ParsedTrigger* trig = &g_parsedTriggers[i];
+            fprintf(stderr, "    Trigger '%s': event1=%d action1=%d\n",
+                    trig->name, trig->event1, trig->action1);
+        }
+        if (g_parsedTriggerCount > 5) {
+            fprintf(stderr, "    ... and %d more\n",
+                    g_parsedTriggerCount - 5);
+        }
+    }
+
+    // Log waypoints
+    if (mission->waypointCount > 0) {
+        fprintf(stderr, "  Loaded %d waypoints\n", mission->waypointCount);
+        int shown = 0;
+        for (int i = 0; i < mission->waypointCount && shown < 5; i++) {
+            if (mission->waypoints[i].cell >= 0) {
+                fprintf(stderr, "    Waypoint %d: cell=%d (%d,%d)\n",
+                        i, mission->waypoints[i].cell,
+                        mission->waypoints[i].cellX,
+                        mission->waypoints[i].cellY);
+                shown++;
             }
         }
     }
