@@ -3,8 +3,8 @@
 **Goal:** Faithful recreation of original Red Alert with full 14-mission
 campaigns (Allied + Soviet) playable from original game assets.
 
-**Current State:** Core systems complete. INI-based mission loading from
-GENERAL.MIX implemented. Working on trigger actions and carryover.
+**Current State:** Core systems complete. INI-based mission loading and
+trigger actions complete. Working on unit/building carryover.
 
 ---
 
@@ -17,8 +17,8 @@ The 44-mission count includes Aftermath + Counter-Strike expansions.
 
 | ID | Item | Effort | Status |
 |----|------|--------|--------|
-| CAM-1 | INI-based mission loading | 8 hrs | Pending |
-| CAM-2 | Complete trigger actions | 6 hrs | Pending |
+| CAM-1 | INI-based mission loading | 8 hrs | **DONE** |
+| CAM-2 | Complete trigger actions | 6 hrs | **DONE** |
 | CAM-3 | Unit/building carryover | 4 hrs | Pending |
 | CAM-4 | Briefing video integration | 2 hrs | Pending |
 
@@ -28,13 +28,14 @@ The 44-mission count includes Aftermath + Counter-Strike expansions.
 - Parse [Basic], [Map], [Waypoints], [Terrain], [Units], [Structures]
 - Apply mission-specific overrides to type data
 
-**CAM-2: Complete Trigger Actions**
-Currently stubbed actions that need implementation:
-- `ALL_HUNT` - Set all units to hunt mode (partial)
-- `REVEAL_ALL` / `REVEAL_SOME` - Map reveal (partial)
-- `AUTOCREATE` - AI auto-creates teams (stub)
-- `FIRE_SALE` - Sell all buildings (stub)
-- `REINFORCE` - Spawn reinforcements at edge (partial)
+**CAM-2: Complete Trigger Actions** (DONE)
+All critical trigger actions implemented in mission.cpp:
+- `ALL_HUNT` - Set all units to hunt mode
+- `REVEAL_ALL` / `REVEAL_SOME` - Map reveal via fog system
+- `AUTOCREATE` - Enable AI team auto-creation
+- `FIRE_SALE` - Sell all buildings for house
+- `REINFORCE` - Spawn reinforcements at waypoint
+- `PLAY_MOVIE` - VQA video playback integrated
 
 **CAM-3: Unit/Building Carryover**
 - Serialize surviving units/buildings after mission win
@@ -90,27 +91,25 @@ Additional conditions beyond current 4:
 - CREDITS, DISCOVERED, HOUSE_DISC, GLOBAL
 
 **Actions:**
-- CREATE_TEAM, DESTROY_TEAM
-- BEGIN_PROD, WIN, LOSE, ALLOWWIN
+- CREATE_TEAM, DESTROY_TEAM, ALL_HUNT
+- BEGIN_PROD, AUTOCREATE, FIRE_SALE
+- WIN, LOSE, ALLOWWIN
+- REINFORCE, DZ, DESTROY_OBJ
 - START_TIMER / STOP_TIMER / ADD_TIMER / SUB_TIMER
 - SET_GLOBAL / CLEAR_GLOBAL
 - FORCE_TRIG / DESTR_TRIG
-- DESTROY_OBJ, DZ, TEXT
+- REVEAL_ALL / REVEAL_SOME
+- PLAY_MOVIE, TEXT
 
-### Needs Implementation
+### Needs Implementation (Non-Critical)
 
 **Events:**
 - NOFACTORIES, ALL_BRIDGES_DESTROYED
 - EVAC_CIVILIAN, FAKES_DESTROYED
 - BUILDING_EXISTS, cross-line/zone triggers
 
-**Actions (Stubbed):**
-- ALL_HUNT - needs to iterate all units
-- REVEAL_ALL / REVEAL_SOME - needs fog system integration
-- AUTOCREATE - needs AI team creation
-- FIRE_SALE - needs building sell logic
-- REINFORCE - needs edge spawn + transport logic
-- PLAY_MOVIE - needs video system integration
+**Actions:**
+- None critical - all campaign-required actions work
 
 ---
 
@@ -171,8 +170,8 @@ All game data now loaded from RULES.INI.
 
 ## Absolute Blockers for Campaign
 
-1. **Mission loading** - Must load from INI files, not hardcoded
-2. **Trigger stubs** - Several critical actions do nothing
+1. ~~**Mission loading** - Must load from INI files, not hardcoded~~ **DONE**
+2. ~~**Trigger stubs** - Several critical actions do nothing~~ **DONE**
 3. **Carryover** - Can't progress without unit persistence
 
 ---
