@@ -38,14 +38,14 @@ brings it to match the original Red Alert interface.
 - Cameo icons: 32x24 each, 2 columns, 4 visible rows
 - Top buttons: Repair(32w), Sell(20w), Zoom(20w), height=9
 
-### Phase UI-1: Sidebar Restructure (~6 hrs)
+### Phase UI-1: Sidebar Restructure - COMPLETE
 
 | ID | Item | Effort | Status |
 |----|------|--------|--------|
-| UI-1a | Two-column cameo layout | 2 hrs | Pending |
-| UI-1b | Repair/Sell/Zoom buttons | 1 hr | Pending |
-| UI-1c | Scroll buttons for strips | 1 hr | Pending |
-| UI-1d | Power bar (vertical) | 2 hrs | Pending |
+| UI-1a | Two-column cameo layout | 2 hrs | **DONE** |
+| UI-1b | Repair/Sell/Zoom buttons | 1 hr | **DONE** |
+| UI-1c | Scroll buttons for strips | 1 hr | **DONE** |
+| UI-1d | Power bar (vertical) | 2 hrs | **DONE** |
 
 **UI-1a: Two-Column Cameo Layout**
 - Structures in left column, units in right column

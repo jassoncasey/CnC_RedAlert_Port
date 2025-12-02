@@ -2,6 +2,17 @@
 
 ## December 2, 2024
 
+### UI Phase 1: Sidebar Restructure Complete
+
+The sidebar now matches the original Red Alert 1996 layout:
+
+| ID | Item | Description |
+|----|------|-------------|
+| UI-1a | Two-column cameo layout | Structures left, units right |
+| UI-1b | Repair/Sell/Zoom buttons | Top buttons below radar |
+| UI-1c | Scroll buttons | Per-column scroll arrows |
+| UI-1d | Power bar | Vertical gauge on sidebar edge |
+
 ### Campaign Phase 1 Complete
 
 All Phase 1 campaign infrastructure is now working:

@@ -16,47 +16,62 @@ extern "C" {
 #endif
 
 //===========================================================================
-// Screen Layout Constants (640x400)
+// Screen Layout Constants (640x400, scaled 2x from 320x200)
 //===========================================================================
+// Original Red Alert used 320x200 base resolution. We use 640x400.
+// All coordinates are 2x the original values (RESFACTOR=2).
 
 // Game view (main terrain/unit area)
 #define GAME_VIEW_X         0
-#define GAME_VIEW_Y         16         // Below HUD bar
-#define GAME_VIEW_WIDTH     560
-#define GAME_VIEW_HEIGHT    368
+#define GAME_VIEW_Y         0
+#define GAME_VIEW_WIDTH     480          // 240 * 2 (sidebar starts at 240)
+#define GAME_VIEW_HEIGHT    400
 
-// Sidebar (right side)
-#define SIDEBAR_X           560
+// Sidebar (right side) - original: X=240, Y=0, W=80
+#define SIDEBAR_X           480          // 240 * 2
 #define SIDEBAR_Y           0
-#define SIDEBAR_WIDTH       80
-#define SIDEBAR_HEIGHT      400
+#define SIDEBAR_WIDTH       160          // 80 * 2
+#define SIDEBAR_HEIGHT      400          // Full height
 
-// Radar (top-right in sidebar)
-#define RADAR_X             564
-#define RADAR_Y             4
-#define RADAR_WIDTH         72
-#define RADAR_HEIGHT        72
+// Radar (top of sidebar) - original: 64x64 at top
+#define RADAR_X             (SIDEBAR_X + 8)
+#define RADAR_Y             8
+#define RADAR_WIDTH         144          // ~72 * 2
+#define RADAR_HEIGHT        144
 
-// Build strips (in sidebar, below radar)
-#define STRIP_Y             80
-#define STRIP_HEIGHT        240
-#define STRIP_ITEM_WIDTH    32
-#define STRIP_ITEM_HEIGHT   24
-#define STRIP_ITEMS_VISIBLE 4
+// Top buttons (Repair/Sell/Zoom) - below radar
+#define TOP_BUTTONS_Y       (RADAR_Y + RADAR_HEIGHT + 4)
+#define TOP_BUTTONS_HEIGHT  18           // 9 * 2
+
+// Build strips (2 columns, below top buttons)
+#define STRIP_Y             (TOP_BUTTONS_Y + TOP_BUTTONS_HEIGHT + 4)
+#define STRIP_COLUMN_WIDTH  64           // 32 * 2 (cameo width)
+#define STRIP_ITEM_WIDTH    64           // 32 * 2
+#define STRIP_ITEM_HEIGHT   48           // 24 * 2
+#define STRIP_ITEMS_VISIBLE 4            // 4 visible rows
+#define STRIP_COLUMNS       2            // 2 columns
+#define STRIP_COL1_X        (SIDEBAR_X + 8)
+#define STRIP_COL2_X        (SIDEBAR_X + 8 + STRIP_COLUMN_WIDTH + 8)
+
+// Scroll buttons (below strips)
+#define SCROLL_BUTTONS_Y    (STRIP_Y + STRIP_ITEMS_VISIBLE * STRIP_ITEM_HEIGHT)
+#define SCROLL_BUTTON_SIZE  24           // 12 * 2
 
 // Selection panel (bottom of sidebar)
-#define SELECTION_Y         324
-#define SELECTION_HEIGHT    72
+#define SELECTION_Y         (SIDEBAR_HEIGHT - 80)
+#define SELECTION_HEIGHT    80
 
-// HUD bar (top of screen)
-#define HUD_X               0
-#define HUD_Y               0
-#define HUD_WIDTH           640
-#define HUD_HEIGHT          16
+// Power bar (right edge of sidebar)
+#define POWER_BAR_X         (SIDEBAR_X + SIDEBAR_WIDTH - 16)
+#define POWER_BAR_Y         (TOP_BUTTONS_Y)
+#define POWER_BAR_WIDTH     12
+#define POWER_BAR_HEIGHT    (SELECTION_Y - TOP_BUTTONS_Y - 8)
 
-// Control bar (bottom of screen)
-#define CONTROL_Y           384
-#define CONTROL_HEIGHT      16
+// Credits display (top-left of game view)
+#define CREDITS_X           8
+#define CREDITS_Y           4
+#define CREDITS_WIDTH       100
+#define CREDITS_HEIGHT      16
 
 //===========================================================================
 // Palette Color Indices

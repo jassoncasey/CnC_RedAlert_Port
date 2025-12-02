@@ -69,6 +69,18 @@ static int g_placementCellX = 0;       // Current cursor cell position
 static int g_placementCellY = 0;
 static bool g_placementValid = false;  // Is current placement position valid?
 
+// Top button modes (Repair/Sell)
+static bool g_repairMode = false;      // Repair mode active
+static bool g_sellMode = false;        // Sell mode active
+
+//===========================================================================
+// Forward Declarations
+//===========================================================================
+
+static void GameUI_RenderTopButtons(void);
+static BOOL GameUI_TopButtonsClick(int mouseX, int mouseY);
+static void GameUI_RenderPowerBar(void);
+
 //===========================================================================
 // Helper: Find player production building
 //===========================================================================
@@ -644,7 +656,9 @@ void GameUI_Render(void) {
 
     // Draw individual components
     GameUI_RenderRadar();
+    GameUI_RenderTopButtons();
     GameUI_RenderSidebar();
+    GameUI_RenderPowerBar();
     GameUI_RenderSelectionPanel();
     GameUI_RenderHUD();
 
@@ -687,6 +701,13 @@ BOOL GameUI_HandleInput(int mouseX, int mouseY,
             return GameUI_RadarClick(mouseX, mouseY);
         }
         return TRUE;
+    }
+
+    // Check top buttons (Repair/Sell/Zoom)
+    if (mouseX >= SIDEBAR_X && leftClick) {
+        if (GameUI_TopButtonsClick(mouseX, mouseY)) {
+            return TRUE;
+        }
     }
 
     // Check sidebar clicks
@@ -888,213 +909,432 @@ void GameUI_RadarToWorld(int radarX, int radarY, int* worldX, int* worldY) {
 }
 
 //===========================================================================
-// Sidebar Implementation
+// Top Buttons Implementation (Repair/Sell/Zoom)
 //===========================================================================
 
-// Button height reduced to fit all items
-#define SIDEBAR_BUTTON_HEIGHT 16
-#define SIDEBAR_BUTTON_SPACING 17
+// Button sizes (2x original: 32x9 => 64x18, 20x9 => 40x18)
+#define REPAIR_BTN_WIDTH   64
+#define SELL_BTN_WIDTH     40
+#define ZOOM_BTN_WIDTH     40
+#define TOP_BTN_HEIGHT     TOP_BUTTONS_HEIGHT
+
+static void GameUI_RenderTopButtons(void) {
+    int y = TOP_BUTTONS_Y;
+    int x = SIDEBAR_X + 8;
+
+    // Repair button
+    uint8_t repairBg = g_repairMode ? PAL_LTGREEN : PAL_GREY;
+    DrawBeveledBox(x, y, REPAIR_BTN_WIDTH, TOP_BTN_HEIGHT, repairBg, !g_repairMode);
+    uint8_t repairTxt = g_repairMode ? PAL_BLACK : PAL_WHITE;
+    Renderer_DrawText("REPAIR", x + 6, y + 4, repairTxt, 0);
+    x += REPAIR_BTN_WIDTH + 4;
+
+    // Sell button
+    uint8_t sellBg = g_sellMode ? PAL_YELLOW : PAL_GREY;
+    DrawBeveledBox(x, y, SELL_BTN_WIDTH, TOP_BTN_HEIGHT, sellBg, !g_sellMode);
+    uint8_t sellTxt = g_sellMode ? PAL_BLACK : PAL_WHITE;
+    Renderer_DrawText("SELL", x + 6, y + 4, sellTxt, 0);
+    x += SELL_BTN_WIDTH + 4;
+
+    // Zoom button (centers view on construction yard)
+    DrawBeveledBox(x, y, ZOOM_BTN_WIDTH, TOP_BTN_HEIGHT, PAL_GREY, true);
+    Renderer_DrawText("ZOOM", x + 4, y + 4, PAL_WHITE, 0);
+}
+
+// Handle click on top buttons
+// Returns TRUE if click consumed
+static BOOL GameUI_TopButtonsClick(int mouseX, int mouseY) {
+    if (mouseY < TOP_BUTTONS_Y || mouseY >= TOP_BUTTONS_Y + TOP_BTN_HEIGHT) {
+        return FALSE;
+    }
+
+    int x = SIDEBAR_X + 8;
+
+    // Repair button
+    if (mouseX >= x && mouseX < x + REPAIR_BTN_WIDTH) {
+        g_repairMode = !g_repairMode;
+        if (g_repairMode) g_sellMode = false;  // Mutually exclusive
+        return TRUE;
+    }
+    x += REPAIR_BTN_WIDTH + 4;
+
+    // Sell button
+    if (mouseX >= x && mouseX < x + SELL_BTN_WIDTH) {
+        g_sellMode = !g_sellMode;
+        if (g_sellMode) g_repairMode = false;  // Mutually exclusive
+        return TRUE;
+    }
+    x += SELL_BTN_WIDTH + 4;
+
+    // Zoom button - centers on construction yard
+    if (mouseX >= x && mouseX < x + ZOOM_BTN_WIDTH) {
+        // Find player's construction yard
+        for (int i = 0; i < MAX_BUILDINGS; i++) {
+            Building* bldg = Buildings_Get(i);
+            if (!bldg || !bldg->active) continue;
+            if (bldg->team != TEAM_PLAYER) continue;
+            if (bldg->type == BUILDING_CONSTRUCTION) {
+                // Center map on this building
+                Map_CenterViewport(bldg->cellX * CELL_SIZE + CELL_SIZE,
+                                   bldg->cellY * CELL_SIZE + CELL_SIZE);
+                return TRUE;
+            }
+        }
+        return TRUE;  // Click consumed even if no CY
+    }
+
+    return FALSE;
+}
+
+//===========================================================================
+// Power Bar Implementation
+//===========================================================================
+
+// Calculate player's power production and consumption
+static void CalcPlayerPower(int* produced, int* consumed) {
+    int prod = 0, cons = 0;
+
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bldg = Buildings_Get(i);
+        if (!bldg || !bldg->active) continue;
+        if (bldg->team != TEAM_PLAYER) continue;
+
+        // Power plants produce, other buildings consume
+        switch (bldg->type) {
+            case BUILDING_POWER:
+                prod += 100;  // Power Plant produces 100
+                break;
+            case BUILDING_ADV_POWER:
+                prod += 200;  // Advanced Power produces 200
+                break;
+            case BUILDING_RADAR:
+                cons += 40;
+                break;
+            case BUILDING_FACTORY:
+                cons += 30;
+                break;
+            case BUILDING_BARRACKS:
+                cons += 20;
+                break;
+            case BUILDING_REFINERY:
+                cons += 30;
+                break;
+            case BUILDING_SILO:
+                cons += 10;
+                break;
+            case BUILDING_TURRET:
+            case BUILDING_SAM:
+                cons += 20;
+                break;
+            case BUILDING_TECH_CENTER:
+                cons += 50;
+                break;
+            default:
+                cons += 10;  // Base consumption for other buildings
+                break;
+        }
+    }
+
+    *produced = prod;
+    *consumed = cons;
+}
+
+static void GameUI_RenderPowerBar(void) {
+    int x = POWER_BAR_X;
+    int y = POWER_BAR_Y;
+    int w = POWER_BAR_WIDTH;
+    int h = POWER_BAR_HEIGHT;
+
+    // Frame
+    DrawBeveledBox(x, y, w, h, PAL_BLACK, false);
+
+    // Get power stats
+    int produced, consumed;
+    CalcPlayerPower(&produced, &consumed);
+
+    // Calculate fill levels (from bottom up)
+    int innerH = h - 4;
+    int innerY = y + 2;
+    int innerX = x + 2;
+    int innerW = w - 4;
+
+    if (produced > 0) {
+        // Power produced (green bar from bottom)
+        int maxPower = produced + 50;  // Max includes some headroom
+        int prodH = (produced * innerH) / maxPower;
+        if (prodH > innerH) prodH = innerH;
+
+        // Draw green production bar from bottom
+        Renderer_FillRect(innerX, innerY + innerH - prodH,
+                          innerW, prodH, PAL_LTGREEN);
+
+        // Draw consumption line (yellow or red if over)
+        int consH = (consumed * innerH) / maxPower;
+        if (consH > innerH) consH = innerH;
+
+        // Fill above consumption with red if low power
+        if (consumed > produced) {
+            // Low power - red zone
+            int overH = ((consumed - produced) * innerH) / maxPower;
+            if (overH > innerH - prodH) overH = innerH - prodH;
+            Renderer_FillRect(innerX, innerY + innerH - prodH - overH,
+                              innerW, overH, PAL_RED);
+        }
+
+        // Draw consumption marker line
+        int consY = innerY + innerH - consH;
+        if (consY >= innerY && consY < innerY + innerH) {
+            uint8_t lineColor = (consumed > produced) ? PAL_RED : PAL_YELLOW;
+            Renderer_HLine(innerX, consY, innerX + innerW - 1, lineColor);
+        }
+    } else {
+        // No power - just show empty
+        Renderer_FillRect(innerX, innerY, innerW, innerH, PAL_BLACK);
+    }
+
+    // Border
+    Renderer_DrawRect(x + 1, y + 1, w - 2, h - 2, PAL_GREY);
+}
+
+//===========================================================================
+// Sidebar Implementation - Two Column Layout
+//===========================================================================
+
+// Scroll state for each column
+static int g_structureScrollTop = 0;  // Top visible structure index
+static int g_unitScrollTop = 0;       // Top visible unit index
+
+// Helper: Draw a single cameo button
+static void DrawCameoButton(int x, int y, const BuildItemDef* item,
+                            bool isBuilding, int progress, bool isReady) {
+    bool hasPrereqs = CheckPrerequisites(item);
+    bool canAfford = g_playerCredits >= item->cost;
+    bool available = hasPrereqs && canAfford;
+
+    // Background color
+    uint8_t bgColor = available ? PAL_GREY : PAL_BLACK;
+    if (isBuilding) bgColor = PAL_GREY;
+
+    // Draw cameo box with bevel
+    bool raised = available && !isBuilding;
+    DrawBeveledBox(x, y, STRIP_ITEM_WIDTH, STRIP_ITEM_HEIGHT, bgColor, raised);
+
+    // Text color
+    uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
+
+    // Item name (centered)
+    int textX = x + 4;
+    int textY = y + 4;
+    Renderer_DrawText(item->name, textX, textY, textColor, 0);
+
+    // Status or cost
+    if (isBuilding) {
+        if (isReady) {
+            // Ready - pulsing READY text
+            bool flash = g_flashFrame < 10;
+            uint8_t rdyClr = flash ? PAL_WHITE : PAL_LTGREEN;
+            Renderer_DrawText("READY", textX, y + 20, rdyClr, 0);
+        } else {
+            // Progress bar
+            int barW = (STRIP_ITEM_WIDTH - 8) * progress / 100;
+            Renderer_FillRect(x + 4, y + STRIP_ITEM_HEIGHT - 8,
+                             STRIP_ITEM_WIDTH - 8, 4, PAL_BLACK);
+            if (barW > 0) {
+                Renderer_FillRect(x + 4, y + STRIP_ITEM_HEIGHT - 8,
+                                 barW, 4, PAL_LTGREEN);
+            }
+            // Percentage text
+            char pStr[8];
+            snprintf(pStr, sizeof(pStr), "%d%%", progress);
+            Renderer_DrawText(pStr, textX, y + 20, PAL_LTGREEN, 0);
+        }
+    } else if (!hasPrereqs) {
+        // Show lock indicator
+        Renderer_DrawText("---", textX + 8, y + 20, PAL_GREY, 0);
+    } else {
+        // Show cost
+        char cs[16];
+        snprintf(cs, sizeof(cs), "$%d", item->cost);
+        uint8_t costColor = canAfford ? PAL_YELLOW : PAL_RED;
+        Renderer_DrawText(cs, textX, y + 20, costColor, 0);
+    }
+}
+
+// Helper: Draw scroll arrows for a column
+static void DrawScrollArrows(int x, int y, bool canScrollUp, bool canScrollDown) {
+    // Up arrow
+    uint8_t upColor = canScrollUp ? PAL_WHITE : PAL_GREY;
+    DrawBeveledBox(x, y, SCROLL_BUTTON_SIZE, SCROLL_BUTTON_SIZE / 2,
+                   PAL_GREY, canScrollUp);
+    Renderer_DrawText("^", x + 8, y + 2, upColor, 0);
+
+    // Down arrow
+    uint8_t downColor = canScrollDown ? PAL_WHITE : PAL_GREY;
+    int downY = y + SCROLL_BUTTON_SIZE / 2 + 2;
+    DrawBeveledBox(x, downY, SCROLL_BUTTON_SIZE, SCROLL_BUTTON_SIZE / 2,
+                   PAL_GREY, canScrollDown);
+    Renderer_DrawText("v", x + 8, downY + 2, downColor, 0);
+}
 
 void GameUI_RenderSidebar(void) {
+    // Column 1: Structures (left column)
+    int col1X = STRIP_COL1_X;
     int startY = STRIP_Y;
-    int maxY = SELECTION_Y - 4;  // Don't go past selection panel
 
-    // Section: STRUCTURES
-    int bx = SIDEBAR_X + 3, bw = SIDEBAR_WIDTH - 6;
-    DrawBeveledBox(bx, startY, bw, 10, PAL_GREY, true);
-    Renderer_DrawText("STRUCT", SIDEBAR_X + 8, startY + 1, PAL_BLACK, 0);
-    startY += 12;
+    for (int row = 0; row < STRIP_ITEMS_VISIBLE; row++) {
+        int idx = g_structureScrollTop + row;
+        if (idx >= g_structureDefCount) break;
 
-    // Structure buttons
-    for (int i = 0; i < g_structureDefCount; i++) {
-        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;  // Don't overflow
-
-        const BuildItemDef* item = &g_structureDefs[i];
-        bool hasPrereqs = CheckPrerequisites(item);
-        bool canAfford = g_playerCredits >= item->cost;
-        bool available = hasPrereqs && canAfford;
-        bool isBuilding = (g_structureProducing == i);
+        const BuildItemDef* item = &g_structureDefs[idx];
+        bool isBuilding = (g_structureProducing == idx);
         int progress = isBuilding ? (g_structureProgress / 100) : 0;
+        bool isReady = isBuilding && g_placementMode && g_placementType == idx;
 
-        uint8_t bgColor = available ? PAL_GREY : PAL_BLACK;
-        uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
-
-        // Button with 3D effect
-        int btnX = SIDEBAR_X + 4, btnW = SIDEBAR_WIDTH - 8;
-        int btnH = SIDEBAR_BUTTON_HEIGHT;
-        bool raised = available && !isBuilding;
-        DrawBeveledBox(btnX, startY, btnW, btnH, bgColor, raised);
-
-        // Item name and cost/status on same line
-        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 1, textColor, 0);
-
-        // Cost, progress, or requirement (to the right of name)
-        if (isBuilding) {
-            if (g_placementMode && g_placementType == i) {
-                // Ready for placement - pulsing text
-                bool flash = g_flashFrame < 10;
-                uint8_t rdyClr = flash ? PAL_WHITE : PAL_LTGREEN;
-                Renderer_DrawText("RDY", SIDEBAR_X + 44, startY + 1, rdyClr, 0);
-            } else {
-                char pStr[16];
-                snprintf(pStr, sizeof(pStr), "%d%%", progress);
-                int tx = SIDEBAR_X + 44;
-                Renderer_DrawText(pStr, tx, startY + 1, PAL_LTGREEN, 0);
-
-                // Progress bar below
-                int barW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
-                int barX = SIDEBAR_X + 8;
-                Renderer_FillRect(barX, startY + 10, barW, 2, PAL_LTGREEN);
-            }
-        } else if (!hasPrereqs) {
-            Renderer_DrawText("---", SIDEBAR_X + 44, startY + 1, PAL_GREY, 0);
-        } else if (!canAfford) {
-            char costStr[16];
-            snprintf(costStr, sizeof(costStr), "$%d", item->cost);
-            Renderer_DrawText(costStr, SIDEBAR_X + 8, startY + 8, PAL_RED, 0);
-        } else {
-            char cs[16];
-            snprintf(cs, sizeof(cs), "$%d", item->cost);
-            Renderer_DrawText(cs, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
-        }
-
-        startY += SIDEBAR_BUTTON_SPACING;
+        int y = startY + row * STRIP_ITEM_HEIGHT;
+        DrawCameoButton(col1X, y, item, isBuilding, progress, isReady);
     }
 
-    // Placement hint (compact)
-    if (g_placementMode) {
-        Renderer_DrawText("Place bldg", SIDEBAR_X + 6, startY, PAL_WHITE, 0);
-        startY += 12;
-    }
+    // Column 2: Units (right column)
+    int col2X = STRIP_COL2_X;
 
-    startY += 2;
+    for (int row = 0; row < STRIP_ITEMS_VISIBLE; row++) {
+        int idx = g_unitScrollTop + row;
+        if (idx >= g_unitDefCount) break;
 
-    // Section: UNITS
-    if (startY + 12 < maxY) {
-        DrawBeveledBox(bx, startY, bw, 10, PAL_GREY, true);
-        Renderer_DrawText("UNITS", SIDEBAR_X + 8, startY + 1, PAL_BLACK, 0);
-        startY += 12;
-    }
-
-    // Unit buttons
-    for (int i = 0; i < g_unitDefCount; i++) {
-        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;  // Don't overflow
-
-        const BuildItemDef* item = &g_unitDefs[i];
-        bool hasPrereqs = CheckPrerequisites(item);
-        bool canAfford = g_playerCredits >= item->cost;
-        bool available = hasPrereqs && canAfford;
-        bool isBuilding = (g_unitProducing == i);
+        const BuildItemDef* item = &g_unitDefs[idx];
+        bool isBuilding = (g_unitProducing == idx);
         int progress = isBuilding ? (g_unitProgress / 100) : 0;
 
-        uint8_t bgCol = available ? PAL_GREY : PAL_BLACK;
-        uint8_t txtCol = available ? PAL_WHITE : PAL_GREY;
+        int y = startY + row * STRIP_ITEM_HEIGHT;
+        DrawCameoButton(col2X, y, item, isBuilding, progress, false);
+    }
 
-        int ux = SIDEBAR_X + 4, uw = SIDEBAR_WIDTH - 8;
-        int uh = SIDEBAR_BUTTON_HEIGHT;
-        bool r = available && !isBuilding;
-        DrawBeveledBox(ux, startY, uw, uh, bgCol, r);
+    // Scroll arrows below each column
+    int scrollY = SCROLL_BUTTONS_Y;
 
-        Renderer_DrawText(item->name, SIDEBAR_X + 8, startY + 1, txtCol, 0);
+    // Structure scroll arrows (column 1)
+    bool canScrollUpStr = g_structureScrollTop > 0;
+    bool canScrollDownStr = g_structureScrollTop + STRIP_ITEMS_VISIBLE
+                            < g_structureDefCount;
+    DrawScrollArrows(col1X + 20, scrollY, canScrollUpStr, canScrollDownStr);
 
-        if (isBuilding) {
-            char ps[16];
-            snprintf(ps, sizeof(ps), "%d%%", progress);
-            int tx = SIDEBAR_X + 44;
-            Renderer_DrawText(ps, tx, startY + 1, PAL_LTGREEN, 0);
+    // Unit scroll arrows (column 2)
+    bool canScrollUpUnit = g_unitScrollTop > 0;
+    bool canScrollDownUnit = g_unitScrollTop + STRIP_ITEMS_VISIBLE
+                             < g_unitDefCount;
+    DrawScrollArrows(col2X + 20, scrollY, canScrollUpUnit, canScrollDownUnit);
 
-            int bW = ((SIDEBAR_WIDTH - 16) * progress) / 100;
-            Renderer_FillRect(SIDEBAR_X + 8, startY + 10, bW, 2, PAL_LTGREEN);
-        } else if (!hasPrereqs) {
-            Renderer_DrawText("---", SIDEBAR_X + 44, startY + 1, PAL_GREY, 0);
-        } else if (!canAfford) {
-            char cs[16];
-            snprintf(cs, sizeof(cs), "$%d", item->cost);
-            Renderer_DrawText(cs, SIDEBAR_X + 8, startY + 8, PAL_RED, 0);
-        } else {
-            char cs[16];
-            snprintf(cs, sizeof(cs), "$%d", item->cost);
-            Renderer_DrawText(cs, SIDEBAR_X + 8, startY + 8, PAL_YELLOW, 0);
-        }
-
-        startY += SIDEBAR_BUTTON_SPACING;
+    // Placement hint
+    if (g_placementMode) {
+        int hintY = scrollY + SCROLL_BUTTON_SIZE + 4;
+        Renderer_DrawText("Click to place", SIDEBAR_X + 8, hintY, PAL_WHITE, 0);
     }
 }
 
 BOOL GameUI_SidebarClick(int mouseX, int mouseY, BOOL leftClick) {
     (void)leftClick;
-    (void)mouseX;
 
-    int startY = STRIP_Y + 12;  // After "STRUCTURES" header
-    int maxY = SELECTION_Y - 4;
-
-    // Check structure buttons
-    for (int i = 0; i < g_structureDefCount; i++) {
-        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;
-
-        if (mouseY >= startY && mouseY < startY + SIDEBAR_BUTTON_HEIGHT) {
-            BuildItemDef* item = &g_structureDefs[i];
-
-            // Check if already building or in placement mode
-            if (g_structureProducing >= 0 || g_placementMode) {
-                return TRUE;
-            }
-
-            // Check prerequisites
-            if (!CheckPrerequisites(item)) {
-                return TRUE;  // Click consumed but no action
-            }
-
-            // Check if player can afford it
-            if (g_playerCredits < item->cost) {
-                return TRUE;  // Click consumed but no action
-            }
-
-            // Start production
-            g_playerCredits -= item->cost;
-            g_structureProducing = i;
-            g_structureProgress = 0;
-            return TRUE;
-        }
-        startY += SIDEBAR_BUTTON_SPACING;
+    // Check if click is in sidebar area
+    if (mouseX < SIDEBAR_X || mouseX >= SIDEBAR_X + SIDEBAR_WIDTH) {
+        return FALSE;
     }
 
-    // Skip placement hint area if visible
-    if (g_placementMode) {
-        startY += 12;
-    }
+    // Determine which column was clicked
+    bool inCol1 = (mouseX >= STRIP_COL1_X &&
+                   mouseX < STRIP_COL1_X + STRIP_ITEM_WIDTH);
+    bool inCol2 = (mouseX >= STRIP_COL2_X &&
+                   mouseX < STRIP_COL2_X + STRIP_ITEM_WIDTH);
 
-    startY += 2 + 12;  // Skip gap and "UNITS" header
-
-    // Check unit buttons
-    for (int i = 0; i < g_unitDefCount; i++) {
-        if (startY + SIDEBAR_BUTTON_HEIGHT > maxY) break;
-
-        if (mouseY >= startY && mouseY < startY + SIDEBAR_BUTTON_HEIGHT) {
-            BuildItemDef* item = &g_unitDefs[i];
-
-            // Check if already building something
-            if (g_unitProducing >= 0) {
-                return TRUE;
-            }
-
-            // Check prerequisites
-            if (!CheckPrerequisites(item)) {
-                return TRUE;  // Click consumed but no action
-            }
-
-            // Check if player can afford it
-            if (g_playerCredits < item->cost) {
-                return TRUE;  // Click consumed but no action
-            }
-
-            // Start production
-            g_playerCredits -= item->cost;
-            g_unitProducing = i;
-            g_unitProgress = 0;
+    // Check scroll buttons first
+    int scrollY = SCROLL_BUTTONS_Y;
+    if (mouseY >= scrollY && mouseY < scrollY + SCROLL_BUTTON_SIZE) {
+        // Scroll up buttons
+        if (inCol1 && g_structureScrollTop > 0) {
+            g_structureScrollTop--;
             return TRUE;
         }
-        startY += SIDEBAR_BUTTON_SPACING;
+        if (inCol2 && g_unitScrollTop > 0) {
+            g_unitScrollTop--;
+            return TRUE;
+        }
+    }
+    if (mouseY >= scrollY + SCROLL_BUTTON_SIZE &&
+        mouseY < scrollY + SCROLL_BUTTON_SIZE * 2) {
+        // Scroll down buttons
+        int maxStructScroll = g_structureDefCount - STRIP_ITEMS_VISIBLE;
+        int maxUnitScroll = g_unitDefCount - STRIP_ITEMS_VISIBLE;
+        if (inCol1 && g_structureScrollTop < maxStructScroll) {
+            g_structureScrollTop++;
+            return TRUE;
+        }
+        if (inCol2 && g_unitScrollTop < maxUnitScroll) {
+            g_unitScrollTop++;
+            return TRUE;
+        }
+    }
+
+    // Check cameo clicks
+    if (mouseY >= STRIP_Y && mouseY < SCROLL_BUTTONS_Y) {
+        int row = (mouseY - STRIP_Y) / STRIP_ITEM_HEIGHT;
+        if (row >= 0 && row < STRIP_ITEMS_VISIBLE) {
+            // Column 1: Structures
+            if (inCol1) {
+                int idx = g_structureScrollTop + row;
+                if (idx >= 0 && idx < g_structureDefCount) {
+                    BuildItemDef* item = &g_structureDefs[idx];
+
+                    // Check if already building or in placement mode
+                    if (g_structureProducing >= 0 || g_placementMode) {
+                        return TRUE;
+                    }
+
+                    // Check prerequisites
+                    if (!CheckPrerequisites(item)) {
+                        return TRUE;
+                    }
+
+                    // Check if player can afford it
+                    if (g_playerCredits < item->cost) {
+                        return TRUE;
+                    }
+
+                    // Start production
+                    g_playerCredits -= item->cost;
+                    g_structureProducing = idx;
+                    g_structureProgress = 0;
+                    return TRUE;
+                }
+            }
+
+            // Column 2: Units
+            if (inCol2) {
+                int idx = g_unitScrollTop + row;
+                if (idx >= 0 && idx < g_unitDefCount) {
+                    BuildItemDef* item = &g_unitDefs[idx];
+
+                    // Check if already building something
+                    if (g_unitProducing >= 0) {
+                        return TRUE;
+                    }
+
+                    // Check prerequisites
+                    if (!CheckPrerequisites(item)) {
+                        return TRUE;
+                    }
+
+                    // Check if player can afford it
+                    if (g_playerCredits < item->cost) {
+                        return TRUE;
+                    }
+
+                    // Start production
+                    g_playerCredits -= item->cost;
+                    g_unitProducing = idx;
+                    g_unitProgress = 0;
+                    return TRUE;
+                }
+            }
+        }
     }
 
     return FALSE;
