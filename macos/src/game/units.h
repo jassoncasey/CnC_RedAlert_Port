@@ -218,6 +218,8 @@ typedef struct {
     // Combat behavior fields
     int16_t lastAttacker;   // Unit ID that last attacked this unit (-1 if none)
     int16_t scatterTimer;   // Ticks until scatter allowed again
+    // Trigger attachment
+    char triggerName[24];   // Attached trigger name (for ATTACKED/DESTROYED events)
 } Unit;
 
 // Building structure
@@ -234,6 +236,8 @@ typedef struct {
     uint8_t active;         // Is building slot active?
     int16_t attackCooldown; // For turrets
     int16_t sightRange;     // Sight range in cells (fog of war)
+    // Trigger attachment
+    char triggerName[24];   // Attached trigger name (for ATTACKED/DESTROYED events)
 } Building;
 
 /**

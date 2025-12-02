@@ -27,6 +27,10 @@ struct ParsedTrigger {
     int action1, a1p1, a1p2, a1p3;
     int action2, a2p1, a2p2, a2p3;
     bool active;
+
+    // Event state flags (set by objects when events occur)
+    bool wasAttacked;   // Object with this trigger was attacked
+    bool wasDestroyed;  // Object with this trigger was destroyed
 };
 
 #define MAX_PARSED_TRIGGERS 80
@@ -36,6 +40,46 @@ static int g_parsedTriggerCount = 0;
 // Global flags for trigger system (up to 32 flags)
 #define MAX_GLOBAL_FLAGS 32
 static bool g_globalFlags[MAX_GLOBAL_FLAGS] = {false};
+
+// ============================================================================
+// Trigger Event Notification Functions
+// Called by objects when trigger-related events occur
+// ============================================================================
+
+/**
+ * Find a trigger by name and return its index, or -1 if not found
+ */
+static int FindTriggerByName(const char* name) {
+    if (!name || name[0] == '\0') return -1;
+    for (int i = 0; i < g_parsedTriggerCount; i++) {
+        if (strcasecmp(g_parsedTriggers[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Notify that an object with the given trigger was attacked
+ * Called from TechnoClass::TakeDamage when object takes damage
+ */
+void Mission_TriggerAttacked(const char* triggerName) {
+    int idx = FindTriggerByName(triggerName);
+    if (idx >= 0) {
+        g_parsedTriggers[idx].wasAttacked = true;
+    }
+}
+
+/**
+ * Notify that an object with the given trigger was destroyed
+ * Called from Record_The_Kill when object dies
+ */
+void Mission_TriggerDestroyed(const char* triggerName) {
+    int idx = FindTriggerByName(triggerName);
+    if (idx >= 0) {
+        g_parsedTriggers[idx].wasDestroyed = true;
+    }
+}
 
 void Mission_Init(MissionData* mission) {
     if (!mission) return;
@@ -391,6 +435,13 @@ static void ParseUnitsSection(MissionData* mission, INIClass* ini) {
             unit->facing = (int16_t)facing;
             unit->mission = ParseMissionType(missionStr);
             unit->subCell = 0;
+            // Store trigger name (skip "None")
+            if (trigger[0] != '\0' && strcasecmp(trigger, "None") != 0) {
+                strncpy(unit->triggerName, trigger, sizeof(unit->triggerName) - 1);
+                unit->triggerName[sizeof(unit->triggerName) - 1] = '\0';
+            } else {
+                unit->triggerName[0] = '\0';
+            }
 
             if (unit->type != UNIT_NONE) mission->unitCount++;
         }
@@ -424,6 +475,13 @@ static void ParseStructuresSection(MissionData* mission, INIClass* ini) {
             bld->facing = (int16_t)facing;
             bld->sellable = (int8_t)sellable;
             bld->rebuild = (int8_t)rebuild;
+            // Store trigger name (skip "None")
+            if (trigger[0] != '\0' && strcasecmp(trigger, "None") != 0) {
+                strncpy(bld->triggerName, trigger, sizeof(bld->triggerName) - 1);
+                bld->triggerName[sizeof(bld->triggerName) - 1] = '\0';
+            } else {
+                bld->triggerName[0] = '\0';
+            }
 
             if (bld->type != BUILDING_NONE) mission->buildingCount++;
         }
@@ -456,6 +514,13 @@ static void ParseInfantrySection(MissionData* mission, INIClass* ini) {
             unit->facing = (int16_t)facing;
             unit->mission = ParseMissionType(missionStr);
             unit->subCell = (int16_t)subCell;
+            // Store trigger name (skip "None")
+            if (trigger[0] != '\0' && strcasecmp(trigger, "None") != 0) {
+                strncpy(unit->triggerName, trigger, sizeof(unit->triggerName) - 1);
+                unit->triggerName[sizeof(unit->triggerName) - 1] = '\0';
+            } else {
+                unit->triggerName[0] = '\0';
+            }
 
             if (unit->type != UNIT_NONE) mission->unitCount++;
         }
@@ -488,6 +553,13 @@ static void ParseShipsSection(MissionData* mission, INIClass* ini) {
             unit->facing = (int16_t)facing;
             unit->mission = ParseMissionType(missionStr);
             unit->subCell = 0;
+            // Store trigger name (skip "None")
+            if (trigger[0] != '\0' && strcasecmp(trigger, "None") != 0) {
+                strncpy(unit->triggerName, trigger, sizeof(unit->triggerName) - 1);
+                unit->triggerName[sizeof(unit->triggerName) - 1] = '\0';
+            } else {
+                unit->triggerName[0] = '\0';
+            }
 
             if (unit->type != UNIT_NONE) mission->unitCount++;
         }
@@ -1149,7 +1221,18 @@ static void SpawnMissionBuildings(const MissionData* mission) {
         int localY = bld->cellY - mission->mapY;
         if (localX >= 0 && localX < mission->mapWidth &&
             localY >= 0 && localY < mission->mapHeight) {
-            Buildings_Spawn(bld->type, bld->team, localX, localY);
+            int buildingId = Buildings_Spawn(bld->type, bld->team,
+                                             localX, localY);
+            // Attach trigger if specified
+            if (buildingId >= 0 && bld->triggerName[0] != '\0') {
+                Building* spawned = Buildings_Get(buildingId);
+                if (spawned) {
+                    strncpy(spawned->triggerName, bld->triggerName,
+                            sizeof(spawned->triggerName) - 1);
+                    spawned->triggerName[sizeof(spawned->triggerName) - 1] =
+                        '\0';
+                }
+            }
         }
     }
 }
@@ -1164,7 +1247,17 @@ static void SpawnMissionUnits(const MissionData* mission) {
             localCellY >= 0 && localCellY < mission->mapHeight) {
             int worldX = localCellX * CELL_SIZE + CELL_SIZE / 2;
             int worldY = localCellY * CELL_SIZE + CELL_SIZE / 2;
-            Units_Spawn(unit->type, unit->team, worldX, worldY);
+            int unitId = Units_Spawn(unit->type, unit->team, worldX, worldY);
+            // Attach trigger if specified
+            if (unitId >= 0 && unit->triggerName[0] != '\0') {
+                Unit* spawned = Units_Get(unitId);
+                if (spawned) {
+                    strncpy(spawned->triggerName, unit->triggerName,
+                            sizeof(spawned->triggerName) - 1);
+                    spawned->triggerName[sizeof(spawned->triggerName) - 1] =
+                        '\0';
+                }
+            }
         }
     }
 }
@@ -1387,8 +1480,8 @@ void Mission_GetDemo(MissionData* mission) {
     mission->loseCondition = 0; // Lose all
 
     // Building/unit macros for concise initialization
-    #define B(t,tm,x,y,s,r) {t, tm, x, y, 256, 0, s, r}
-    #define U(t,tm,x,y,f,m,s) {t, tm, x, y, 256, f, m, s}
+    #define B(t,tm,x,y,s,r) {t, tm, x, y, 256, 0, s, r, ""}
+    #define U(t,tm,x,y,f,m,s) {t, tm, x, y, 256, f, m, s, ""}
     #define P TEAM_PLAYER
     #define E TEAM_ENEMY
     #define CY BUILDING_CONSTRUCTION
@@ -1882,14 +1975,20 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
 
         case RA_EVENT_ATTACKED:  // Object attacked
             // Triggered when attached object is attacked
-            // For now, return false - needs object attachment tracking
-            // TODO: Track attack events on trigger-linked objects
+            // The wasAttacked flag is set by Mission_TriggerAttacked()
+            // when an object with this trigger takes damage
+            if (trig->wasAttacked) {
+                return true;
+            }
             break;
 
         case RA_EVENT_DESTROYED:  // Object destroyed
-            // param2 might be house, triggered when linked object destroyed
-            // For now, return false - needs object attachment tracking
-            // TODO: Track destruction events on trigger-linked objects
+            // Triggered when attached object is destroyed
+            // The wasDestroyed flag is set by Mission_TriggerDestroyed()
+            // when an object with this trigger is killed
+            if (trig->wasDestroyed) {
+                return true;
+            }
             break;
 
         case RA_EVENT_ALL_DESTR:  // All units+buildings destroyed

@@ -9,6 +9,11 @@
 #include <cmath>
 #include <cstdio>
 
+// Forward declarations for trigger functions (avoid including mission.h
+// which has conflicting type definitions from units.h vs types.h)
+extern "C" void Mission_TriggerAttacked(const char* triggerName);
+extern "C" void Mission_TriggerDestroyed(const char* triggerName);
+
 //===========================================================================
 // Helper Functions
 //===========================================================================
@@ -512,12 +517,27 @@ TechnoClass::TechnoClass(RTTIType rtti, int id)
 {
     arm_[0] = 0;
     arm_[1] = 0;
+    triggerName_[0] = '\0';
 }
 
 void TechnoClass::SetHouse(HousesType house) {
     house_ = house;
     // Simplified - would check actual player house
     isOwnedByPlayer_ = (house == HousesType::GOOD);
+}
+
+void TechnoClass::AttachTrigger(const char* triggerName) {
+    if (triggerName && triggerName[0] != '\0') {
+        // Skip "None" triggers
+        if (strcasecmp(triggerName, "None") == 0) {
+            triggerName_[0] = '\0';
+            return;
+        }
+        strncpy(triggerName_, triggerName, sizeof(triggerName_) - 1);
+        triggerName_[sizeof(triggerName_) - 1] = '\0';
+    } else {
+        triggerName_[0] = '\0';
+    }
 }
 
 bool TechnoClass::IsAllowedToRetaliate() const {
@@ -632,6 +652,37 @@ void TechnoClass::AI() {
         }
         turretFacing_ = static_cast<DirType>(current);
     }
+}
+
+ResultType TechnoClass::TakeDamage(int& damage, int distance,
+                                   WarheadType warhead, TechnoClass* source,
+                                   bool forced) {
+    // Fire ATTACKED trigger if this object has one (before processing damage)
+    // Only fire if there's a source (intentional attack, not environment)
+    if (source != nullptr && HasTrigger()) {
+        Mission_TriggerAttacked(triggerName_);
+    }
+
+    // Process the damage using base class
+    ResultType result = RadioClass::TakeDamage(damage, distance, warhead,
+                                                source, forced);
+
+    // If destroyed, fire DESTROYED trigger and record kill
+    if (result == ResultType::DESTROYED) {
+        RecordKill(source);
+    }
+
+    return result;
+}
+
+void TechnoClass::RecordKill(TechnoClass* source) {
+    // Fire DESTROYED trigger if this object has one
+    if (HasTrigger()) {
+        Mission_TriggerDestroyed(triggerName_);
+    }
+
+    // Record statistics (source killed this)
+    (void)source;  // Would update kill counts here
 }
 
 //===========================================================================

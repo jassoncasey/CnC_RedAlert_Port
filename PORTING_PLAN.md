@@ -34,8 +34,8 @@ Events that control when triggers fire.
 | ID | Item | Effort | Leverage | Status |
 |----|------|--------|----------|--------|
 | **EV-1** | ENTERED event (unit in waypoint zone) | 3 hrs | **CRITICAL** | DONE |
-| **EV-2** | ATTACKED event (trigger-linked attacked) | 2 hrs | HIGH | STUB |
-| **EV-3** | DESTROYED event (trigger-linked destroyed) | 2 hrs | HIGH | STUB |
+| **EV-2** | ATTACKED event (trigger-linked attacked) | 2 hrs | HIGH | DONE |
+| **EV-3** | DESTROYED event (trigger-linked destroyed) | 2 hrs | HIGH | DONE |
 | **EV-4** | CREDITS event (player credits threshold) | 1 hr | MEDIUM | STUB |
 | **EV-5** | DISCOVERED event (fog reveal) | 2 hrs | MEDIUM | STUB |
 | **EV-6** | HOUSE_DISC event (house discovery) | 1 hr | LOW | STUB |
@@ -130,8 +130,8 @@ Style and maintainability. Do when convenient.
 | Event | Line | What's Missing |
 |-------|------|----------------|
 | ENTERED | - | DONE - Waypoint and cell-based detection implemented |
-| ATTACKED | 1461 | No attack event tracking - need to track attacks on trigger-linked objects |
-| DESTROYED | 1467 | No destruction tracking - need to track death of trigger-linked objects |
+| ATTACKED | - | DONE - Objects with triggers fire event when damaged |
+| DESTROYED | - | DONE - Objects with triggers fire event when killed |
 | CREDITS | 1506 | No credit threshold check - need to compare player credits to param2 |
 | DISCOVERED | 1514 | No fog reveal tracking - need to track when cells are revealed |
 | HOUSE_DISC | 1519 | No house discovery tracking - need to track when enemy units first seen |

@@ -56,6 +56,7 @@ typedef struct {
     int16_t facing;     // Direction (0-255, 0=N, 64=E, 128=S, 192=W)
     MissionType mission; // Initial mission
     int16_t subCell;    // Sub-cell position for infantry (0-4)
+    char triggerName[24]; // Attached trigger name (for ATTACKED/DESTROYED events)
 } MissionUnit;
 
 // Mission building placement data
@@ -68,6 +69,7 @@ typedef struct {
     int16_t facing;     // Turret direction
     int8_t sellable;    // Can be sold by player
     int8_t rebuild;     // AI will rebuild if destroyed
+    char triggerName[24]; // Attached trigger name (for ATTACKED/DESTROYED events)
 } MissionBuilding;
 
 // Mission trigger (simplified)
@@ -274,6 +276,20 @@ int Mission_ProcessTriggers(const MissionData* mission, int frameCount);
  */
 int Mission_GetWaypoint(const MissionData* mission, int waypointNum,
                         int* outX, int* outY);
+
+/**
+ * Notify trigger system that an object was attacked
+ * Called by TechnoClass::TakeDamage when object takes damage
+ * @param triggerName Name of trigger attached to the object
+ */
+void Mission_TriggerAttacked(const char* triggerName);
+
+/**
+ * Notify trigger system that an object was destroyed
+ * Called when object dies (Record_The_Kill equivalent)
+ * @param triggerName Name of trigger attached to the object
+ */
+void Mission_TriggerDestroyed(const char* triggerName);
 
 #ifdef __cplusplus
 }

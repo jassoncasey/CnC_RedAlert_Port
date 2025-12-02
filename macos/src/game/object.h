@@ -323,6 +323,9 @@ public:
     // Price paid (for refund calculation)
     int16_t pricePaid_;
 
+    // Attached trigger name (for ATTACKED/DESTROYED events)
+    char triggerName_[24];
+
     // Turret facing (if applicable)
     DirType turretFacing_;
     DirType turretFacingTarget_;
@@ -344,6 +347,7 @@ public:
           turretFacing_(DirType::N), turretFacingTarget_(DirType::N)
     {
         arm_[0] = arm_[1] = 0;
+        triggerName_[0] = '\0';
     }
     TechnoClass(RTTIType rtti, int id);
     virtual ~TechnoClass() = default;
@@ -352,6 +356,11 @@ public:
     virtual HousesType Owner() const override { return house_; }
     bool IsOwnedByPlayer() const { return isOwnedByPlayer_; }
     void SetHouse(HousesType house);
+
+    // Trigger attachment
+    void AttachTrigger(const char* triggerName);
+    const char* GetTriggerName() const { return triggerName_; }
+    bool HasTrigger() const { return triggerName_[0] != '\0'; }
 
     // Combat
     virtual bool IsAllowedToRetaliate() const;
@@ -363,6 +372,14 @@ public:
     virtual bool Fire_At(int32_t targetCoord, int weapon = 0);
     // Override in derived classes
     virtual int GetWeapon(int which = 0) const { return -1; }
+
+    // Damage handling - fires trigger events
+    virtual ResultType TakeDamage(int& damage, int distance,
+        WarheadType warhead, TechnoClass* source = nullptr,
+        bool forced = false) override;
+
+    // Death handling - fires DESTROYED trigger event
+    virtual void RecordKill(TechnoClass* source);
 
     // Cloaking
     virtual void Cloak();

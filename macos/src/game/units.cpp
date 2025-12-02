@@ -4,6 +4,7 @@
 
 #include "units.h"
 #include "map.h"
+#include "mission.h"
 #include "sprites.h"
 #include "sounds.h"
 #include "graphics/metal/renderer.h"
@@ -937,6 +938,11 @@ static void TryCrushInfantry(Unit* crusher, int unitId,
             target->health = 0;
             target->state = STATE_DYING;
 
+            // Fire DESTROYED trigger if target has one attached
+            if (target->triggerName[0] != '\0') {
+                Mission_TriggerDestroyed(target->triggerName);
+            }
+
             // Play squish sound
             Sounds_PlayAt(SFX_EXPLOSION_SM, target->worldX,
                           target->worldY, 120);
@@ -1140,6 +1146,11 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
             target->health -= unit->attackDamage;
             unit->attackCooldown = unit->attackRate;
 
+            // Fire ATTACKED trigger if target has one attached
+            if (target->triggerName[0] != '\0') {
+                Mission_TriggerAttacked(target->triggerName);
+            }
+
             // Notify target they were attacked (for return fire)
             Units_NotifyAttacked(unit->targetUnit, unitId);
 
@@ -1173,6 +1184,12 @@ static void UpdateUnitCombat(Unit* unit, int unitId) {
             // Check if target dies
             if (target->health <= 0) {
                 target->state = STATE_DYING;
+
+                // Fire DESTROYED trigger if target has one attached
+                if (target->triggerName[0] != '\0') {
+                    Mission_TriggerDestroyed(target->triggerName);
+                }
+
                 // Play death sound
                 int tx = target->worldX, ty = target->worldY;
                 Sounds_PlayAt(SFX_EXPLOSION_SM, tx, ty, 180);
@@ -1524,6 +1541,11 @@ void Units_Update(void) {
             target->health -= def->attackDamage;
             bld->attackCooldown = def->attackRate;
 
+            // Fire ATTACKED trigger if target has one attached
+            if (target->triggerName[0] != '\0') {
+                Mission_TriggerAttacked(target->triggerName);
+            }
+
             // Play turret sound based on building type
             SoundEffect sfx;
             if (bld->type == BUILDING_SAM) {
@@ -1537,6 +1559,12 @@ void Units_Update(void) {
 
             if (target->health <= 0) {
                 target->state = STATE_DYING;
+
+                // Fire DESTROYED trigger if target has one attached
+                if (target->triggerName[0] != '\0') {
+                    Mission_TriggerDestroyed(target->triggerName);
+                }
+
                 int tx = target->worldX, ty = target->worldY;
                 Sounds_PlayAt(SFX_EXPLOSION_SM, tx, ty, 180);
             }
