@@ -218,3 +218,179 @@ int Terrain_GetTileSize(void) {
 int Terrain_GetLoadedCount(void) {
     return g_terrainTemplateCount;
 }
+
+// Template ID to filename mapping (from OpenRA snow.yaml)
+// Returns the template filename for a given ID, or nullptr if unknown
+static const char* GetTemplateFilename(int templateID, const char* ext) {
+    static char filename[32];
+
+    // Clear terrain
+    if (templateID == 255 || templateID == 0xFFFF || templateID == 0) {
+        snprintf(filename, sizeof(filename), "clear1%s", ext);
+        return filename;
+    }
+
+    // Water (1-2)
+    if (templateID >= 1 && templateID <= 2) {
+        snprintf(filename, sizeof(filename), "w%d%s", templateID, ext);
+        return filename;
+    }
+
+    // Shore (3-58)
+    if (templateID >= 3 && templateID <= 58) {
+        snprintf(filename, sizeof(filename), "sh%02d%s", templateID - 2, ext);
+        return filename;
+    }
+
+    // Water cliffs (59-134)
+    if (templateID >= 59 && templateID <= 134) {
+        snprintf(filename, sizeof(filename), "wc%02d%s", templateID - 58, ext);
+        return filename;
+    }
+
+    // Roads/slopes (135-172)
+    if (templateID >= 135 && templateID <= 172) {
+        snprintf(filename, sizeof(filename), "s%02d%s", templateID - 134, ext);
+        return filename;
+    }
+
+    // Debris (173-212)
+    if (templateID >= 173 && templateID <= 212) {
+        snprintf(filename, sizeof(filename), "d%02d%s", templateID - 172, ext);
+        return filename;
+    }
+
+    // River (213-252)
+    if (templateID >= 213 && templateID <= 252) {
+        snprintf(filename, sizeof(filename), "rv%02d%s", templateID - 212, ext);
+        return filename;
+    }
+
+    // Bridge (253-260)
+    if (templateID >= 253 && templateID <= 260) {
+        snprintf(filename, sizeof(filename), "br%d%s", templateID - 252, ext);
+        return filename;
+    }
+
+    // Unknown - use clear
+    snprintf(filename, sizeof(filename), "clear1%s", ext);
+    return filename;
+}
+
+// Template cache - stores loaded templates indexed by ID
+#define MAX_CACHED_TEMPLATES 256
+static TmpFileHandle g_templateCache[MAX_CACHED_TEMPLATES] = {nullptr};
+static int g_currentTheater = 1;  // Default to snow
+
+// Load a template by ID, caching for future use
+static TmpFileHandle LoadTemplateByID(int templateID) {
+    if (templateID < 0 || templateID >= MAX_CACHED_TEMPLATES) {
+        templateID = 255;  // Default to clear
+    }
+
+    // Return cached if available
+    if (g_templateCache[templateID]) {
+        return g_templateCache[templateID];
+    }
+
+    // Get theater extension
+    const char* ext = ".sno";  // Default to snow
+    switch (g_currentTheater) {
+        case 0: ext = ".tem"; break;  // Temperate
+        case 1: ext = ".sno"; break;  // Snow
+        case 2: ext = ".int"; break;  // Interior
+        case 3: ext = ".des"; break;  // Desert
+    }
+
+    // Get filename and try to load
+    const char* filename = GetTemplateFilename(templateID, ext);
+    if (!filename) return nullptr;
+
+    uint32_t size = 0;
+    void* data = Assets_LoadTemplate(filename, &size);
+    if (!data) {
+        // Try uppercase
+        char upper[32];
+        for (int i = 0; filename[i] && i < 31; i++) {
+            upper[i] = (filename[i] >= 'a' && filename[i] <= 'z')
+                       ? filename[i] - 32 : filename[i];
+            upper[i+1] = '\0';
+        }
+        data = Assets_LoadTemplate(upper, &size);
+    }
+
+    if (!data) return nullptr;
+
+    TmpFileHandle tmp = Tmp_Load(data, size);
+    free(data);
+
+    if (tmp) {
+        g_templateCache[templateID] = tmp;
+    }
+
+    return tmp;
+}
+
+void Terrain_SetTheater(int theater) {
+    if (theater == g_currentTheater) return;
+
+    // Clear template cache
+    for (int i = 0; i < MAX_CACHED_TEMPLATES; i++) {
+        if (g_templateCache[i]) {
+            Tmp_Free(g_templateCache[i]);
+            g_templateCache[i] = nullptr;
+        }
+    }
+
+    g_currentTheater = theater;
+
+    // Pre-load clear terrain template
+    LoadTemplateByID(255);
+}
+
+BOOL Terrain_RenderByID(int templateID, int tileIndex, int screenX, int screenY) {
+    if (!g_terrainInitialized) {
+        Terrain_Init();
+    }
+
+    // Handle clear/invalid as clear terrain
+    if (templateID == 255 || templateID == 0xFFFF || templateID == 0) {
+        templateID = 255;
+    }
+
+    // Load template (from cache or disk)
+    TmpFileHandle tmp = LoadTemplateByID(templateID);
+    if (!tmp) {
+        // Fallback: try to render as clear
+        tmp = LoadTemplateByID(255);
+        if (!tmp && g_clearTile) {
+            // Use procedural clear tile
+            Renderer_Blit(g_clearTile, g_tileSize, g_tileSize,
+                          screenX, screenY, FALSE);
+            return TRUE;
+        }
+        if (!tmp) return FALSE;
+    }
+
+    // Get tile from template
+    int tileCount = Tmp_GetTileCount(tmp);
+    if (tileIndex < 0 || tileIndex >= tileCount) {
+        tileIndex = 0;  // Default to first tile
+    }
+
+    const TmpTile* tile = Tmp_GetTile(tmp, tileIndex);
+    if (!tile || !tile->pixels) {
+        // Fallback to clear
+        if (g_clearTile) {
+            Renderer_Blit(g_clearTile, g_tileSize, g_tileSize,
+                          screenX, screenY, FALSE);
+            return TRUE;
+        }
+        return FALSE;
+    }
+
+    // Render the tile
+    Renderer_Blit(tile->pixels, tile->width, tile->height,
+                  screenX, screenY, FALSE);
+    return TRUE;
+}

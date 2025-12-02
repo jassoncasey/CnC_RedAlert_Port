@@ -111,6 +111,38 @@ void* Assets_LoadMusic(const char* name, uint32_t* outSize);
  */
 BOOL Assets_HasMusic(void);
 
+/**
+ * Theater types for map rendering.
+ */
+typedef enum {
+    THEATER_TEMPERATE = 0,
+    THEATER_SNOW = 1,
+    THEATER_INTERIOR = 2,
+    THEATER_DESERT = 3
+} TheaterType;
+
+/**
+ * Set the active theater for terrain loading.
+ * Loads the appropriate palette and prioritizes the theater's MIX.
+ * @param theater  Theater type (TEMPERATE, SNOW, INTERIOR, DESERT)
+ * @return TRUE if theater assets are available
+ */
+BOOL Assets_SetTheater(TheaterType theater);
+
+/**
+ * Get the current active theater.
+ * @return Current theater type
+ */
+TheaterType Assets_GetTheater(void);
+
+/**
+ * Load terrain template data from current theater's MIX.
+ * @param name      Template filename (e.g., "CLEAR1.TEM", "SNOW01.TEM")
+ * @param outSize   Output size
+ * @return Allocated data, or NULL if not found. Caller must free().
+ */
+void* Assets_LoadTemplate(const char* name, uint32_t* outSize);
+
 #ifdef __cplusplus
 }
 #endif

@@ -23,6 +23,11 @@ class INIClass;
 #define MAX_MISSION_BUILDINGS   32
 #define MAX_MISSION_TRIGGERS    32
 
+// Map constants (Red Alert uses 128x128 cell maps)
+#define MAP_CELL_W              128
+#define MAP_CELL_H              128
+#define MAP_CELL_TOTAL          (MAP_CELL_W * MAP_CELL_H)
+
 // Mission unit placement data
 typedef struct {
     UnitType type;
@@ -84,12 +89,25 @@ typedef struct {
     int winCondition;   // 0=destroy all, 1=destroy buildings, 2=survive time
     int loseCondition;  // 0=lose all units, 1=lose buildings, 2=time expires
     int timeLimit;      // In frames (0=unlimited)
+
+    // Terrain data from [MapPack] - per cell
+    uint8_t* terrainType;   // Template type index (MAP_CELL_TOTAL bytes)
+    uint8_t* terrainIcon;   // Tile index within template (MAP_CELL_TOTAL bytes)
+
+    // Overlay data from [OverlayPack] - per cell
+    uint8_t* overlayType;   // Overlay type (ore, walls, etc)
+    uint8_t* overlayData;   // Overlay variant/frame
 } MissionData;
 
 /**
  * Initialize mission data to defaults
  */
 void Mission_Init(MissionData* mission);
+
+/**
+ * Free mission terrain/overlay data
+ */
+void Mission_Free(MissionData* mission);
 
 /**
  * Load mission from INI file

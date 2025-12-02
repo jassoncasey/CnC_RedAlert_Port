@@ -33,6 +33,9 @@ static void* g_temperatData = nullptr;
 static uint8_t g_palette[768] = {0};
 static bool g_paletteLoaded = false;
 
+// Current theater
+static TheaterType g_currentTheater = THEATER_SNOW;
+
 // Movies archive (opened on demand)
 static MixFileHandle g_moviesMix = nullptr;
 static void* g_moviesData = nullptr;
@@ -529,4 +532,79 @@ void* Assets_LoadMusic(const char* name, uint32_t* outSize) {
 BOOL Assets_HasMusic(void) {
     EnsureScoresOpen();
     return g_scoresMix != nullptr;
+}
+
+// Theater palette and MIX names
+static const char* TheaterPaletteName(TheaterType theater) {
+    switch (theater) {
+        case THEATER_TEMPERATE: return "TEMPERAT.PAL";
+        case THEATER_SNOW:      return "SNOW.PAL";
+        case THEATER_INTERIOR:  return "INTERIOR.PAL";
+        case THEATER_DESERT:    return "DESERT.PAL";
+        default:                return "SNOW.PAL";
+    }
+}
+
+static MixFileHandle TheaterMix(TheaterType theater) {
+    switch (theater) {
+        case THEATER_TEMPERATE: return g_temperatMix;
+        case THEATER_SNOW:      return g_snowMix;
+        case THEATER_INTERIOR:  return nullptr;  // TODO: g_interiorMix
+        case THEATER_DESERT:    return nullptr;  // TODO: g_desertMix
+        default:                return g_snowMix;
+    }
+}
+
+BOOL Assets_SetTheater(TheaterType theater) {
+    // Load theater palette
+    uint8_t pal[768];
+    const char* palName = TheaterPaletteName(theater);
+
+    if (Assets_LoadPalette(palName, pal)) {
+        Assets_SetPalette(pal);
+        g_currentTheater = theater;
+        printf("Assets: Set theater to %d, loaded %s\n", theater, palName);
+        return TRUE;
+    }
+
+    // Fallback: try SNOW.PAL
+    if (theater != THEATER_SNOW && Assets_LoadPalette("SNOW.PAL", pal)) {
+        Assets_SetPalette(pal);
+        g_currentTheater = THEATER_SNOW;
+        printf("Assets: Theater %d not available, using SNOW\n", theater);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+TheaterType Assets_GetTheater(void) {
+    return g_currentTheater;
+}
+
+void* Assets_LoadTemplate(const char* name, uint32_t* outSize) {
+    if (!name || !outSize) return nullptr;
+    *outSize = 0;
+
+    // Get current theater's MIX
+    MixFileHandle theaterMix = TheaterMix(g_currentTheater);
+
+    // Search order: current theater MIX first, then other archives
+    MixFileHandle searchOrder[] = {
+        theaterMix,
+        g_snowMix,
+        g_temperatMix,
+        g_localMix,
+        g_mainMix,
+        g_redalertMix,
+        nullptr
+    };
+
+    for (int i = 0; searchOrder[i]; i++) {
+        if (Mix_FileExists(searchOrder[i], name)) {
+            return Mix_AllocReadFile(searchOrder[i], name, outSize);
+        }
+    }
+
+    return nullptr;
 }

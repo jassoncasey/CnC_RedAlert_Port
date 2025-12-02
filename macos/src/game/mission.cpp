@@ -7,8 +7,10 @@
 #include "map.h"
 #include "units.h"
 #include "ai.h"
+#include "../assets/lcw.h"
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 
 void Mission_Init(MissionData* mission) {
     if (!mission) return;
@@ -24,6 +26,31 @@ void Mission_Init(MissionData* mission) {
     mission->winCondition = 0;  // Destroy all enemies
     mission->loseCondition = 0; // Lose all units
     mission->timeLimit = 0;     // Unlimited
+    mission->terrainType = nullptr;
+    mission->terrainIcon = nullptr;
+    mission->overlayType = nullptr;
+    mission->overlayData = nullptr;
+}
+
+void Mission_Free(MissionData* mission) {
+    if (!mission) return;
+
+    if (mission->terrainType) {
+        free(mission->terrainType);
+        mission->terrainType = nullptr;
+    }
+    if (mission->terrainIcon) {
+        free(mission->terrainIcon);
+        mission->terrainIcon = nullptr;
+    }
+    if (mission->overlayType) {
+        free(mission->overlayType);
+        mission->overlayType = nullptr;
+    }
+    if (mission->overlayData) {
+        free(mission->overlayData);
+        mission->overlayData = nullptr;
+    }
 }
 
 // Parse unit type from string
@@ -98,6 +125,115 @@ static Team ParseTeam(const char* str) {
 // Convert cell number to X/Y coordinates (Red Alert uses 128-wide maps internally)
 #define CELL_TO_X(cell) ((cell) % 128)
 #define CELL_TO_Y(cell) ((cell) / 128)
+
+// Parse [MapPack] or [OverlayPack] section
+// Format: Base64-encoded, chunked LCW compression
+// Each chunk: 4-byte length (& 0xDFFFFFFF) + LCW data -> 8192 bytes
+// Returns allocated buffer on success, nullptr on failure
+static uint8_t* ParsePackSection(INIClass* ini, const char* section,
+                                  int* outSize) {
+    if (!ini || !section || !outSize) return nullptr;
+
+    // Count entries and estimate base64 size
+    int entryCount = ini->EntryCount(section);
+    if (entryCount <= 0) return nullptr;
+
+    // Concatenate all base64 lines
+    int maxB64Size = entryCount * 128;
+    char* b64Data = (char*)malloc(maxB64Size);
+    if (!b64Data) return nullptr;
+
+    int b64Len = 0;
+    for (int i = 0; i < entryCount; i++) {
+        char key[8];
+        snprintf(key, sizeof(key), "%d", i + 1);
+        char line[128];
+        ini->GetString(section, key, "", line, sizeof(line));
+        int lineLen = (int)strlen(line);
+        if (b64Len + lineLen < maxB64Size) {
+            memcpy(b64Data + b64Len, line, lineLen);
+            b64Len += lineLen;
+        }
+    }
+    b64Data[b64Len] = '\0';
+
+    if (b64Len == 0) {
+        free(b64Data);
+        return nullptr;
+    }
+
+    // Decode base64 -> packed chunk data
+    int maxPackedSize = (b64Len * 3) / 4 + 16;
+    uint8_t* packed = (uint8_t*)malloc(maxPackedSize);
+    if (!packed) {
+        free(b64Data);
+        return nullptr;
+    }
+
+    int packedSize = Base64_Decode(b64Data, b64Len, packed, maxPackedSize);
+    free(b64Data);
+
+    if (packedSize <= 0) {
+        free(packed);
+        return nullptr;
+    }
+
+    // Allocate output buffer (MapPack = 128*128*3 bytes for RA format)
+    // Each chunk decompresses to 8192 bytes
+    int maxDecompSize = MAP_CELL_TOTAL * 3;
+    uint8_t* decompressed = (uint8_t*)malloc(maxDecompSize);
+    if (!decompressed) {
+        free(packed);
+        return nullptr;
+    }
+
+    // Process chunks: [4-byte length][LCW data] -> 8192 bytes each
+    int srcIdx = 0;
+    int dstIdx = 0;
+    const int CHUNK_SIZE = 8192;
+
+    while (srcIdx + 4 <= packedSize) {
+        // Read chunk length (little-endian, mask off high bits)
+        uint32_t chunkLen = packed[srcIdx] |
+                           (packed[srcIdx + 1] << 8) |
+                           (packed[srcIdx + 2] << 16) |
+                           (packed[srcIdx + 3] << 24);
+        chunkLen &= 0x0000FFFF;  // Only low 16 bits are length
+        srcIdx += 4;
+
+        if (chunkLen == 0 || srcIdx + (int)chunkLen > packedSize) {
+            break;
+        }
+
+        // Decompress this chunk to 8192 bytes
+        if (dstIdx + CHUNK_SIZE > maxDecompSize) {
+            break;
+        }
+
+        int decompLen = LCW_Decompress(&packed[srcIdx],
+                                        &decompressed[dstIdx],
+                                        chunkLen, CHUNK_SIZE);
+        if (decompLen <= 0) {
+            // Try next chunk anyway
+            srcIdx += chunkLen;
+            dstIdx += CHUNK_SIZE;
+            continue;
+        }
+
+        srcIdx += chunkLen;
+        dstIdx += CHUNK_SIZE;
+    }
+
+    free(packed);
+
+    if (dstIdx <= 0) {
+        free(decompressed);
+        return nullptr;
+    }
+
+    *outSize = dstIdx;
+    return decompressed;
+}
 
 int Mission_LoadFromINI(MissionData* mission, const char* filename) {
     if (!mission || !filename) return 0;
@@ -256,6 +392,54 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
                 mission->unitCount++;
             }
         }
+    }
+
+    // [MapPack] section - base64 LCW-compressed terrain data
+    // RA format: 16-bit tile IDs (128*128*2=32KB) + 8-bit indices (128*128=16KB)
+    // Total: 49152 bytes = MAP_CELL_TOTAL * 3
+    int mapPackSize = 0;
+    uint8_t* mapPackData = ParsePackSection(ini, "MapPack", &mapPackSize);
+    if (mapPackData && mapPackSize >= MAP_CELL_TOTAL * 3) {
+        // Allocate arrays - store low byte of 16-bit tile ID as type
+        mission->terrainType = (uint8_t*)malloc(MAP_CELL_TOTAL);
+        mission->terrainIcon = (uint8_t*)malloc(MAP_CELL_TOTAL);
+
+        if (mission->terrainType && mission->terrainIcon) {
+            // Extract low byte of each 16-bit tile ID as terrain type
+            // (High byte is rarely used, usually 0 or 0xFF for special)
+            for (int i = 0; i < MAP_CELL_TOTAL; i++) {
+                uint16_t tileID = mapPackData[i * 2] |
+                                  (mapPackData[i * 2 + 1] << 8);
+                // 0 and 0xFFFF are "clear" terrain
+                mission->terrainType[i] = (tileID == 0 || tileID == 0xFFFF)
+                                          ? 0xFF : (uint8_t)(tileID & 0xFF);
+            }
+            // Copy tile indices from second half
+            memcpy(mission->terrainIcon,
+                   mapPackData + MAP_CELL_TOTAL * 2,
+                   MAP_CELL_TOTAL);
+        }
+        free(mapPackData);
+    }
+
+    // [OverlayPack] section - base64 LCW-compressed overlay data
+    int overlayPackSize = 0;
+    uint8_t* overlayPackData = ParsePackSection(ini, "OverlayPack",
+                                                 &overlayPackSize);
+    if (overlayPackData && overlayPackSize >= MAP_CELL_TOTAL) {
+        mission->overlayType = (uint8_t*)malloc(MAP_CELL_TOTAL);
+        if (mission->overlayType) {
+            memcpy(mission->overlayType, overlayPackData, MAP_CELL_TOTAL);
+        }
+        // Overlay data (variant/frame) if present
+        if (overlayPackSize >= MAP_CELL_TOTAL * 2) {
+            mission->overlayData = (uint8_t*)malloc(MAP_CELL_TOTAL);
+            if (mission->overlayData) {
+                memcpy(mission->overlayData, overlayPackData + MAP_CELL_TOTAL,
+                       MAP_CELL_TOTAL);
+            }
+        }
+        free(overlayPackData);
     }
 
     return 1;
