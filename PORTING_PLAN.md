@@ -33,7 +33,7 @@ Events that control when triggers fire.
 
 | ID | Item | Effort | Leverage | Status |
 |----|------|--------|----------|--------|
-| **EV-1** | ENTERED event (unit in waypoint zone) | 3 hrs | **CRITICAL** | STUB |
+| **EV-1** | ENTERED event (unit in waypoint zone) | 3 hrs | **CRITICAL** | DONE |
 | **EV-2** | ATTACKED event (trigger-linked attacked) | 2 hrs | HIGH | STUB |
 | **EV-3** | DESTROYED event (trigger-linked destroyed) | 2 hrs | HIGH | STUB |
 | **EV-4** | CREDITS event (player credits threshold) | 1 hr | MEDIUM | STUB |
@@ -129,7 +129,7 @@ Style and maintainability. Do when convenient.
 
 | Event | Line | What's Missing |
 |-------|------|----------------|
-| ENTERED | 1455 | No waypoint zone tracking - need to check if player units are within N cells of waypoint |
+| ENTERED | - | DONE - Waypoint and cell-based detection implemented |
 | ATTACKED | 1461 | No attack event tracking - need to track attacks on trigger-linked objects |
 | DESTROYED | 1467 | No destruction tracking - need to track death of trigger-linked objects |
 | CREDITS | 1506 | No credit threshold check - need to compare player credits to param2 |

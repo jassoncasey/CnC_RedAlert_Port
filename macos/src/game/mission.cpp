@@ -583,6 +583,35 @@ static void ParseWaypointsSection(MissionData* mission, INIClass* ini) {
     }
 }
 
+// Parse [CellTriggers] section - maps cells to trigger names
+static void ParseCellTriggersSection(MissionData* mission, INIClass* ini) {
+    int count = ini->EntryCount("CellTriggers");
+    mission->cellTriggerCount = 0;
+
+    for (int i = 0; i < count && mission->cellTriggerCount < 256; i++) {
+        const char* entry = ini->GetEntry("CellTriggers", i);
+        if (!entry) continue;
+
+        int cell = atoi(entry);
+        if (cell < 0) continue;
+
+        char trigName[24];
+        ini->GetString("CellTriggers", entry, "", trigName, sizeof(trigName));
+        if (trigName[0] == '\0') continue;
+
+        int idx = mission->cellTriggerCount;
+        mission->cellTriggerCells[idx] = cell;
+        strncpy(mission->cellTriggerNames[idx], trigName, 23);
+        mission->cellTriggerNames[idx][23] = '\0';
+        mission->cellTriggerCount++;
+    }
+
+    if (mission->cellTriggerCount > 0) {
+        fprintf(stderr, "Mission: Parsed %d cell triggers\n",
+                mission->cellTriggerCount);
+    }
+}
+
 // Parse single team type member (type:qty)
 static bool ParseTeamMember(char** ptr, TeamMember* member) {
     char* colon = strchr(*ptr, ':');
@@ -939,6 +968,7 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
     // Scripting sections
     ParseTrigsSection(ini);
     ParseWaypointsSection(mission, ini);
+    ParseCellTriggersSection(mission, ini);
     ParseTeamTypesSection(mission, ini);
     ParseBaseSection(mission, ini);
 
@@ -1662,21 +1692,74 @@ static void ExecuteTeamMission(const MissionTeamType* team,
     }
 }
 
+// Check if any player unit is within radius of a cell position
+// Returns true if at least one player unit is within range
+static bool IsPlayerUnitNearCell(int cellX, int cellY, int radiusCells) {
+    int centerX = cellX * CELL_SIZE + CELL_SIZE / 2;
+    int centerY = cellY * CELL_SIZE + CELL_SIZE / 2;
+    int radiusPixels = radiusCells * CELL_SIZE;
+    int radiusSq = radiusPixels * radiusPixels;
+
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = Units_Get(i);
+        if (!unit || !unit->active) continue;
+        if (unit->team != TEAM_PLAYER) continue;
+        if (unit->state == STATE_DYING) continue;
+
+        int dx = unit->worldX - centerX;
+        int dy = unit->worldY - centerY;
+        int distSq = dx * dx + dy * dy;
+
+        if (distSq <= radiusSq) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Check if a trigger event is satisfied
 static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
-                               int param2, int frameCount) {
-    (void)trig;
-    (void)param1;
+                               int param2, int frameCount,
+                               const MissionData* mission) {
+    (void)param2;
 
     switch (eventNum) {
         case RA_EVENT_NONE:
             return false;
 
-        case RA_EVENT_ENTERED:  // Player entered cell/zone
-            // param1 = waypoint number (zone center)
-            // For now, always return false - needs zone tracking
-            // TODO: Track player unit positions vs waypoint zones
+        case RA_EVENT_ENTERED: {
+            // Two modes:
+            // 1. param1 >= 0: waypoint-based, check if player unit near waypoint
+            // 2. param1 < 0: cell-based, check if player unit on any cell
+            //    linked to this trigger via [CellTriggers]
+            if (!mission) break;
+
+            int wp = param1;
+            if (wp >= 0 && wp < MAX_MISSION_WAYPOINTS &&
+                mission->waypoints[wp].cell >= 0) {
+                // Waypoint-based: check if player within 2 cells of waypoint
+                int cellX = mission->waypoints[wp].cellX;
+                int cellY = mission->waypoints[wp].cellY;
+                if (IsPlayerUnitNearCell(cellX, cellY, 2)) {
+                    return true;
+                }
+            } else {
+                // Cell-based: check all cells linked to this trigger name
+                for (int i = 0; i < mission->cellTriggerCount; i++) {
+                    if (strcasecmp(mission->cellTriggerNames[i],
+                                   trig->name) == 0) {
+                        int cell = mission->cellTriggerCells[i];
+                        int cellX = CELL_TO_X(cell);
+                        int cellY = CELL_TO_Y(cell);
+                        // Use 0-cell radius for exact cell match
+                        if (IsPlayerUnitNearCell(cellX, cellY, 0)) {
+                            return true;
+                        }
+                    }
+                }
+            }
             break;
+        }
 
         case RA_EVENT_ATTACKED:  // Object attacked
             // Triggered when attached object is attacked
@@ -1979,14 +2062,14 @@ int Mission_ProcessTriggers(const MissionData* mission, int frameCount) {
         // Check event1
         bool event1Fired = CheckTriggerEvent(trig, trig->event1,
                                               trig->e1p1, trig->e1p2,
-                                              frameCount);
+                                              frameCount, mission);
 
         // Check event2 if using AND/OR control
         bool event2Fired = false;
         if (trig->eventControl != 0) {  // Not "ONLY"
             event2Fired = CheckTriggerEvent(trig, trig->event2,
                                              trig->e2p1, trig->e2p2,
-                                             frameCount);
+                                             frameCount, mission);
         }
 
         // Determine if trigger should fire

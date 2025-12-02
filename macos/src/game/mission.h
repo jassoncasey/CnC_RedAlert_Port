@@ -177,6 +177,14 @@ typedef struct {
     MissionSmudge smudges[MAX_MISSION_SMUDGE];
     int smudgeCount;
 
+    // Cell triggers (from [CellTriggers])
+    // Maps cell number to trigger name index (-1 if none)
+    // Stored as sparse array: cellTriggerCells[i] = cell number,
+    //                        cellTriggerNames[i] = trigger name
+    int cellTriggerCells[256];      // Cell numbers with triggers
+    char cellTriggerNames[256][24]; // Trigger names for each cell
+    int cellTriggerCount;
+
     // Base section (AI build order info)
     int baseHouse;          // House that owns the base (-1 if not set)
     int baseCount;          // Number of base structures (for AI rebuild)
