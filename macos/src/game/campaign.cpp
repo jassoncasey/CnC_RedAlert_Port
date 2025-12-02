@@ -6,8 +6,79 @@
 
 #include "campaign.h"
 #include "scenario.h"
+#include "../ui/game_ui.h"
 #include <cstring>
 #include <cstdio>
+#include <algorithm>
+
+// Unit struct fields we need (matches units.h)
+#define MAX_UNITS 256
+#define MAX_BUILDINGS 128
+#define MAX_PATH_WAYPOINTS 32
+#define MAX_PASSENGERS 5
+#define TEAM_PLAYER 1
+#define STATE_DYING 5
+
+// Local copies of struct definitions (to avoid header conflicts)
+// These must match units.h exactly
+struct CampaignUnit {
+    uint8_t type;
+    uint8_t team;
+    uint8_t state;
+    uint8_t facing;
+    int16_t health;
+    int16_t maxHealth;
+    int32_t worldX;
+    int32_t worldY;
+    int32_t targetX;
+    int32_t targetY;
+    int16_t targetUnit;
+    int16_t speed;
+    int16_t attackRange;
+    int16_t attackDamage;
+    int16_t attackCooldown;
+    int16_t attackRate;
+    int16_t sightRange;
+    uint8_t selected;
+    uint8_t active;
+    int16_t pathCells[MAX_PATH_WAYPOINTS];
+    int8_t pathLength;
+    int8_t pathIndex;
+    int32_t nextWaypointX;
+    int32_t nextWaypointY;
+    int16_t cargo;
+    int16_t homeRefinery;
+    int16_t harvestTimer;
+    int16_t lastAttacker;
+    int16_t scatterTimer;
+    int16_t passengers[MAX_PASSENGERS];
+    int8_t passengerCount;
+    int16_t transportId;
+    int16_t loadTarget;
+    char triggerName[24];
+};
+
+struct CampaignBuilding {
+    uint8_t type;
+    uint8_t team;
+    int16_t health;
+    int16_t maxHealth;
+    int16_t cellX;
+    int16_t cellY;
+    uint8_t width;
+    uint8_t height;
+    uint8_t selected;
+    uint8_t active;
+    int16_t attackCooldown;
+    int16_t sightRange;
+    char triggerName[24];
+};
+
+// Forward declarations for unit system functions
+extern "C" {
+    CampaignUnit* Units_Get(int unitId);
+    CampaignBuilding* Buildings_Get(int buildingId);
+}
 
 //===========================================================================
 // Global Instance
@@ -517,10 +588,8 @@ bool CampaignClass::Start_Mission(int missionNum) {
     Scen.scenario_ = missionNum;
     Scen.difficulty_ = difficulty_;
 
-    // Load carry-over money if applicable
-    if (Scen.isToInherit_ && carryoverMoney_ > 0) {
-        // Would apply carryover to player house
-    }
+    // Load carry-over is called after mission starts (when GameUI is ready)
+    // See main.mm which should call Campaign.Load_Carryover() after init
 
     return true;
 }
@@ -659,19 +728,87 @@ void CampaignClass::Show_Score_Screen() {
     score_.Presentation();
 }
 
+// Helper to count non-zero entries in an array
+static int CountNonZero(const int* arr, int count) {
+    int result = 0;
+    for (int i = 0; i < count; i++) {
+        if (arr[i] > 0) result++;
+    }
+    return result;
+}
+
 void CampaignClass::Save_Carryover() {
     if (!Scen.isToCarryOver_) return;
 
-    // Save money (would get from player house)
-    // carryoverMoney_ = PlayerPtr->Credits;
+    // Save current credits
+    int currentCredits = GameUI_GetCredits();
 
-    // Would save unit and building counts
+    // Apply carryover percentage (default 100%)
+    int percent = Scen.carryOverPercent_;
+    if (percent <= 0) percent = 100;
+
+    carryoverMoney_ = (currentCredits * percent) / 100;
+
+    // Apply carryover cap if set
+    if (Scen.carryOverCap_ > 0) {
+        int maxCarryover = Scen.carryOverCap_ * 100;  // Cap is in hundreds
+        if (carryoverMoney_ > maxCarryover) {
+            carryoverMoney_ = maxCarryover;
+        }
+    }
+
+    // Reset unit/building counts
+    for (int i = 0; i < 32; i++) {
+        carryoverUnits_[i] = 0;
+        carryoverBuildings_[i] = 0;
+    }
+
+    // Count surviving player units by type
+    for (int i = 0; i < MAX_UNITS; i++) {
+        CampaignUnit* unit = Units_Get(i);
+        if (!unit || !unit->active) continue;
+        if (unit->team != TEAM_PLAYER) continue;
+        if (unit->state == STATE_DYING) continue;
+
+        int type = unit->type;
+        if (type >= 0 && type < 32) {
+            carryoverUnits_[type]++;
+        }
+    }
+
+    // Count surviving player buildings by type
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        CampaignBuilding* bld = Buildings_Get(i);
+        if (!bld || !bld->active) continue;
+        if (bld->team != TEAM_PLAYER) continue;
+
+        int type = bld->type;
+        if (type >= 0 && type < 32) {
+            carryoverBuildings_[type]++;
+        }
+    }
+
+    fprintf(stderr, "Save_Carryover: money=%d, %d unit types, %d building types\n",
+            carryoverMoney_,
+            CountNonZero(carryoverUnits_, 32),
+            CountNonZero(carryoverBuildings_, 32));
 }
 
 void CampaignClass::Load_Carryover() {
     if (!Scen.isToInherit_) return;
 
-    // Would apply carryover to new mission
+    // Add carryover money to starting credits
+    if (carryoverMoney_ > 0) {
+        GameUI_AddCredits(carryoverMoney_);
+        fprintf(stderr, "Load_Carryover: Added %d credits (now %d)\n",
+                carryoverMoney_, GameUI_GetCredits());
+    }
+
+    // Note: Unit/building spawning from carryover would require
+    // integration with mission loading. The original game spawns
+    // carryover units at specific waypoints or near the construction
+    // yard. For now we just carry over money, which is the most
+    // impactful part of the carryover system.
 }
 
 const MissionData* CampaignClass::Get_Mission_Table(
@@ -863,4 +1000,12 @@ bool CampaignClass::Load_Progress(const char* filename) {
 
     fclose(fp);
     return true;
+}
+
+//===========================================================================
+// C-style Wrapper for main.mm (avoids header conflicts)
+//===========================================================================
+
+extern "C" void Campaign_Load_Carryover(void) {
+    Campaign.Load_Carryover();
 }

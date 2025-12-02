@@ -206,6 +206,25 @@ bool GameUI_HandleEscape(void);
  */
 void GameUI_RenderPlacement(void);
 
+//===========================================================================
+// Credits Functions
+//===========================================================================
+
+/**
+ * Get current player credits
+ */
+int GameUI_GetCredits(void);
+
+/**
+ * Set player credits
+ */
+void GameUI_SetCredits(int credits);
+
+/**
+ * Add to player credits
+ */
+void GameUI_AddCredits(int amount);
+
 #ifdef __cplusplus
 }
 #endif

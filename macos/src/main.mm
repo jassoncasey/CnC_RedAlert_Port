@@ -19,6 +19,9 @@
 #include "game/ai.h"
 #include "game/mission.h"
 #include "audio/audio.h"
+
+// Forward declaration for carryover system (avoid header conflicts)
+extern "C" void Campaign_Load_Carryover(void);
 #include "video/music.h"
 #include "ui/menu.h"
 #include "ui/game_ui.h"
@@ -82,6 +85,9 @@ static void StartMission(const MissionData* mission) {
 
     // Initialize game UI
     GameUI_Init();
+
+    // Apply carryover credits from previous mission (if any)
+    Campaign_Load_Carryover();
 
     // Start the mission (spawns map, units, buildings)
     // Mission_Start centers viewport on first player unit

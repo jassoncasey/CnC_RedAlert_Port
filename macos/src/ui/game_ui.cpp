@@ -1238,3 +1238,21 @@ void GameUI_TickMissionTimer(void) {
         g_missionTimer--;
     }
 }
+
+//===========================================================================
+// Credits Functions
+//===========================================================================
+
+int GameUI_GetCredits(void) {
+    return g_playerCredits;
+}
+
+void GameUI_SetCredits(int credits) {
+    g_playerCredits = credits;
+    if (g_playerCredits < 0) g_playerCredits = 0;
+}
+
+void GameUI_AddCredits(int amount) {
+    g_playerCredits += amount;
+    if (g_playerCredits < 0) g_playerCredits = 0;
+}

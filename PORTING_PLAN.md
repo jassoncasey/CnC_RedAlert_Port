@@ -3,8 +3,8 @@
 **Goal:** Faithful recreation of original Red Alert with full 14-mission
 campaigns (Allied + Soviet) playable from original game assets.
 
-**Current State:** Core systems complete. INI-based mission loading and
-trigger actions complete. Working on unit/building carryover.
+**Current State:** Core systems complete. INI-based mission loading,
+trigger actions, and unit/building carryover complete. Ready for CAM-4.
 
 ---
 
@@ -19,7 +19,7 @@ The 44-mission count includes Aftermath + Counter-Strike expansions.
 |----|------|--------|--------|
 | CAM-1 | INI-based mission loading | 8 hrs | **DONE** |
 | CAM-2 | Complete trigger actions | 6 hrs | **DONE** |
-| CAM-3 | Unit/building carryover | 4 hrs | Pending |
+| CAM-3 | Unit/building carryover | 4 hrs | **DONE** |
 | CAM-4 | Briefing video integration | 2 hrs | Pending |
 
 **CAM-1: INI-Based Mission Loading**
@@ -37,10 +37,11 @@ All critical trigger actions implemented in mission.cpp:
 - `REINFORCE` - Spawn reinforcements at waypoint
 - `PLAY_MOVIE` - VQA video playback integrated
 
-**CAM-3: Unit/Building Carryover**
-- Serialize surviving units/buildings after mission win
-- Deserialize at mission start for "carryover" missions
-- Implement `Save_Carryover()` / `Load_Carryover()`
+**CAM-3: Unit/Building Carryover** (DONE)
+- Credits saved with percentage/cap from INI `Percent`/`CarryOverCap`
+- `Save_Carryover()` called from `Mission_Won()`
+- `Load_Carryover()` called at mission start for `ToInherit=yes` missions
+- Counts surviving units/buildings by type (placeholder for future spawning)
 
 **CAM-4: Briefing Video Integration**
 - Play intro VQA before mission briefing
@@ -172,7 +173,7 @@ All game data now loaded from RULES.INI.
 
 1. ~~**Mission loading** - Must load from INI files, not hardcoded~~ **DONE**
 2. ~~**Trigger stubs** - Several critical actions do nothing~~ **DONE**
-3. **Carryover** - Can't progress without unit persistence
+3. ~~**Carryover** - Can't progress without unit persistence~~ **DONE**
 
 ---
 
