@@ -17,7 +17,7 @@
 #include <algorithm>
 
 // Forward declarations
-static BOOL IsCellPassable(int cellX, int cellY, BOOL isNaval);
+static BOOL IsCellPassable(int cellX, int cellY, BOOL isNaval, BOOL isAircraft);
 
 // Unit type definitions
 struct UnitTypeDef {
@@ -31,117 +31,118 @@ struct UnitTypeDef {
     uint8_t color;          // Base color
     BOOL isInfantry;
     BOOL isNaval;
+    BOOL isAircraft;        // Can fly over all terrain
 };
 
 // Unit type definitions - MUST match enum order in units.h exactly!
 // Format: { maxHealth, speed, attackRange, attackDamage, attackRate,
-//           sightRange, size, color, isInfantry, isNaval }
+//           sightRange, size, color, isInfantry, isNaval, isAircraft }
 static const UnitTypeDef g_unitTypes[UNIT_TYPE_COUNT] = {
     // 0: UNIT_NONE
-    { 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE },
+    { 0, 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE, FALSE },
     // Infantry - Military
     // 1: UNIT_RIFLE (E1)
-    { 50, 2, 64, 8, 30, 5, 6, 15, TRUE, FALSE },
+    { 50, 2, 64, 8, 30, 5, 6, 15, TRUE, FALSE, FALSE },
     // 2: UNIT_GRENADIER (E2)
-    { 60, 2, 96, 20, 45, 5, 8, 15, TRUE, FALSE },
+    { 60, 2, 96, 20, 45, 5, 8, 15, TRUE, FALSE, FALSE },
     // 3: UNIT_ROCKET (E3)
-    { 45, 2, 128, 30, 60, 6, 8, 15, TRUE, FALSE },
+    { 45, 2, 128, 30, 60, 6, 8, 15, TRUE, FALSE, FALSE },
     // 4: UNIT_FLAMETHROWER (E4)
-    { 70, 2, 48, 25, 25, 4, 8, 15, TRUE, FALSE },
+    { 70, 2, 48, 25, 25, 4, 8, 15, TRUE, FALSE, FALSE },
     // 5: UNIT_ENGINEER (E6)
-    { 25, 2, 0, 0, 0, 4, 6, 15, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 4, 6, 15, TRUE, FALSE, FALSE },
     // 6: UNIT_TANYA (E7)
-    { 100, 3, 80, 40, 15, 6, 8, 15, TRUE, FALSE },
+    { 100, 3, 80, 40, 15, 6, 8, 15, TRUE, FALSE, FALSE },
     // 7: UNIT_DOG
-    { 25, 4, 16, 100, 20, 5, 6, 8, TRUE, FALSE },
+    { 25, 4, 16, 100, 20, 5, 6, 8, TRUE, FALSE, FALSE },
     // 8: UNIT_SPY (E5)
-    { 25, 2, 0, 0, 0, 5, 6, 15, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 5, 6, 15, TRUE, FALSE, FALSE },
     // 9: UNIT_MEDIC
-    { 80, 2, 64, -30, 30, 5, 6, 15, TRUE, FALSE },  // Negative = heal
+    { 80, 2, 64, -30, 30, 5, 6, 15, TRUE, FALSE, FALSE },  // Negative = heal
     // 10: UNIT_THIEF
-    { 25, 3, 0, 0, 0, 5, 6, 15, TRUE, FALSE },
+    { 25, 3, 0, 0, 0, 5, 6, 15, TRUE, FALSE, FALSE },
     // 11: UNIT_SHOCK
-    { 110, 2, 96, 50, 35, 5, 8, 15, TRUE, FALSE },
+    { 110, 2, 96, 50, 35, 5, 8, 15, TRUE, FALSE, FALSE },
     // 12: UNIT_GENERAL
-    { 100, 2, 0, 0, 0, 5, 8, 15, TRUE, FALSE },
+    { 100, 2, 0, 0, 0, 5, 8, 15, TRUE, FALSE, FALSE },
     // Infantry - Civilians (13-23)
     // 13: UNIT_CIVILIAN_1 (C1)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 14: UNIT_CIVILIAN_2 (C2)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 15: UNIT_CIVILIAN_3 (C3)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 16: UNIT_CIVILIAN_4 (C4)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 17: UNIT_CIVILIAN_5 (C5)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 18: UNIT_CIVILIAN_6 (C6)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 19: UNIT_CIVILIAN_7 (C7)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 20: UNIT_CIVILIAN_8 (C8 - Einstein)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 21: UNIT_CIVILIAN_9 (C9)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 22: UNIT_CIVILIAN_10 (C10)
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // 23: UNIT_CHAN
-    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE },
+    { 25, 2, 0, 0, 0, 3, 6, 6, TRUE, FALSE, FALSE },
     // Vehicles (24-37)
     // 24: UNIT_HARVESTER
-    { 200, 3, 0, 0, 0, 4, 18, 14, FALSE, FALSE },
+    { 200, 3, 0, 0, 0, 4, 18, 14, FALSE, FALSE, FALSE },
     // 25: UNIT_TANK_LIGHT (1TNK)
-    { 150, 5, 96, 25, 30, 6, 14, 7, FALSE, FALSE },
+    { 150, 5, 96, 25, 30, 6, 14, 7, FALSE, FALSE, FALSE },
     // 26: UNIT_TANK_MEDIUM (2TNK)
-    { 250, 4, 112, 40, 35, 6, 16, 7, FALSE, FALSE },
+    { 250, 4, 112, 40, 35, 6, 16, 7, FALSE, FALSE, FALSE },
     // 27: UNIT_TANK_HEAVY (3TNK)
-    { 500, 3, 128, 60, 40, 7, 20, 7, FALSE, FALSE },
+    { 500, 3, 128, 60, 40, 7, 20, 7, FALSE, FALSE, FALSE },
     // 28: UNIT_TANK_MAMMOTH (4TNK)
-    { 600, 2, 128, 80, 45, 8, 22, 9, FALSE, FALSE },
+    { 600, 2, 128, 80, 45, 8, 22, 9, FALSE, FALSE, FALSE },
     // 29: UNIT_APC
-    { 150, 6, 48, 10, 20, 6, 14, 7, FALSE, FALSE },
+    { 150, 6, 48, 10, 20, 6, 14, 7, FALSE, FALSE, FALSE },
     // 30: UNIT_ARTILLERY
-    { 100, 3, 192, 50, 60, 8, 16, 7, FALSE, FALSE },
+    { 100, 3, 192, 50, 60, 8, 16, 7, FALSE, FALSE, FALSE },
     // 31: UNIT_JEEP
-    { 100, 7, 80, 15, 20, 6, 12, 7, FALSE, FALSE },
+    { 100, 7, 80, 15, 20, 6, 12, 7, FALSE, FALSE, FALSE },
     // 32: UNIT_MCV
-    { 400, 2, 0, 0, 0, 5, 20, 7, FALSE, FALSE },
+    { 400, 2, 0, 0, 0, 5, 20, 7, FALSE, FALSE, FALSE },
     // 33: UNIT_V2RL
-    { 125, 3, 256, 100, 90, 6, 16, 9, FALSE, FALSE },
+    { 125, 3, 256, 100, 90, 6, 16, 9, FALSE, FALSE, FALSE },
     // 34: UNIT_MINELAYER
-    { 100, 4, 0, 0, 0, 5, 14, 7, FALSE, FALSE },
+    { 100, 4, 0, 0, 0, 5, 14, 7, FALSE, FALSE, FALSE },
     // 35: UNIT_TRUCK
-    { 100, 5, 0, 0, 0, 4, 14, 7, FALSE, FALSE },
+    { 100, 5, 0, 0, 0, 4, 14, 7, FALSE, FALSE, FALSE },
     // 36: UNIT_CHRONO
-    { 150, 4, 96, 30, 30, 5, 14, 7, FALSE, FALSE },
+    { 150, 4, 96, 30, 30, 5, 14, 7, FALSE, FALSE, FALSE },
     // 37: UNIT_MOBILE_GAP
-    { 150, 3, 0, 0, 0, 6, 16, 7, FALSE, FALSE },
+    { 150, 3, 0, 0, 0, 6, 16, 7, FALSE, FALSE, FALSE },
     // 38: UNIT_MOBILE_RADAR
-    { 100, 4, 0, 0, 0, 8, 14, 7, FALSE, FALSE },
+    { 100, 4, 0, 0, 0, 8, 14, 7, FALSE, FALSE, FALSE },
     // Naval (39-44)
     // 39: UNIT_GUNBOAT
-    { 200, 4, 96, 20, 30, 7, 16, 1, FALSE, TRUE },
+    { 200, 4, 96, 20, 30, 7, 16, 1, FALSE, TRUE, FALSE },
     // 40: UNIT_DESTROYER
-    { 350, 5, 128, 40, 35, 8, 20, 1, FALSE, TRUE },
+    { 350, 5, 128, 40, 35, 8, 20, 1, FALSE, TRUE, FALSE },
     // 41: UNIT_SUBMARINE
-    { 200, 4, 160, 50, 50, 6, 16, 9, FALSE, TRUE },
+    { 200, 4, 160, 50, 50, 6, 16, 9, FALSE, TRUE, FALSE },
     // 42: UNIT_CRUISER
-    { 500, 3, 192, 80, 45, 9, 24, 1, FALSE, TRUE },
+    { 500, 3, 192, 80, 45, 9, 24, 1, FALSE, TRUE, FALSE },
     // 43: UNIT_TRANSPORT
-    { 250, 3, 0, 0, 0, 5, 20, 1, FALSE, TRUE },
+    { 250, 3, 0, 0, 0, 5, 20, 1, FALSE, TRUE, FALSE },
     // 44: UNIT_PT_BOAT
-    { 150, 6, 64, 15, 20, 6, 14, 1, FALSE, TRUE },
-    // Aircraft (45-49)
+    { 150, 6, 64, 15, 20, 6, 14, 1, FALSE, TRUE, FALSE },
+    // Aircraft (45-49) - isAircraft = TRUE: can fly over all terrain
     // 45: UNIT_HIND
-    { 150, 6, 96, 30, 25, 7, 16, 9, FALSE, FALSE },
+    { 150, 6, 96, 30, 25, 7, 16, 9, FALSE, FALSE, TRUE },
     // 46: UNIT_LONGBOW
-    { 120, 7, 128, 40, 30, 8, 16, 7, FALSE, FALSE },
+    { 120, 7, 128, 40, 30, 8, 16, 7, FALSE, FALSE, TRUE },
     // 47: UNIT_CHINOOK
-    { 150, 5, 0, 0, 0, 6, 18, 7, FALSE, FALSE },
+    { 150, 5, 0, 0, 0, 6, 18, 7, FALSE, FALSE, TRUE },
     // 48: UNIT_YAK
-    { 100, 8, 80, 25, 20, 7, 14, 9, FALSE, FALSE },
+    { 100, 8, 80, 25, 20, 7, 14, 9, FALSE, FALSE, TRUE },
     // 49: UNIT_MIG
-    { 100, 9, 96, 50, 25, 8, 14, 9, FALSE, FALSE },
+    { 100, 9, 96, 50, 25, 8, 14, 9, FALSE, FALSE, TRUE },
 };
 
 // Building type definitions
@@ -255,12 +256,13 @@ static void UpdateCellOccupancy(int unitId, int oldCellX, int oldCellY,
 }
 
 // Find a valid spawn position near the requested location
-static BOOL FindValidSpawnPosition(int* worldX, int* worldY, BOOL isNaval) {
+static BOOL FindValidSpawnPosition(int* worldX, int* worldY,
+                                    BOOL isNaval, BOOL isAircraft) {
     int cellX, cellY;
     Map_WorldToCell(*worldX, *worldY, &cellX, &cellY);
 
     // Check if original position is valid and unoccupied
-    bool passable = IsCellPassable(cellX, cellY, isNaval);
+    bool passable = IsCellPassable(cellX, cellY, isNaval, isAircraft);
     if (passable && !IsCellOccupied(cellX, cellY)) {
         return TRUE;
     }
@@ -274,7 +276,7 @@ static BOOL FindValidSpawnPosition(int* worldX, int* worldY, BOOL isNaval) {
 
                 int testX = cellX + dx;
                 int testY = cellY + dy;
-                bool ok = IsCellPassable(testX, testY, isNaval);
+                bool ok = IsCellPassable(testX, testY, isNaval, isAircraft);
                 if (ok && !IsCellOccupied(testX, testY)) {
                     Map_CellToWorld(testX, testY, worldX, worldY);
                     return TRUE;
@@ -304,7 +306,7 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     // Validate and adjust spawn position
     int spawnX = worldX;
     int spawnY = worldY;
-    if (!FindValidSpawnPosition(&spawnX, &spawnY, def->isNaval)) {
+    if (!FindValidSpawnPosition(&spawnX, &spawnY, def->isNaval, def->isAircraft)) {
         // Can't find a valid position - spawn anyway but log warning
         // (In a real scenario we might want to fail here)
     }
@@ -336,6 +338,12 @@ int Units_Spawn(UnitType type, Team team, int worldX, int worldY) {
     // Combat behavior
     unit->lastAttacker = -1;
     unit->scatterTimer = 0;
+    // Transport fields
+    for (int i = 0; i < MAX_PASSENGERS; i++) {
+        unit->passengers[i] = -1;
+    }
+    unit->passengerCount = 0;
+    unit->transportId = -1;
 
     // Mark the spawn cell as occupied
     int cellX, cellY;
@@ -378,6 +386,8 @@ int Units_CountByTeam(Team team) {
 int Buildings_Spawn(BuildingType type, Team team, int cellX, int cellY) {
     if (type <= BUILDING_NONE || type >= BUILDING_TYPE_COUNT) return -1;
 
+    const BuildingTypeDef* def = &g_buildingTypes[type];
+
     // Find free slot
     int id = -1;
     for (int i = 0; i < MAX_BUILDINGS; i++) {
@@ -387,8 +397,6 @@ int Buildings_Spawn(BuildingType type, Team team, int cellX, int cellY) {
         }
     }
     if (id < 0) return -1;
-
-    const BuildingTypeDef* def = &g_buildingTypes[type];
 
     Building* bld = &g_buildings[id];
     memset(bld, 0, sizeof(Building));
@@ -786,7 +794,14 @@ int Units_GetAtScreen(int screenX, int screenY) {
 //===========================================================================
 
 // Check if a cell is passable for this unit type
-static BOOL IsCellPassable(int cellX, int cellY, BOOL isNaval) {
+static BOOL IsCellPassable(int cellX, int cellY, BOOL isNaval, BOOL isAircraft) {
+    // Aircraft can fly over any terrain
+    if (isAircraft) {
+        // Only check map bounds
+        int mapW = Map_GetWidth();
+        int mapH = Map_GetHeight();
+        return (cellX >= 0 && cellX < mapW && cellY >= 0 && cellY < mapH);
+    }
     if (isNaval) {
         return Map_IsWaterPassable(cellX, cellY);
     }
@@ -798,7 +813,7 @@ static BOOL CanMoveTo(Unit* unit, int worldX, int worldY) {
     int cellX, cellY;
     Map_WorldToCell(worldX, worldY, &cellX, &cellY);
     const UnitTypeDef* def = &g_unitTypes[unit->type];
-    return IsCellPassable(cellX, cellY, def->isNaval);
+    return IsCellPassable(cellX, cellY, def->isNaval, def->isAircraft);
 }
 // Suppress unused warning - function available for future use
 __attribute__((unused))
@@ -829,13 +844,14 @@ static BOOL FindPath(Unit* unit, int startCellX, int startCellY,
                      int targetCellX, int targetCellY) {
     const UnitTypeDef* def = &g_unitTypes[unit->type];
     BOOL isNaval = def->isNaval;
+    BOOL isAircraft = def->isAircraft;
 
     // Clear path
     unit->pathLength = 0;
     unit->pathIndex = 0;
 
     // Check if target is reachable
-    if (!IsCellPassable(targetCellX, targetCellY, isNaval)) {
+    if (!IsCellPassable(targetCellX, targetCellY, isNaval, isAircraft)) {
         return FALSE;
     }
 
@@ -931,7 +947,7 @@ static BOOL FindPath(Unit* unit, int startCellX, int startCellY,
             if (closed[nidx]) continue;
 
             // Passable?
-            if (!IsCellPassable(nx, ny, isNaval)) continue;
+            if (!IsCellPassable(nx, ny, isNaval, isAircraft)) continue;
 
             // Calculate cost
             int newG = current.g + DIR_COST[dir];
@@ -1099,6 +1115,28 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
         } else {
             // Final destination reached
             unit->state = STATE_IDLE;
+
+            // Check if loadable infantry reached a friendly transport
+            if (Units_IsLoadable((UnitType)unit->type)) {
+                // Look for friendly transport at or near destination
+                for (int t = 0; t < MAX_UNITS; t++) {
+                    Unit* trans = &g_units[t];
+                    if (!trans->active) continue;
+                    if (trans->team != unit->team) continue;
+                    if (!Units_IsTransport((UnitType)trans->type)) continue;
+
+                    int dx = trans->worldX - unit->worldX;
+                    int dy = trans->worldY - unit->worldY;
+                    int dist = (int)sqrt((double)(dx * dx + dy * dy));
+
+                    // Close enough to load (within ~2 cells)
+                    if (dist < CELL_SIZE * 2) {
+                        if (Units_LoadIntoTransport(unitId, t)) {
+                            return;  // Unit loaded, done processing
+                        }
+                    }
+                }
+            }
         }
     } else {
         // Move toward waypoint
@@ -1346,8 +1384,10 @@ Team House_ToTeam(HouseType house) {
         return TEAM_ENEMY;
     }
     // Allied houses (Spain, Greece, England, Germany, France, Turkey)
-    if (house >= HOUSE_SPAIN && house <= HOUSE_TURKEY &&
-        house != HOUSE_USSR && house != HOUSE_UKRAINE) {
+    // Also treat "special" house 8 (reinforcements) as player
+    if ((house >= HOUSE_SPAIN && house <= HOUSE_TURKEY &&
+         house != HOUSE_USSR && house != HOUSE_UKRAINE) ||
+        house == 8) {  // House 8 = special allied reinforcement
         return TEAM_PLAYER;
     }
     return TEAM_NEUTRAL;
@@ -1362,12 +1402,16 @@ int House_IsAlly(HouseType h1, HouseType h2) {
     int h2Soviet = (h2 == HOUSE_USSR || h2 == HOUSE_UKRAINE);
     if (h1Soviet && h2Soviet) return 1;
 
-    // Both Allied -> allied (neither is Soviet)
-    if (!h1Soviet && !h2Soviet &&
-        h1 >= HOUSE_SPAIN && h1 < HOUSE_COUNT &&
-        h2 >= HOUSE_SPAIN && h2 < HOUSE_COUNT) {
-        return 1;
-    }
+    // Check if either is an Allied house (including special house 8)
+    auto isAllied = [](HouseType h) {
+        if (h == HOUSE_USSR || h == HOUSE_UKRAINE) return false;
+        if (h >= HOUSE_SPAIN && h < HOUSE_COUNT) return true;
+        if (h == 8) return true;  // Special allied reinforcement house
+        return false;
+    };
+
+    // Both Allied -> allied
+    if (isAllied(h1) && isAllied(h2)) return 1;
 
     return 0;  // Not allied
 }
@@ -1702,6 +1746,7 @@ void Units_Update(void) {
 
 void Units_Render(void) {
     Viewport* vp = Map_GetViewport();
+    if (!vp) return;  // Safety check
 
     // Render buildings first (under units)
     for (int i = 0; i < MAX_BUILDINGS; i++) {
@@ -1769,6 +1814,12 @@ void Units_Render(void) {
     for (int i = 0; i < MAX_UNITS; i++) {
         Unit* unit = &g_units[i];
         if (!unit->active) continue;
+
+        // Skip UNIT_NONE (unknown/invalid types)
+        if (unit->type == UNIT_NONE) continue;
+
+        // Skip units inside transports (they're hidden)
+        if (unit->transportId >= 0) continue;
 
         const UnitTypeDef* def = &g_unitTypes[unit->type];
 
@@ -1892,4 +1943,155 @@ void Buildings_DestroyByTrigger(const char* triggerName) {
         fprintf(stderr, "Buildings_DestroyByTrigger: %d blds with '%s'\n",
                 destroyed, triggerName);
     }
+}
+
+// ============================================================================
+// Transport Functions
+// ============================================================================
+
+int Units_IsTransport(UnitType type) {
+    // Transports: Chinook (TRAN), APC, LST naval transport
+    return (type == UNIT_CHINOOK || type == UNIT_APC ||
+            type == UNIT_TRANSPORT);
+}
+
+int Units_IsLoadable(UnitType type) {
+    // Only infantry can be loaded into transports
+    if (type <= UNIT_NONE || type >= UNIT_TYPE_COUNT) return FALSE;
+    return g_unitTypes[type].isInfantry;
+}
+
+int Units_LoadIntoTransport(int unitId, int transportId) {
+    Unit* unit = Units_Get(unitId);
+    Unit* transport = Units_Get(transportId);
+
+    if (!unit || !unit->active) return FALSE;
+    if (!transport || !transport->active) return FALSE;
+
+    // Verify transport is actually a transport
+    if (!Units_IsTransport((UnitType)transport->type)) return FALSE;
+
+    // Verify unit is loadable (infantry only)
+    if (!Units_IsLoadable((UnitType)unit->type)) return FALSE;
+
+    // Check if transport has room
+    if (transport->passengerCount >= MAX_PASSENGERS) {
+        fprintf(stderr, "Units_LoadIntoTransport: Transport %d full\n",
+                transportId);
+        return FALSE;
+    }
+
+    // Check unit isn't already in a transport
+    if (unit->transportId >= 0) {
+        fprintf(stderr, "Units_LoadIntoTransport: Unit %d already loaded\n",
+                unitId);
+        return FALSE;
+    }
+
+    // Find empty slot in transport
+    for (int i = 0; i < MAX_PASSENGERS; i++) {
+        if (transport->passengers[i] < 0) {
+            transport->passengers[i] = unitId;
+            transport->passengerCount++;
+            unit->transportId = transportId;
+
+            // Hide unit (make inactive visually but keep in memory)
+            unit->state = STATE_IDLE;
+            unit->selected = 0;
+
+            fprintf(stderr, "Units_LoadIntoTransport: Unit %d -> Transport %d "
+                    "(%d/%d)\n", unitId, transportId,
+                    transport->passengerCount, MAX_PASSENGERS);
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+int Units_UnloadTransport(int transportId) {
+    Unit* transport = Units_Get(transportId);
+    if (!transport || !transport->active) return 0;
+    if (!Units_IsTransport((UnitType)transport->type)) return 0;
+
+    int unloaded = 0;
+
+    // Get transport cell position for spawning
+    int cellX, cellY;
+    Map_WorldToCell(transport->worldX, transport->worldY, &cellX, &cellY);
+
+    // Find nearby passable cells for unloading
+    static const int offsets[8][2] = {
+        {0, -1}, {1, 0}, {0, 1}, {-1, 0},  // Cardinal
+        {1, -1}, {1, 1}, {-1, 1}, {-1, -1} // Diagonal
+    };
+
+    int spawnOffset = 0;
+
+    for (int i = 0; i < MAX_PASSENGERS; i++) {
+        int passengerId = transport->passengers[i];
+        if (passengerId < 0) continue;
+
+        Unit* passenger = Units_Get(passengerId);
+        if (!passenger) {
+            transport->passengers[i] = -1;
+            continue;
+        }
+
+        // Find valid spawn position
+        int spawnX = cellX;
+        int spawnY = cellY;
+
+        // Try to find nearby passable cell
+        for (int j = 0; j < 8; j++) {
+            int idx = (spawnOffset + j) % 8;
+            int testX = cellX + offsets[idx][0];
+            int testY = cellY + offsets[idx][1];
+
+            if (testX >= 0 && testX < Map_GetWidth() &&
+                testY >= 0 && testY < Map_GetHeight()) {
+                // Check passability (infantry can go most places)
+                spawnX = testX;
+                spawnY = testY;
+                spawnOffset = (idx + 1) % 8;  // Next unit uses next offset
+                break;
+            }
+        }
+
+        // Spawn passenger at location
+        int worldX, worldY;
+        Map_CellToWorld(spawnX, spawnY, &worldX, &worldY);
+
+        passenger->worldX = worldX;
+        passenger->worldY = worldY;
+        passenger->transportId = -1;
+        passenger->state = STATE_IDLE;
+        passenger->active = 1;
+
+        // Clear from transport
+        transport->passengers[i] = -1;
+        transport->passengerCount--;
+        unloaded++;
+
+        fprintf(stderr, "Units_UnloadTransport: Unit %d unloaded at %d,%d\n",
+                passengerId, spawnX, spawnY);
+    }
+
+    fprintf(stderr, "Units_UnloadTransport: %d units from transport %d\n",
+            unloaded, transportId);
+    return unloaded;
+}
+
+void Units_CommandLoad(int unitId, int transportId) {
+    Unit* unit = Units_Get(unitId);
+    Unit* transport = Units_Get(transportId);
+
+    if (!unit || !unit->active) return;
+    if (!transport || !transport->active) return;
+
+    // Move unit toward transport first
+    Units_CommandMove(unitId, transport->worldX, transport->worldY);
+
+    fprintf(stderr, "Units_CommandLoad: Unit %d moving to transport %d\n",
+            unitId, transportId);
 }

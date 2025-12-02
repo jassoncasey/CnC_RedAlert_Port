@@ -184,6 +184,9 @@ typedef enum {
 #define HARVESTER_LOAD_RATE     50      // Ore/tick while harvesting
 #define ORE_VALUE               7       // Credits per unit of ore
 
+// Transport constants
+#define MAX_PASSENGERS          5       // Max units a transport can carry
+
 // Unit structure
 typedef struct {
     uint8_t type;           // UnitType
@@ -218,6 +221,10 @@ typedef struct {
     // Combat behavior fields
     int16_t lastAttacker;   // Unit ID that last attacked this unit (-1 if none)
     int16_t scatterTimer;   // Ticks until scatter allowed again
+    // Transport fields
+    int16_t passengers[MAX_PASSENGERS]; // Unit IDs of loaded passengers (-1 = empty)
+    int8_t passengerCount;  // Number of loaded passengers
+    int16_t transportId;    // Unit ID of transport carrying this unit (-1 = not in transport)
     // Trigger attachment
     char triggerName[24];   // Attached trigger name (for ATTACKED/DESTROYED events)
 } Unit;
@@ -432,6 +439,40 @@ const char* House_GetName(HouseType house);
  * @return Number of units set to hunt
  */
 int Units_CommandAllHunt(Team team);
+
+/**
+ * Check if unit type is a transport (can carry passengers)
+ * @return TRUE if transport type
+ */
+int Units_IsTransport(UnitType type);
+
+/**
+ * Check if unit type can be loaded into transports
+ * @return TRUE if loadable (infantry only)
+ */
+int Units_IsLoadable(UnitType type);
+
+/**
+ * Load a unit into a transport
+ * @param unitId Unit to load
+ * @param transportId Transport to load into
+ * @return TRUE on success, FALSE if transport full or invalid
+ */
+int Units_LoadIntoTransport(int unitId, int transportId);
+
+/**
+ * Unload all passengers from a transport at its current location
+ * @param transportId Transport to unload
+ * @return Number of units unloaded
+ */
+int Units_UnloadTransport(int transportId);
+
+/**
+ * Command unit to load into nearest friendly transport
+ * @param unitId Unit to load
+ * @param transportId Target transport
+ */
+void Units_CommandLoad(int unitId, int transportId);
 
 #ifdef __cplusplus
 }

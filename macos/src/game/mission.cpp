@@ -389,6 +389,8 @@ static UnitType ParseUnitType(const char* str) {
     if (strcasecmp(str, "YAK") == 0) return UNIT_YAK;
     if (strcasecmp(str, "MIG") == 0) return UNIT_MIG;
 
+    // Unknown unit type
+    fprintf(stderr, "WARNING: Unknown unit type '%s'\n", str);
     return UNIT_NONE;
 }
 
@@ -1436,6 +1438,12 @@ static void SpawnMissionBuildings(const MissionData* mission) {
 }
 
 // Helper: Spawn units, converting 128x128 coords to local world
+// Check if unit type is a civilian (C1-C10, CHAN)
+static bool IsCivilianType(UnitType type) {
+    return (type >= UNIT_CIVILIAN_1 && type <= UNIT_CIVILIAN_10) ||
+           type == UNIT_CHAN;
+}
+
 static void SpawnMissionUnits(const MissionData* mission) {
     for (int i = 0; i < mission->unitCount; i++) {
         const MissionUnit* unit = &mission->units[i];
@@ -1445,7 +1453,12 @@ static void SpawnMissionUnits(const MissionData* mission) {
             localCellY >= 0 && localCellY < mission->mapHeight) {
             int worldX = localCellX * CELL_SIZE + CELL_SIZE / 2;
             int worldY = localCellY * CELL_SIZE + CELL_SIZE / 2;
-            int unitId = Units_Spawn(unit->type, unit->team, worldX, worldY);
+            // Force civilians to neutral team (player can't control them)
+            Team team = unit->team;
+            if (IsCivilianType(unit->type)) {
+                team = TEAM_NEUTRAL;
+            }
+            int unitId = Units_Spawn(unit->type, team, worldX, worldY);
             // Attach trigger if specified
             if (unitId >= 0 && unit->triggerName[0] != '\0') {
                 Unit* spawned = Units_Get(unitId);
@@ -1540,6 +1553,35 @@ static void LogMissionData(const MissionData* mission) {
                 mission->smudgeCount);
 }
 
+// Initialize fog of war based on player unit/building positions
+// This must be called AFTER units/buildings are spawned, before first render
+static void InitializeFogOfWar(void) {
+    // Clear all visibility first
+    Map_ClearVisibility();
+
+    // Reveal around player units
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = Units_Get(i);
+        if (!unit || !unit->active) continue;
+        if (unit->team != TEAM_PLAYER) continue;
+
+        int cellX, cellY;
+        Map_WorldToCell(unit->worldX, unit->worldY, &cellX, &cellY);
+        Map_RevealAround(cellX, cellY, unit->sightRange, TEAM_PLAYER);
+    }
+
+    // Reveal around player buildings
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (!bld || !bld->active) continue;
+        if (bld->team != TEAM_PLAYER) continue;
+
+        int centerX = bld->cellX + bld->width / 2;
+        int centerY = bld->cellY + bld->height / 2;
+        Map_RevealAround(centerX, centerY, bld->sightRange, TEAM_PLAYER);
+    }
+}
+
 void Mission_Start(const MissionData* mission) {
     if (!mission) return;
 
@@ -1555,6 +1597,7 @@ void Mission_Start(const MissionData* mission) {
     LoadMissionMap(mission);
     SpawnMissionBuildings(mission);
     SpawnMissionUnits(mission);
+    InitializeFogOfWar();  // Initialize fog AFTER units/buildings are spawned
     CenterOnPlayerStart(mission);
     LogMissionData(mission);
 }
