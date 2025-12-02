@@ -7,7 +7,9 @@
 #include "map.h"
 #include "units.h"
 #include "ai.h"
+#include "terrain.h"
 #include "../assets/lcw.h"
+#include "../assets/assetloader.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -627,6 +629,22 @@ int Mission_LoadFromBuffer(MissionData* mission, const char* buffer, int size) {
 void Mission_Start(const MissionData* mission) {
     if (!mission) return;
 
+    // Set theater for correct palette and terrain tiles
+    // mission->theater: 0=temperate, 1=snow, 2=interior, 3=desert
+    TheaterType theater = THEATER_SNOW;  // Default
+    switch (mission->theater) {
+        case 0: theater = THEATER_TEMPERATE; break;
+        case 1: theater = THEATER_SNOW; break;
+        case 2: theater = THEATER_INTERIOR; break;
+        case 3: theater = THEATER_DESERT; break;
+    }
+    Assets_SetTheater(theater);
+    Terrain_SetTheater(mission->theater);
+    fprintf(stderr, "Mission: Set theater to %d (%s)\n", mission->theater,
+            theater == THEATER_TEMPERATE ? "TEMPERATE" :
+            theater == THEATER_SNOW ? "SNOW" :
+            theater == THEATER_INTERIOR ? "INTERIOR" : "DESERT");
+
     // Initialize systems
     Map_Init();
     Units_Init();
@@ -634,8 +652,9 @@ void Mission_Start(const MissionData* mission) {
 
     // Load map from mission data if available, otherwise fall back to demo
     if (mission->terrainType && mission->terrainIcon) {
-        // Use real mission terrain data
+        // Use real mission terrain data (with overlay for ore/gems)
         Map_LoadFromMission(mission->terrainType, mission->terrainIcon,
+                           mission->overlayType, mission->overlayData,
                            mission->mapX, mission->mapY,
                            mission->mapWidth, mission->mapHeight);
     } else {

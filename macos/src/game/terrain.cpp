@@ -219,12 +219,13 @@ int Terrain_GetLoadedCount(void) {
     return g_terrainTemplateCount;
 }
 
-// Template ID to filename mapping (from OpenRA snow.yaml)
+// Template ID to filename mapping (from OpenRA snow.yaml / temperat.yaml)
+// Based on actual OpenRA YAML definitions for Red Alert tilesets
 // Returns the template filename for a given ID, or nullptr if unknown
 static const char* GetTemplateFilename(int templateID, const char* ext) {
     static char filename[32];
 
-    // Clear terrain
+    // Clear terrain (255, 65535, 0)
     if (templateID == 255 || templateID == 0xFFFF || templateID == 0) {
         snprintf(filename, sizeof(filename), "clear1%s", ext);
         return filename;
@@ -236,39 +237,59 @@ static const char* GetTemplateFilename(int templateID, const char* ext) {
         return filename;
     }
 
-    // Shore (3-58)
+    // Shore/Beach (3-58) → sh01.sno - sh56.sno
     if (templateID >= 3 && templateID <= 58) {
         snprintf(filename, sizeof(filename), "sh%02d%s", templateID - 2, ext);
         return filename;
     }
 
-    // Water cliffs (59-134)
-    if (templateID >= 59 && templateID <= 134) {
+    // Water cliffs (59-96) → wc01.sno - wc38.sno
+    if (templateID >= 59 && templateID <= 96) {
         snprintf(filename, sizeof(filename), "wc%02d%s", templateID - 58, ext);
         return filename;
     }
 
-    // Roads/slopes (135-172)
+    // River (112-124) → rv01.sno - rv13.sno
+    if (templateID >= 112 && templateID <= 124) {
+        snprintf(filename, sizeof(filename), "rv%02d%s", templateID - 111, ext);
+        return filename;
+    }
+
+    // Roads/slopes (135-172) → s01.sno - s38.sno
     if (templateID >= 135 && templateID <= 172) {
         snprintf(filename, sizeof(filename), "s%02d%s", templateID - 134, ext);
         return filename;
     }
 
-    // Debris (173-212)
-    if (templateID >= 173 && templateID <= 212) {
+    // Debris (173-215) → d01.sno - d43.sno
+    if (templateID >= 173 && templateID <= 215) {
         snprintf(filename, sizeof(filename), "d%02d%s", templateID - 172, ext);
         return filename;
     }
 
-    // River (213-252)
-    if (templateID >= 213 && templateID <= 252) {
-        snprintf(filename, sizeof(filename), "rv%02d%s", templateID - 212, ext);
+    // Extra debris (227-228) → d44.sno - d45.sno
+    if (templateID >= 227 && templateID <= 228) {
+        snprintf(filename, sizeof(filename), "d%02d%s", templateID - 183, ext);
         return filename;
     }
 
-    // Bridge (253-260)
-    if (templateID >= 253 && templateID <= 260) {
-        snprintf(filename, sizeof(filename), "br%d%s", templateID - 252, ext);
+    // River extras (229-230) → rv14.sno - rv15.sno
+    if (templateID >= 229 && templateID <= 230) {
+        snprintf(filename, sizeof(filename), "rv%02d%s", templateID - 215, ext);
+        return filename;
+    }
+
+    // Road cliffs (231-234) → rc01.sno - rc04.sno
+    if (templateID >= 231 && templateID <= 234) {
+        snprintf(filename, sizeof(filename), "rc%02d%s", templateID - 230, ext);
+        return filename;
+    }
+
+    // Bridge (235-244) → br1a.sno, br1b.sno, br1c.sno, br2a.sno, etc.
+    if (templateID >= 235 && templateID <= 244) {
+        int bridgeNum = (templateID - 235) / 3 + 1;  // 1 or 2
+        char suffix = 'a' + ((templateID - 235) % 3);  // a, b, or c
+        snprintf(filename, sizeof(filename), "br%d%c%s", bridgeNum, suffix, ext);
         return filename;
     }
 

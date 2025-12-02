@@ -40,13 +40,16 @@ Mission INI files now parse all entity types correctly.
 
 ### TIER 3: Visual Correctness (Days 7-8)
 
-| Order | ID | Item | Effort | Why Now |
-|-------|-----|------|--------|---------|
-| 3.1 | TD-11 | Load TEMPERAT.MIX, palette switching | 4 hrs | Allied missions green |
-| 3.2 | TD-8 | Map overlay types, render ore/gems | 4 hrs | Economy works |
-| 3.3 | TD-7 | OpenRA template ID mappings | 6 hrs | Tiles render correctly |
+| Order | ID | Item | Effort | Status |
+|-------|-----|------|--------|--------|
+| 3.1 | TD-11 | ~~Load TEMPERAT.MIX, palette switching~~ | ~~4 hrs~~ | **DONE** |
+| 3.2 | TD-8 | ~~Map overlay types, render ore/gems~~ | ~~4 hrs~~ | **DONE** |
+| 3.3 | TD-7 | ~~OpenRA template ID mappings~~ | ~~6 hrs~~ | **DONE** |
 
-**After Tier 3:** Missions look right and economy functions.
+**Status:** TIER 3 COMPLETE - Visual correctness achieved.
+- Theater switching: TEMPERATE/SNOW/INTERIOR/DESERT
+- Overlay mapping: Ore (GOLD1-4), Gems (GEMS1-4), Walls
+- Template IDs: Exact OpenRA YAML mappings for snow/temperate
 
 ### TIER 4: Audio (Parallel Track)
 
@@ -178,17 +181,31 @@ chunkLen &= 0x0000FFFF;  // Current
 chunkLen &= 0xDFFFFFFF;  // Correct
 ```
 
-### TD-7: Template ID Mapping
+### TD-7: Template ID Mapping ✓ RESOLVED
 
-**Location:** `terrain.cpp:224-278`
+**Location:** `terrain.cpp:222-299`
 
-Pattern-based guessing. Need exact OpenRA YAML mappings.
+**Solution:** Updated GetTemplateFilename() with exact OpenRA YAML mappings:
+- 1-2: Water (w1, w2)
+- 3-58: Shore/Beach (sh01-sh56)
+- 59-96: Water cliffs (wc01-wc38)
+- 112-124, 229-230: Rivers (rv01-rv15)
+- 135-172: Roads/slopes (s01-s38)
+- 173-215, 227-228: Debris (d01-d45)
+- 231-234: Road cliffs (rc01-rc04)
+- 235-244: Bridges (br1a-br2c)
+- 255, 65535: Clear (clear1)
 
-### TD-8: Overlay Types Not Mapped
+### TD-8: Overlay Types ✓ RESOLVED
 
-**Location:** `mission.cpp:425-443`
+**Location:** `map.cpp:27-55, 376-406`
 
-Raw bytes stored. Missing: ORE, GEMS, walls, crates.
+**Solution:** Added OverlayTypeRA enum matching original DEFINES.H values.
+Map_LoadFromMission() now processes overlay data:
+- GOLD1-4 (5-8) → TERRAIN_ORE with scaled oreAmount
+- GEMS1-4 (9-12) → TERRAIN_GEM with scaled oreAmount
+- Walls (0-4, 23) → TERRAIN_ROCK (impassable)
+- V12-V18 vegetation and crates left as passable terrain
 
 ### TD-9: Mission_Start Uses Demo Map
 
@@ -204,11 +221,13 @@ Map_GenerateDemo();  // Should use mission->terrainType
 
 Only destroy_all, destroy_buildings. Missing time-based, protect, capture.
 
-### TD-11: Theater Support Incomplete
+### TD-11: Theater Support ✓ RESOLVED
 
-**Location:** `assetloader.cpp:548-556`
+**Location:** `mission.cpp:629-646`, `assetloader.cpp:558-579`
 
-INTERIOR/DESERT return nullptr (fall back to SNOW).
+**Solution:** Mission_Start() now calls Assets_SetTheater() and Terrain_SetTheater()
+based on mission->theater value from INI. TEMPERATE and SNOW fully work.
+INTERIOR/DESERT still fall back to SNOW (assets not extracted).
 
 ### TD-12: Hardcoded Paths ✓ RESOLVED
 

@@ -18,9 +18,41 @@ static bool g_fogEnabled = true;  // Fog of war enabled by default
 // Mission terrain data (for rendering with Terrain_RenderByID)
 static const uint8_t* g_missionTerrainType = nullptr;  // Template IDs
 static const uint8_t* g_missionTerrainIcon = nullptr;  // Tile indices
+static const uint8_t* g_missionOverlayType = nullptr;  // Overlay types
+static const uint8_t* g_missionOverlayData = nullptr;  // Overlay variants
 static int g_missionMapX = 0;  // Map viewport offset
 static int g_missionMapY = 0;
 static bool g_useMissionTerrain = false;
+
+// Red Alert OverlayType values (from DEFINES.H)
+enum OverlayTypeRA {
+    OVERLAY_RA_SANDBAG_WALL = 0,
+    OVERLAY_RA_CYCLONE_WALL = 1,
+    OVERLAY_RA_BRICK_WALL = 2,
+    OVERLAY_RA_BARBWIRE_WALL = 3,
+    OVERLAY_RA_WOOD_WALL = 4,
+    OVERLAY_RA_GOLD1 = 5,       // Ore
+    OVERLAY_RA_GOLD2 = 6,
+    OVERLAY_RA_GOLD3 = 7,
+    OVERLAY_RA_GOLD4 = 8,
+    OVERLAY_RA_GEMS1 = 9,       // Gems
+    OVERLAY_RA_GEMS2 = 10,
+    OVERLAY_RA_GEMS3 = 11,
+    OVERLAY_RA_GEMS4 = 12,
+    OVERLAY_RA_V12 = 13,        // Haystacks
+    OVERLAY_RA_V13 = 14,
+    OVERLAY_RA_V14 = 15,        // Wheat
+    OVERLAY_RA_V15 = 16,
+    OVERLAY_RA_V16 = 17,        // Corn
+    OVERLAY_RA_V17 = 18,
+    OVERLAY_RA_V18 = 19,
+    OVERLAY_RA_FLAG_SPOT = 20,
+    OVERLAY_RA_WOOD_CRATE = 21,
+    OVERLAY_RA_STEEL_CRATE = 22,
+    OVERLAY_RA_FENCE = 23,
+    OVERLAY_RA_WATER_CRATE = 24,
+    OVERLAY_RA_NONE = 255
+};
 // Viewport dimensions (game view area, excluding sidebar)
 static constexpr int GAME_VIEW_WIDTH = 560;   // Screen width minus sidebar
 static constexpr int GAME_VIEW_HEIGHT = 368;  // Screen height minus HUD and control bars
@@ -265,10 +297,13 @@ void Map_GenerateDemo(void) {
 }
 
 void Map_LoadFromMission(const uint8_t* terrainType, const uint8_t* terrainIcon,
+                         const uint8_t* overlayType, const uint8_t* overlayData,
                          int mapX, int mapY, int mapWidth, int mapHeight) {
     // Store mission terrain data for rendering
     g_missionTerrainType = terrainType;
     g_missionTerrainIcon = terrainIcon;
+    g_missionOverlayType = overlayType;
+    g_missionOverlayData = overlayData;
     g_missionMapX = mapX;
     g_missionMapY = mapY;
     g_useMissionTerrain = (terrainType != nullptr && terrainIcon != nullptr);
@@ -337,6 +372,38 @@ void Map_LoadFromMission(const uint8_t* terrainType, const uint8_t* terrainIcon,
                 g_cells[y][x].oreAmount = 0;
                 g_cells[y][x].unitId = -1;
                 g_cells[y][x].buildingId = -1;
+
+                // Process overlay data for ore/gems
+                if (overlayType) {
+                    uint8_t overlay = overlayType[cellIdx];
+                    uint8_t variant = overlayData ? overlayData[cellIdx] : 0;
+
+                    // Map Red Alert overlay types to terrain
+                    if (overlay >= OVERLAY_RA_GOLD1 && overlay <= OVERLAY_RA_GOLD4) {
+                        // Ore (GOLD1-4) - different amounts based on type
+                        g_cells[y][x].terrain = TERRAIN_ORE;
+                        // Ore amount: GOLD1=lowest, GOLD4=highest
+                        // variant (0-11) indicates growth stage
+                        int baseAmount = 50 + (overlay - OVERLAY_RA_GOLD1) * 50;
+                        int variantBonus = (variant % 12) * 10;
+                        g_cells[y][x].oreAmount = (uint8_t)(baseAmount + variantBonus);
+                    } else if (overlay >= OVERLAY_RA_GEMS1 && overlay <= OVERLAY_RA_GEMS4) {
+                        // Gems - worth more than ore
+                        g_cells[y][x].terrain = TERRAIN_GEM;
+                        int baseAmount = 100 + (overlay - OVERLAY_RA_GEMS1) * 40;
+                        int variantBonus = (variant % 4) * 20;
+                        g_cells[y][x].oreAmount = (uint8_t)(baseAmount + variantBonus);
+                    } else if (overlay >= OVERLAY_RA_SANDBAG_WALL &&
+                               overlay <= OVERLAY_RA_WOOD_WALL) {
+                        // Walls - impassable
+                        g_cells[y][x].terrain = TERRAIN_ROCK;
+                    } else if (overlay == OVERLAY_RA_FENCE) {
+                        // Fence - impassable
+                        g_cells[y][x].terrain = TERRAIN_ROCK;
+                    }
+                    // V12-V18 (vegetation) stays as clear terrain
+                    // Crates handled separately (not terrain)
+                }
             }
         }
     }
