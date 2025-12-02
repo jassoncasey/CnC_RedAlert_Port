@@ -1,474 +1,266 @@
 # Red Alert macOS Port - Roadmap
 
-**Goal:** Full playable game with all 44 campaign missions (28 Allied + 16 Soviet) and skirmish mode against AI.
+**Goal:** Full playable game with all 44 campaign missions and skirmish mode.
 
-**Completed work:** See [COMPLETED.md](COMPLETED.md)
+**Current State:** Demo mode works. Real mission loading partially implemented but simplified.
 
 ---
 
-## Current State
+## Prioritized Work Queue
+
+*Ordered by leverage - each tier unlocks the next.*
+
+### TIER 0: Remove The Blocker (Day 1)
+
+| ID | Item | Effort | Unlocks |
+|----|------|--------|---------|
+| **TD-9** | Wire Mission_Start to load real terrain | 2 hrs | Everything else |
+
+**Why first:** Until `Mission_Start()` uses `mission->terrainType/terrainIcon` instead of `Map_GenerateDemo()`, we can't test anything. Every hour on other work is speculative.
+
+### TIER 1: Mission Logic Loop (Days 2-4)
+
+| Order | ID | Item | Effort | Why Now |
+|-------|-----|------|--------|---------|
+| 1.1 | TD-5a | Parse [Triggers] section | 4 hrs | Win/lose detection |
+| 1.2 | TD-5b | Parse [Waypoints] section | 2 hrs | Spawn points, paths |
+| 1.3 | B3-core | 4 events: Time, Destroyed, NoBuildings, NoUnits | 4 hrs | Basic mission flow |
+| 1.4 | B3-core | 4 actions: Win, Lose, Reinforce, Text | 4 hrs | Complete the loop |
+
+**After Tier 1:** Allied Mission 1 completable (destroy all enemies = win).
+
+### TIER 2: Content Recognition (Days 5-6)
+
+| Order | ID | Item | Effort | Why Now |
+|-------|-----|------|--------|---------|
+| 2.1 | TD-1a | 10 unit types: JEEP, DOG, MCV, 4TNK, V2RL, SPY, MEDI, TRAN, HIND, SS | 3 hrs | Missions spawn units |
+| 2.2 | TD-2a | 10 building types: TSLA, KENN, SILO, AGUN, HPAD, AFLD, SYRD, SPEN, FIX, APWR | 3 hrs | Missions spawn buildings |
+
+**After Tier 2:** Most campaign missions parse correctly.
+
+### TIER 3: Visual Correctness (Days 7-8)
+
+| Order | ID | Item | Effort | Why Now |
+|-------|-----|------|--------|---------|
+| 3.1 | TD-11 | Load TEMPERAT.MIX, palette switching | 4 hrs | Allied missions green |
+| 3.2 | TD-8 | Map overlay types, render ore/gems | 4 hrs | Economy works |
+| 3.3 | TD-7 | OpenRA template ID mappings | 6 hrs | Tiles render correctly |
+
+**After Tier 3:** Missions look right and economy functions.
+
+### TIER 4: Audio (Parallel Track)
+
+| Order | ID | Item | Effort | Why Now |
+|-------|-----|------|--------|---------|
+| 4.1 | BUG-01 | Debug music ADPCM distortion | 4-8 hrs | Investigation |
+| 4.2 | BUG-02 | Debug VQA audio static | 4-8 hrs | Likely related |
+
+**Note:** High annoyance but low gameplay leverage. Unknown scope. Run parallel with Tiers 2-3.
+
+### TIER 5: Mission Fidelity (Week 2)
+
+| Order | ID | Item | Effort | Why Now |
+|-------|-----|------|--------|---------|
+| 5.1 | TD-5c | Parse [TeamTypes], [Base], [Reinforcements] | 4 hrs | AI teams |
+| 5.2 | TD-4 | Use health, facing, mission fields | 2 hrs | Authentic spawn |
+| 5.3 | B3-full | Remaining trigger events/actions | 8 hrs | Complex missions |
+| 5.4 | TD-5d | Parse [Terrain], [Smudge], [Ships] | 4 hrs | Scenery, naval |
+
+### TIER 6: UI Polish
+
+| ID | Item | Effort | Notes |
+|----|------|--------|-------|
+| BUG-05 | Fog re-blacks revealed terrain | 2 hrs | Gameplay impact |
+| BUG-03 | P for pause doesn't work | 1 hr | Debug convenience |
+| BUG-04 | Briefing garbled after video | 2 hrs | Campaign flow |
+| BUG-06 | Sound volume slider untestable | 1 hr | Low priority |
+
+### TIER 7: Tech Debt (Before Release)
+
+| ID | Item | Effort | Notes |
+|----|------|--------|-------|
+| TD-6 | MapPack chunk mask (0xDFFFFFFF) | 30 min | Quick fix |
+| TD-12 | Hardcoded paths | 2 hrs | Distribution |
+| TD-3 | Full 8-house system | 8 hrs | Only if needed |
+| TD-10 | Complex win/lose conditions | 4 hrs | After triggers |
+
+---
+
+## Schedule Overview
+
+```
+Week 1:
+├── Day 1: TD-9 (real terrain) ───────────────► CAN TEST REAL MISSIONS
+├── Day 2: TD-5a (parse triggers) + TD-5b (waypoints)
+├── Day 3: B3-core events (Time, Destroyed, NoBuildings, NoUnits)
+├── Day 4: B3-core actions (Win, Lose, Reinforce, Text) ► MISSION 1 COMPLETABLE
+├── Day 5: TD-1a + TD-2a (essential unit/building types)
+└── Day 6: TD-11 (theater support) ───────────► ALLIED CAMPAIGN VISIBLE
+
+Week 2:
+├── Day 7: TD-8 (overlays) + TD-7 (template mapping)
+├── Day 8: BUG-01/02 (audio investigation) ───► AUDIO FIXED
+├── Day 9: TD-5c (TeamTypes, Reinforcements)
+├── Day 10: B3-full (remaining triggers) ─────► ALL MISSIONS WORK
+└── Remaining: Polish, remaining types, edge cases
+```
+
+---
+
+## Technical Debt Reference
+
+### TD-1: Unit Types Missing (~30 types)
+
+**Location:** `mission.cpp:57-79`
+
+**Implemented (12):** E1, E2, E3, E6, HARV, 1TNK, 2TNK, 3TNK, APC, ARTY, GNBT, DD
+
+**Missing:**
+
+| Category | Types |
+|----------|-------|
+| Infantry | E4, E5/SPY, THF, MEDI, DOG, SHOK, E7, C1-C10 |
+| Vehicles | JEEP, MCV, 4TNK, V2RL, MNLY, TRUK, CTNK |
+| Naval | SS, CA, LST, PT |
+| Aircraft | HIND, HELI, TRAN, YAK, MIG |
+
+### TD-2: Building Types Missing (~20 types)
+
+**Location:** `mission.cpp:82-95`
+
+**Implemented (8):** FACT, POWR, PROC, BARR, WEAP, DOME, GUN, SAM
+
+**Missing:** TSLA, ATEK/STEK, KENN, SILO, AFLD, HPAD, PBOX, GAP, IRON, PDOX, MSLO, AGUN, SYRD, SPEN, FIX, APWR
+
+### TD-3: Team/House Oversimplified
+
+**Location:** `mission.cpp:98-123`
+
+Current: 3 teams (PLAYER, ENEMY, NEUTRAL). Need 8-house support.
+
+### TD-4: Entity Data Discarded
+
+**Location:** `mission.cpp:316-395`
+
+| Field | Purpose | Status |
+|-------|---------|--------|
+| health | Starting HP | Ignored |
+| facing | Direction | Ignored |
+| mission | Guard/Hunt | Ignored |
+| trigger | Link | Ignored |
+| subCell | Infantry pos | Ignored |
+
+### TD-5: Unparsed INI Sections
+
+**Location:** `mission.cpp`
+
+| Section | Purpose | Priority |
+|---------|---------|----------|
+| [Triggers] | Event scripting | TIER 1 |
+| [Waypoints] | Movement points | TIER 1 |
+| [TeamTypes] | AI teams | TIER 5 |
+| [Base] | AI build order | TIER 5 |
+| [Reinforcements] | Unit arrivals | TIER 5 |
+| [Terrain] | Trees/cliffs | TIER 5 |
+| [Smudge] | Craters | TIER 5 |
+| [Ships] | Naval units | TIER 5 |
+
+### TD-6: MapPack Chunk Mask
+
+**Location:** `mission.cpp:201`
+
+```cpp
+chunkLen &= 0x0000FFFF;  // Current
+chunkLen &= 0xDFFFFFFF;  // Correct
+```
+
+### TD-7: Template ID Mapping
+
+**Location:** `terrain.cpp:224-278`
+
+Pattern-based guessing. Need exact OpenRA YAML mappings.
+
+### TD-8: Overlay Types Not Mapped
+
+**Location:** `mission.cpp:425-443`
+
+Raw bytes stored. Missing: ORE, GEMS, walls, crates.
+
+### TD-9: Mission_Start Uses Demo Map
+
+**Location:** `mission.cpp:477`
+
+```cpp
+Map_GenerateDemo();  // Should use mission->terrainType
+```
+
+### TD-10: Win/Lose Conditions Limited
+
+**Location:** `mission.h:89-91`
+
+Only destroy_all, destroy_buildings. Missing time-based, protect, capture.
+
+### TD-11: Theater Support Incomplete
+
+**Location:** `assetloader.cpp:548-556`
+
+INTERIOR/DESERT return nullptr (fall back to SNOW).
+
+### TD-12: Hardcoded Paths
+
+**Location:** `assetloader.cpp:48-117`
+
+Absolute paths need bundle/library discovery.
+
+---
+
+## Known Bugs
+
+| ID | Issue | Severity | File(s) | Tier |
+|----|-------|----------|---------|------|
+| BUG-01 | Music heavily distorted | High | audio.mm, music.cpp | 4 |
+| BUG-02 | Video audio has static | High | vqa.cpp, audio.mm | 4 |
+| BUG-03 | P for Pause doesn't work | Medium | main.mm, units.cpp | 6 |
+| BUG-04 | Briefing garbled after video | Medium | menu.cpp, renderer.mm | 6 |
+| BUG-05 | Fog re-blacks revealed terrain | Medium | map.cpp | 6 |
+| BUG-06 | Sound volume slider untestable | Low | menu.cpp | 6 |
+
+---
+
+## Completed Work
+
+See [COMPLETED.md](COMPLETED.md) for full history.
+
+| Phase | Milestones | Status |
+|-------|------------|--------|
+| Infrastructure | M0-M14 | Complete |
+| Core Engine | M15-M19 | Complete |
+| Game Systems | M20-M22 | Complete |
+| UI Systems | M23-M25 | Complete |
+| Polish Systems | M26-M29 | Complete |
+| Integration | M30-M32 | Complete |
+| Playable Demo | M33-M37 | Complete |
+| Combat Polish | M38-M40 | Complete |
+| Campaign Support | M41-M44 | Complete |
+| Media | M45-M46 | Complete |
+
+**Tests passing:** ~400
 
 ### What Works (Demo Mode)
-- Metal renderer at 60 FPS (640x400, palette-based)
-- Terrain tiles from snow.mix
-- Unit sprites from conquer.mix
-- A* pathfinding, unit movement
-- Combat (attack, damage, death)
-- Menu system (main, options, credits, campaign select)
-- Sidebar UI (radar, build strips, selection panel)
-- Production system (click to build, progress bar, spawns at building)
-- Building placement (footprint cursor, validation, placement)
-- Tech tree (prerequisites unlock items)
-- Economy (harvesters gather ore, refineries convert to credits)
-- AI opponent (builds base, produces units, attacks)
-- Fog of war (units reveal area)
-- Attack commands (A-move, guard, force-attack, stop)
-- Campaign flow (Allied/Soviet select, difficulty, briefings)
-- VQA video playback (intro, briefings)
-- Background music (streaming from SCORES.MIX)
 
-### What's Missing (Demo → Real Game)
-- Real mission loading (currently procedural demo map)
-- Multiple terrain theaters (only snow implemented)
-- Full unit roster (missing many unit types)
-- Mission triggers (win/lose beyond "destroy all")
-- Naval units
-- Aircraft
-- Superweapons
-
----
-
-## Known Issues
-
-| ID | Issue | Description | Severity | Status |
-|----|-------|-------------|----------|--------|
-| BUG-01 | Music Distortion | Background music heavily distorted, likely ADPCM decode or sample rate issue | High | Open |
-| BUG-02 | Video Audio Static | VQA playback has audio noise/static | High | Open |
-| BUG-03 | P for Pause | Units keep moving when P pressed, pause flag not respected | Medium | Open |
-| BUG-04 | Briefing Garbled | Mission briefing shows artifacts after video playback | Medium | Open |
-| BUG-05 | Fog Re-blacks | Revealed terrain goes black when units leave (should stay dimmed) | Medium | Open |
-| BUG-06 | Sound Volume | Can't test sound slider without sample playback button | Low | Open |
-
----
-
-## Phase A: Stabilization
-
-*Fix critical bugs before adding features. These impact testing and user experience.*
-
-### A1: Audio Quality - NOT STARTED
-**Goal:** Clean audio playback for music and video.
-
-**Tasks:**
-- [ ] Debug music distortion (check ADPCM decoder, sample rate conversion)
-- [ ] Debug video audio static (check VQA audio stream decoding)
-- [ ] Verify audio callback timing and buffer handling
-- [ ] Test with multiple tracks to isolate issue
-
-**Files:** `audio/audio.mm`, `video/music.cpp`, `video/vqa.cpp`, `assets/audfile.cpp`
-
-### A2: UI Polish - NOT STARTED
-**Goal:** Fix rendering and input bugs.
-
-**Tasks:**
-- [ ] Fix briefing screen rendering after video (palette/framebuffer restore)
-- [ ] Fix P for pause (trace key detection → pause flag → Units_Update gate)
-- [ ] Fix fog of war to keep revealed terrain visible (only hide enemy units)
-- [ ] Add test tone button to Options for sound volume testing
-
-**Files:** `ui/menu.cpp`, `main.mm`, `game/map.cpp`, `game/units.cpp`
-
----
-
-## Phase B: Real Missions
-
-*The critical path from demo to real game.*
-
-### B1: Mission File Loading - NOT STARTED
-**Goal:** Load actual Red Alert missions from INI files.
-
-**Tasks:**
-- [ ] Extract mission INIs from REDALERT.MIX (SCU01EA.INI, SCG01EA.INI, etc.)
-- [ ] Parse [Basic] section (name, theater, players)
-- [ ] Parse [Map] section (dimensions, position)
-- [ ] Parse [MapPack] section (terrain data - base64 encoded)
-- [ ] Parse [OverlayPack] section (ore, walls, etc.)
-- [ ] Parse [TERRAIN] section (trees, rocks)
-- [ ] Parse [Units], [Infantry], [Structures] sections
-- [ ] Parse [Waypoints] section (spawn points, objectives)
-- [ ] Parse [CellTriggers] section
-
-**Mission file format reference:**
-```ini
-[Basic]
-Name=SCU01EA
-Theater=TEMPERATE
-Player=Greece
-
-[Map]
-X=0
-Y=0
-Width=64
-Height=64
-
-[Units]
-0=Greece,1TNK,256,64,128,Guard
-1=USSR,3TNK,512,192,64,Area Guard
-
-[Structures]
-0=Greece,FACT,256,320
-1=Greece,POWR,288,320
-```
-
-**Files:** `game/mission.cpp`, `game/ini.cpp`, `assets/assetloader.cpp`
-
-### B2: Theater Support - NOT STARTED
-**Goal:** Support all three terrain types.
-
-**Theaters:**
-| Theater | MIX File | Palette | Used In |
-|---------|----------|---------|---------|
-| Temperate | TEMPERAT.MIX | TEMPERAT.PAL | Most Allied missions |
-| Snow | SNOW.MIX | SNOW.PAL | Soviet missions, current demo |
-| Desert | DESERT.MIX | DESERT.PAL | Counterstrike expansion |
-
-**Tasks:**
-- [ ] Load theater from mission [Basic] section
-- [ ] Load correct terrain MIX file based on theater
-- [ ] Load correct palette based on theater
-- [ ] Handle theater-specific terrain tiles (TMP files differ per theater)
-
-**Files:** `assets/assetloader.cpp`, `game/terrain.cpp`, `game/map.cpp`
-
-### B3: Map Rendering - NOT STARTED
-**Goal:** Render maps from mission data instead of procedural generation.
-
-**Tasks:**
-- [ ] Decode [MapPack] base64 data to terrain template indices
-- [ ] Decode [OverlayPack] base64 data to overlay types
-- [ ] Map template indices to TMP files
-- [ ] Render terrain using correct tiles
-- [ ] Render overlays (ore, gems, walls, crates)
-- [ ] Place [TERRAIN] objects (trees, rocks)
-
-**Files:** `game/map.cpp`, `game/terrain.cpp`
-
-### B4: Entity Spawning - NOT STARTED
-**Goal:** Spawn units/buildings from mission INI.
-
-**Tasks:**
-- [ ] Parse unit entries: `ID=House,Type,Cell,Facing,Mission`
-- [ ] Parse infantry entries: `ID=House,Type,Cell,SubCell,Facing,Mission`
-- [ ] Parse structure entries: `ID=House,Type,Cell,Facing,Tag`
-- [ ] Map type strings to UnitType/BuildingType enums
-- [ ] Spawn at correct cell positions
-- [ ] Set initial mission state (Guard, Area Guard, Hunt, etc.)
-- [ ] Handle team assignments
-
-**Files:** `game/mission.cpp`, `game/units.cpp`
-
-### B5: Unit Type Expansion - NOT STARTED
-**Goal:** Add all unit types from original game.
-
-**Infantry (expand from current 4):**
-| Type | Name | Prereq |
-|------|------|--------|
-| E1 | Rifle Infantry | Barracks |
-| E2 | Grenadier | Barracks |
-| E3 | Rocket Soldier | Barracks |
-| E4 | Flamethrower | Barracks |
-| E6 | Engineer | Barracks |
-| SPY | Spy | Barracks + Tech |
-| THF | Thief | Barracks |
-| MEDI | Medic | Barracks |
-| DOG | Attack Dog | Kennel |
-| SHOK | Shock Trooper | Tesla Coil |
-
-**Vehicles (expand from current 4):**
-| Type | Name | Prereq |
-|------|------|--------|
-| HARV | Harvester | Refinery |
-| MCV | Mobile Construction Vehicle | Factory |
-| 1TNK | Light Tank | Factory |
-| 2TNK | Medium Tank | Factory |
-| 3TNK | Heavy Tank | Factory |
-| 4TNK | Mammoth Tank | Factory + Tech |
-| APC | APC | Factory |
-| ARTY | Artillery | Factory |
-| V2RL | V2 Rocket | Factory + Radar |
-| MNLY | Minelayer | Factory |
-| JEEP | Ranger | Factory |
-| TRUK | Supply Truck | Factory |
-
-**Naval (new):**
-| Type | Name | Prereq |
-|------|------|--------|
-| SS | Submarine | Sub Pen |
-| DD | Destroyer | Naval Yard |
-| CA | Cruiser | Naval Yard + Tech |
-| PT | Gunboat | Naval Yard |
-| LST | Transport | Naval Yard |
-
-**Tasks:**
-- [ ] Add infantry types to unit_types.cpp
-- [ ] Add vehicle types to unit_types.cpp
-- [ ] Add naval types (new water movement)
-- [ ] Add sprites for each type
-- [ ] Add unit stats (health, speed, weapon, cost)
-- [ ] Update sidebar with new units (conditional on prereqs)
-
-**Files:** `game/unit_types.cpp`, `game/units.cpp`, `ui/game_ui.cpp`
-
-### B6: Building Type Expansion - NOT STARTED
-**Goal:** Add all building types.
-
-**Structures (expand from current 6):**
-| Type | Name | Size | Prereq |
-|------|------|------|--------|
-| FACT | Construction Yard | 3x3 | - |
-| POWR | Power Plant | 2x2 | - |
-| APWR | Advanced Power | 2x2 | Power + Tech |
-| PROC | Ore Refinery | 3x3 | Power |
-| SILO | Ore Silo | 1x1 | Refinery |
-| BARR | Barracks | 2x2 | Power |
-| TENT | Barracks (Allied) | 2x2 | Power |
-| KENN | Kennel | 1x1 | Barracks |
-| WEAP | War Factory | 3x3 | Power + Refinery |
-| DOME | Radar Dome | 2x2 | Power + Factory |
-| FIX | Service Depot | 3x3 | Factory |
-| HPAD | Helipad | 2x2 | Radar |
-| AFLD | Airfield | 2x3 | Radar |
-| SYRD | Naval Yard | 3x3 | Power |
-| SPEN | Sub Pen | 3x3 | Power |
-| TECH | Tech Center | 2x2 | Radar |
-| GUN | Turret | 1x1 | Barracks |
-| AGUN | AA Gun | 1x1 | Radar |
-| SAM | SAM Site | 2x1 | Radar |
-| TSLA | Tesla Coil | 1x2 | Tech |
-| GAP | Gap Generator | 1x1 | Tech |
-| IRON | Iron Curtain | 2x2 | Tech |
-| PDOX | Chronosphere | 2x2 | Tech |
-| MSLO | Missile Silo | 2x1 | Tech |
-
-**Tasks:**
-- [ ] Add building types to building_types.cpp
-- [ ] Add sprites for each type
-- [ ] Add building stats (health, power, cost, size)
-- [ ] Add special building behaviors (power generation, gap generator, etc.)
-- [ ] Update sidebar with new buildings
-
-**Files:** `game/building_types.cpp`, `game/units.cpp`, `ui/game_ui.cpp`
-
-### B7: Mission Triggers - NOT STARTED
-**Goal:** Event-driven mission logic.
-
-**Trigger format:** `Name=Event,Action,Repeating,House`
-
-**Events to implement:**
-| Event | Description |
-|-------|-------------|
-| None | No trigger (always active) |
-| Time | After N ticks |
-| Discovered | Player sees location |
-| Destroyed | All of type destroyed |
-| Entered | Unit enters cell |
-| NoBuildings | House has no buildings |
-| NoUnits | House has no units |
-| CivEvac | Civilians evacuated |
-
-**Actions to implement:**
-| Action | Description |
-|--------|-------------|
-| Win | Player wins mission |
-| Lose | Player loses mission |
-| Reinforcements | Spawn reinforcement team |
-| CreateTeam | Create AI team |
-| AllHunt | All enemy units hunt |
-| Text | Display message |
-| Reveal | Reveal map area |
-
-**Tasks:**
-- [ ] Parse [Triggers] section
-- [ ] Parse [TeamTypes] section (for reinforcements)
-- [ ] Implement event detection
-- [ ] Implement action execution
-- [ ] Wire triggers to game loop
-- [ ] Test with Allied Mission 1
-
-**Files:** `game/trigger.cpp`, `game/mission.cpp`, `game/scenario.cpp`
-
----
-
-## Phase C: Campaign Progression
-
-*Full campaign experience with mission sequencing and cutscenes.*
-
-### C1: Mission Sequencing - NOT STARTED
-**Goal:** Progress through campaign missions in order.
-
-**Allied Campaign (28 missions):**
-```
-SCU01EA → SCU02EA → SCU03EA → ... → SCU14EA
-         ↘ SCU03EB (branch)
-```
-
-**Soviet Campaign (16 missions):**
-```
-SCG01EA → SCG02EA → SCG03EA → ... → SCG14EA
-```
-
-**Tasks:**
-- [ ] Define mission sequence tables
-- [ ] Handle mission branching (A/B paths)
-- [ ] Load next mission on victory
-- [ ] Handle defeat (retry or menu)
-- [ ] Track campaign progress (save/load)
-
-**Files:** `game/campaign.cpp`, `ui/menu.cpp`
-
-### C2: Cutscenes & Briefings - NOT STARTED
-**Goal:** Play correct videos between missions.
-
-**Video mapping:**
-| Mission | Briefing Video | Victory Video |
-|---------|----------------|---------------|
-| Allied 1 | ALLY1.VQA | - |
-| Allied 14 | ALLY14.VQA | ALLYEND.VQA |
-| Soviet 1 | SOV1.VQA | - |
-| Soviet 14 | SOV14.VQA | SOVEND.VQA |
-
-**Tasks:**
-- [ ] Map missions to briefing videos
-- [ ] Map missions to victory videos
-- [ ] Play briefing before mission
-- [ ] Play victory video after mission complete
-- [ ] Handle missing videos gracefully
-
-**Files:** `ui/menu.cpp`, `video/vqa.cpp`
-
-### C3: Difficulty & Scoring - NOT STARTED
-**Goal:** Proper difficulty scaling and end-mission scoring.
-
-**Difficulty effects:**
-| Setting | Player Credits | Enemy Credits | AI Aggression |
-|---------|----------------|---------------|---------------|
-| Easy | 150% | 75% | Low |
-| Normal | 100% | 100% | Normal |
-| Hard | 75% | 150% | High |
-
-**Tasks:**
-- [ ] Scale starting credits by difficulty
-- [ ] Scale AI parameters by difficulty
-- [ ] Calculate end-mission score (time, units lost, buildings)
-- [ ] Display score screen
-- [ ] Track statistics
-
-**Files:** `game/mission.cpp`, `game/ai.cpp`, `ui/menu.cpp`
-
----
-
-## Phase D: Skirmish Mode
-
-*Standalone battles against AI on random maps.*
-
-### D1: Skirmish Setup - NOT STARTED
-**Goal:** Configure and start skirmish battles.
-
-**Options:**
-- Map selection (or random)
-- Number of AI players (1-7)
-- AI difficulty per player
-- Starting credits
-- Superweapons on/off
-- Crates on/off
-
-**Tasks:**
-- [ ] Skirmish setup menu
-- [ ] Map browser (list available maps)
-- [ ] AI player configuration
-- [ ] Game rules configuration
-- [ ] Start game with settings
-
-**Files:** `ui/menu.cpp`, `game/scenario.cpp`
-
-### D2: Random Map Generation - NOT STARTED
-**Goal:** Generate playable random maps.
-
-**Map features:**
-- Balanced starting positions
-- Ore fields near each player
-- Varied terrain (water, cliffs, trees)
-- Multiple terrain theaters
-
-**Tasks:**
-- [ ] Generate terrain heightmap
-- [ ] Place ore fields fairly
-- [ ] Place starting positions
-- [ ] Ensure path connectivity
-- [ ] Add decorative terrain (trees, rocks)
-
-**Files:** `game/map.cpp`
-
-### D3: Enhanced AI - NOT STARTED
-**Goal:** Smarter AI for longer skirmish games.
-
-**Improvements:**
-- [ ] Multiple AI personalities (aggressive, defensive, balanced)
-- [ ] Better base building (power management, expansion)
-- [ ] Scouting behavior
-- [ ] Tech rushing
-- [ ] Counter-unit production
-- [ ] Multi-front attacks
-
-**Files:** `game/ai.cpp`
-
----
-
-## Phase E: Polish
-
-*Nice-to-have features for complete experience.*
-
-### E1: Audio Polish - NOT STARTED
-- [ ] Unit voice acknowledgments ("Yes sir!", "Acknowledged", etc.)
-- [ ] Building construction sounds
-- [ ] Complete combat sound effects
-- [ ] Ambient sounds
-- [ ] EVA voice ("Unit ready", "Building", etc.)
-
-### E2: Visual Polish - NOT STARTED
-- [ ] Explosion animations
-- [ ] Muzzle flashes
-- [ ] Building damage states
-- [ ] Unit shadow sprites
-- [ ] Water animation
-
-### E3: Aircraft - NOT STARTED
-- [ ] Helicopter movement
-- [ ] Fixed-wing aircraft
-- [ ] Air-to-ground attacks
-- [ ] Anti-air defense
-- [ ] Helipad/Airfield landing
-
-### E4: Superweapons - NOT STARTED
-- [ ] Chronosphere (teleport units)
-- [ ] Iron Curtain (invulnerability)
-- [ ] Nuclear Missile
-- [ ] GPS Satellite
-- [ ] Parabombs
-
----
-
-## Summary
-
-| Phase | Description | Priority | Status |
-|-------|-------------|----------|--------|
-| **A** | Stabilization (fix bugs) | High | Not Started |
-| **B** | Real Missions (demo → game) | High | Not Started |
-| **C** | Campaign Progression | Medium | Not Started |
-| **D** | Skirmish Mode | Medium | Not Started |
-| **E** | Polish | Low | Not Started |
-
-**Minimum viable "real game":** Complete Phase A + B1-B4 (can load and play Allied Mission 1)
-
-**Full campaign:** Complete through Phase C
-
-**Complete game:** All phases including E
+- Metal renderer 60 FPS
+- Terrain from snow.mix
+- Sprites from conquer.mix
+- A* pathfinding
+- Combat system
+- Menu system
+- Sidebar UI
+- Production/placement
+- Tech tree
+- Economy
+- AI opponent
+- Fog of war
+- Attack commands
+- Campaign flow
+- VQA playback
+- Background music
