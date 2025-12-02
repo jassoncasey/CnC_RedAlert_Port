@@ -49,6 +49,8 @@ static void* g_videoUserdata = nullptr;
 static float g_videoVolume = 1.0f;
 static int g_videoSampleRate = 22050;
 static int16_t g_videoBuffer[8192];  // Temp buffer for video audio samples
+static int16_t g_videoLastSample = 0;  // Last sample for smooth underrun handling
+static int g_videoUnderrunFade = 0;    // Fade counter for underrun smoothing
 
 // Convert 8-bit unsigned to float
 static inline Float32 Sample8ToFloat(uint8_t sample) {
@@ -226,33 +228,45 @@ static OSStatus AudioRenderCallback(
         int samplesGot = g_videoCallback(g_videoBuffer, samplesToGet,
                                          g_videoUserdata);
 
-        if (samplesGot > 0) {
-            float videoVol = g_videoVolume * masterVol;
+        float videoVol = g_videoVolume * masterVol;
 
-            // Resample with linear interpolation
-            // Track last valid sample to avoid abrupt transitions on underrun
-            int16_t lastSample = g_videoBuffer[0];
-            for (UInt32 i = 0; i < inNumberFrames; i++) {
-                float srcPos = (float)i * resampleRatio;
-                int srcIdx = (int)srcPos;
-                float frac = srcPos - (float)srcIdx;
+        // Resample with linear interpolation
+        // Use persistent lastSample and fade to avoid clicks during underruns
+        for (UInt32 i = 0; i < inNumberFrames; i++) {
+            float srcPos = (float)i * resampleRatio;
+            int srcIdx = (int)srcPos;
+            float frac = srcPos - (float)srcIdx;
 
-                // Hold last sample on underrun instead of jumping to 0
-                bool hasCur = srcIdx < samplesGot;
-                bool hasNxt = srcIdx + 1 < samplesGot;
-                int16_t s0 = hasCur ? g_videoBuffer[srcIdx] : lastSample;
-                int16_t s1 = hasNxt ? g_videoBuffer[srcIdx + 1] : s0;
-                if (srcIdx < samplesGot) lastSample = s0;
+            // Use last sample when we run out of data (underrun)
+            bool hasCur = srcIdx < samplesGot;
+            bool hasNxt = srcIdx + 1 < samplesGot;
+            int16_t s0, s1;
 
-                float f0 = (float)s0;
-                float f1 = (float)s1;
-                float interpolated = (1.0f - frac) * f0 + frac * f1;
-                Float32 sample = interpolated / 32768.0f * videoVol;
-
-                // Video audio is mono - send to both channels
-                leftBuffer[i] += sample;
-                rightBuffer[i] += sample;
+            if (hasCur) {
+                s0 = g_videoBuffer[srcIdx];
+                g_videoLastSample = s0;
+                g_videoUnderrunFade = 0;  // Reset fade when we have data
+            } else {
+                // During underrun, fade out the last sample over ~10ms
+                // to avoid clicks (441 samples at 44100 Hz = 10ms)
+                if (g_videoUnderrunFade < 441) {
+                    float fadeRatio = 1.0f - (float)g_videoUnderrunFade / 441.0f;
+                    s0 = (int16_t)(g_videoLastSample * fadeRatio);
+                    g_videoUnderrunFade++;
+                } else {
+                    s0 = 0;  // Fully faded out
+                }
             }
+            s1 = hasNxt ? g_videoBuffer[srcIdx + 1] : s0;
+
+            float f0 = (float)s0;
+            float f1 = (float)s1;
+            float interpolated = (1.0f - frac) * f0 + frac * f1;
+            Float32 sample = interpolated / 32768.0f * videoVol;
+
+            // Video audio is mono - send to both channels
+            leftBuffer[i] += sample;
+            rightBuffer[i] += sample;
         }
     }
 
@@ -586,6 +600,8 @@ void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata,
     g_videoCallback = callback;
     g_videoUserdata = userdata;
     g_videoSampleRate = (sampleRate > 0) ? sampleRate : 22050;
+    g_videoLastSample = 0;       // Reset for new video
+    g_videoUnderrunFade = 0;     // Reset fade state
 }
 
 void Audio_SetVideoVolume(float volume) {

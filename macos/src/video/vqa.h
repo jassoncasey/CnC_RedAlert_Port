@@ -206,6 +206,9 @@ public:
     // Get audio samples for current frame (returns sample count)
     int GetAudioSamples(int16_t* buffer, int maxSamples);
 
+    // Check if audio was pre-decoded (for streaming efficiency)
+    bool HasPreDecodedAudio() const { return fullAudioBuffer_ != nullptr && fullAudioSize_ > 0; }
+
     //-----------------------------------------------------------------------
     // Timing
     //-----------------------------------------------------------------------
@@ -249,12 +252,17 @@ private:
     int codebookSize_;
     int codebookEntries_;
 
-    // Audio state
+    // Audio state (per-frame decode)
     int16_t audioPredictor_;
     int audioStepIndex_;
     int16_t* audioBuffer_;
     int audioBufferSize_;
     int audioSamplesReady_;
+
+    // Pre-decoded audio (entire video)
+    int16_t* fullAudioBuffer_;
+    int fullAudioSize_;        // Total samples in buffer
+    int fullAudioPos_;         // Current read position
 
     // Decompression buffer
     uint8_t* decompBuffer_;
@@ -284,6 +292,9 @@ private:
     bool DecodePointers(const uint8_t* data, uint32_t size, uint32_t chunkId);
     bool DecodePalette(const uint8_t* data, uint32_t size, bool compressed);
     bool DecodeAudio(const uint8_t* data, uint32_t size, uint32_t chunkId);
+
+    // Pre-decode all audio at load time for smooth streaming
+    void PreDecodeAllAudio();
 
     // Apply accumulated partial codebook if complete
     void ApplyAccumulatedCodebook();

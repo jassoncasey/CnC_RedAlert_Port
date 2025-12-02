@@ -441,6 +441,9 @@ MusicStreamer::MusicStreamer()
     , decodeEnd_(nullptr)
     , adpcmPredictor_(0)
     , adpcmStepIndex_(0)
+    , currentChunkData_(nullptr)
+    , currentChunkSamples_(0)
+    , currentChunkPos_(0)
 {
 }
 
@@ -571,8 +574,15 @@ void MusicStreamer::Seek(int samplePosition) {
 
 void MusicStreamer::ResetDecodeState() {
     decodePtr_ = fileData_ + sizeof(AUDHeader);
-    adpcmPredictor_ = 0;
+    // For Westwood ADPCM (codec 1): sample starts at 0x80 (8-bit center)
+    // For IMA ADPCM (codec 99): predictor starts at 0
+    adpcmPredictor_ = (compressionType_ == 1) ? 0x80 : 0;
     adpcmStepIndex_ = 0;
+
+    // Reset partial chunk state
+    currentChunkData_ = nullptr;
+    currentChunkSamples_ = 0;
+    currentChunkPos_ = 0;
 }
 
 int MusicStreamer::FillBuffer(int16_t* buffer, int sampleCount) {
@@ -623,42 +633,84 @@ int MusicStreamer::FillBuffer(int16_t* buffer, int sampleCount) {
 int MusicStreamer::DecodeIMA(int16_t* output, int maxSamples) {
     int samples = 0;
 
-    // Decode chunks with IMA ADPCM
-    size_t hdrSize = sizeof(AUDChunkHeader);
-    while (samples < maxSamples && decodePtr_ + hdrSize <= decodeEnd_) {
-        const AUDChunkHeader* chunk = (const AUDChunkHeader*)decodePtr_;
-        decodePtr_ += sizeof(AUDChunkHeader);
+    // AUD IMA ADPCM chunk format (from XCC reference):
+    // 2 bytes: compressed chunk size (size_in)
+    // 2 bytes: uncompressed output size in bytes (size_out)
+    // 4 bytes: signature (0x0000DEAF)
+    // N bytes: compressed audio data
+    //
+    // Key insight from XCC: decoder iterates by OUTPUT sample count,
+    // which is size_out / 2 (for 16-bit samples).
+    //
+    // IMPORTANT: We must handle partial chunk decoding across calls.
+    // The audio callback may request fewer samples than a full chunk.
 
-        if (decodePtr_ + chunk->compSize > decodeEnd_) {
-            break;
+    while (samples < maxSamples) {
+        // If we have a partial chunk in progress, continue from there
+        if (currentChunkData_ == nullptr) {
+            // Need to start a new chunk
+            if (decodePtr_ + sizeof(AUDChunkHeader) > decodeEnd_) {
+                break;  // No more data
+            }
+
+            const AUDChunkHeader* chunk = (const AUDChunkHeader*)decodePtr_;
+            uint16_t compSize = chunk->compSize;
+            uint16_t uncompSize = chunk->uncompSize;
+
+            decodePtr_ += sizeof(AUDChunkHeader);
+
+            if (decodePtr_ + compSize > decodeEnd_) {
+                break;  // Truncated chunk
+            }
+
+            // Set up partial chunk state
+            currentChunkData_ = decodePtr_;
+            currentChunkSamples_ = uncompSize / 2;  // 16-bit = 2 bytes/sample
+            currentChunkPos_ = 0;
+
+            // Move decode pointer past this chunk's data (for next chunk)
+            decodePtr_ += compSize;
         }
 
-        // Decode chunk using standard IMA ADPCM bit operations
-        for (uint16_t i = 0; i < chunk->compSize && samples < maxSamples; i++) {
-            uint8_t byte = *decodePtr_++;
+        // Decode samples from current chunk
+        while (currentChunkPos_ < currentChunkSamples_ && samples < maxSamples) {
+            int si = currentChunkPos_++;
 
-            for (int ni = 0; ni < 2 && samples < maxSamples; ni++) {
-                uint8_t nibble = (ni == 0) ? (byte & 0x0F) : (byte >> 4);
+            // Get nibble: even sample = low nibble, odd sample = high nibble
+            uint8_t byte = currentChunkData_[si >> 1];
+            uint8_t code = (si & 1) ? (byte >> 4) : (byte & 0x0F);
 
-                int step = g_imaStepTable[adpcmStepIndex_];
-                int diff = step >> 3;
-                if (nibble & 1) diff += step >> 2;
-                if (nibble & 2) diff += step >> 1;
-                if (nibble & 4) diff += step;
-                if (nibble & 8) diff = -diff;
+            int step = g_imaStepTable[adpcmStepIndex_];
+            int diff = step >> 3;
+            if (code & 1) diff += step >> 2;
+            if (code & 2) diff += step >> 1;
+            if (code & 4) diff += step;
 
-                int newPred = adpcmPredictor_ + diff;
-                if (newPred > 32767) newPred = 32767;
-                if (newPred < -32768) newPred = -32768;
-                adpcmPredictor_ = (int16_t)newPred;
-
-                int newIdx = adpcmStepIndex_ + g_imaIndexTable[nibble];
-                if (newIdx < 0) newIdx = 0;
-                if (newIdx > 88) newIdx = 88;
-                adpcmStepIndex_ = newIdx;
-
-                output[samples++] = adpcmPredictor_;
+            if (code & 8) {
+                adpcmPredictor_ -= diff;
+                if (adpcmPredictor_ < -32768)
+                    adpcmPredictor_ = -32768;
+            } else {
+                adpcmPredictor_ += diff;
+                if (adpcmPredictor_ > 32767)
+                    adpcmPredictor_ = 32767;
             }
+
+            output[samples++] = adpcmPredictor_;
+
+            // Update step index using only low 3 bits of code
+            adpcmStepIndex_ += g_imaIndexTable[code & 7];
+            if (adpcmStepIndex_ < 0)
+                adpcmStepIndex_ = 0;
+            else if (adpcmStepIndex_ > 88)
+                adpcmStepIndex_ = 88;
+        }
+
+        // If we finished this chunk, clear partial state
+        if (currentChunkPos_ >= currentChunkSamples_) {
+            currentChunkData_ = nullptr;
+            currentChunkSamples_ = 0;
+            currentChunkPos_ = 0;
         }
     }
 
@@ -666,37 +718,114 @@ int MusicStreamer::DecodeIMA(int16_t* output, int maxSamples) {
 }
 
 int MusicStreamer::DecodeWestwood(int16_t* output, int maxSamples) {
-    // Westwood's simpler ADPCM variant
-    static const int8_t indexAdj[8] = { -1, -1, -1, -1, 2, 4, 6, 8 };
-    static const int16_t stepSize[4] = { 4, 2, 1, 1 };
+    // Westwood ADPCM decoder - based on XCC reference implementation
+    // Mode 0: 2-bit deltas (4 samples per byte)
+    // Mode 1: 4-bit deltas (2 samples per byte)
+    // Mode 2: Raw or 5-bit signed delta
+    // Mode 3: RLE repeat
+    static const int ws_step_table2[] = {-2, -1, 0, 1};
+    static const int ws_step_table4[] = {
+        -9, -8, -6, -5, -4, -3, -2, -1,
+         0,  1,  2,  3,  4,  5,  6,  8
+    };
 
     int samples = 0;
-    int16_t predictor = adpcmPredictor_;
-    int step = adpcmStepIndex_;
+    int sample = adpcmPredictor_;  // 8-bit value 0-255, start at 0x80
 
-    while (samples < maxSamples && decodePtr_ < decodeEnd_) {
-        uint8_t byte = *decodePtr_++;
+    // Process chunks until done or buffer full
+    size_t hdrSize = sizeof(AUDChunkHeader);
+    while (samples < maxSamples && decodePtr_ + hdrSize <= decodeEnd_) {
+        const AUDChunkHeader* chunk = (const AUDChunkHeader*)decodePtr_;
+        uint16_t compSize = chunk->compSize;
+        uint16_t uncompSize = chunk->uncompSize;
 
-        for (int ni = 0; ni < 2 && samples < maxSamples; ni++) {
-            uint8_t nibble = (ni == 0) ? (byte & 0x0F) : (byte >> 4);
+        decodePtr_ += sizeof(AUDChunkHeader);
+        const uint8_t* chunkEnd = decodePtr_ + compSize;
 
-            int diff = (nibble & 0x07) * stepSize[step & 3];
-            if (nibble & 0x08) diff = -diff;
+        if (chunkEnd > decodeEnd_) break;
 
-            predictor += (int16_t)diff;
-            if (predictor > 32767) predictor = 32767;
-            if (predictor < -32768) predictor = -32768;
-
-            output[samples++] = predictor;
-
-            step += indexAdj[nibble & 0x07];
-            if (step < 0) step = 0;
-            if (step > 3) step = 3;
+        // If sizes match, data is uncompressed
+        if (compSize == uncompSize) {
+            while (decodePtr_ < chunkEnd && samples < maxSamples) {
+                // Convert 8-bit unsigned to 16-bit signed
+                sample = *decodePtr_++;
+                output[samples++] = (int16_t)((sample - 128) << 8);
+            }
+            continue;
         }
+
+        // Decode Westwood ADPCM
+        while (decodePtr_ < chunkEnd && samples < maxSamples) {
+            uint8_t cmd = *decodePtr_++;
+            int count = cmd & 0x3F;
+            int mode = cmd >> 6;
+
+            switch (mode) {
+            case 0:  // 2-bit deltas: 4 samples per byte
+                for (int i = 0; i <= count && decodePtr_ < chunkEnd &&
+                     samples < maxSamples; i++) {
+                    uint8_t code = *decodePtr_++;
+                    for (int j = 0; j < 4 && samples < maxSamples; j++) {
+                        sample += ws_step_table2[(code >> (j * 2)) & 3];
+                        if (sample < 0) sample = 0;
+                        if (sample > 255) sample = 255;
+                        output[samples++] = (int16_t)((sample - 128) << 8);
+                    }
+                }
+                break;
+
+            case 1:  // 4-bit deltas: 2 samples per byte
+                for (int i = 0; i <= count && decodePtr_ < chunkEnd &&
+                     samples < maxSamples; i++) {
+                    uint8_t code = *decodePtr_++;
+                    // Low nibble
+                    sample += ws_step_table4[code & 0x0F];
+                    if (sample < 0) sample = 0;
+                    if (sample > 255) sample = 255;
+                    output[samples++] = (int16_t)((sample - 128) << 8);
+                    // High nibble
+                    if (samples < maxSamples) {
+                        sample += ws_step_table4[code >> 4];
+                        if (sample < 0) sample = 0;
+                        if (sample > 255) sample = 255;
+                        output[samples++] = (int16_t)((sample - 128) << 8);
+                    }
+                }
+                break;
+
+            case 2:  // Raw samples or 5-bit signed delta
+                if (count & 0x20) {
+                    // 5-bit signed delta (sign-extend from 6 bits)
+                    int delta = (int8_t)(cmd << 2) >> 2;
+                    sample += delta;
+                    if (sample < 0) sample = 0;
+                    if (sample > 255) sample = 255;
+                    output[samples++] = (int16_t)((sample - 128) << 8);
+                } else {
+                    // Raw samples
+                    count++;
+                    while (count > 0 && decodePtr_ < chunkEnd &&
+                           samples < maxSamples) {
+                        sample = *decodePtr_++;
+                        output[samples++] = (int16_t)((sample - 128) << 8);
+                        count--;
+                    }
+                }
+                break;
+
+            case 3:  // RLE repeat
+                count++;
+                while (count > 0 && samples < maxSamples) {
+                    output[samples++] = (int16_t)((sample - 128) << 8);
+                    count--;
+                }
+                break;
+            }
+        }
+
+        decodePtr_ = chunkEnd;  // Ensure we're at chunk boundary
     }
 
-    adpcmPredictor_ = predictor;
-    adpcmStepIndex_ = step;
-
+    adpcmPredictor_ = sample;
     return samples;
 }

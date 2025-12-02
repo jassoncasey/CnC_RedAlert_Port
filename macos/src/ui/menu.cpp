@@ -1208,15 +1208,40 @@ static std::mutex g_videoAudioMutex;
 static int16_t g_lastVideoSample = 0;
 
 // Video audio callback for audio system
+static int g_videoAudioUnderruns = 0;
+static int g_videoAudioCallbacks = 0;
+
 static int VideoAudioStreamCallback(int16_t* buffer, int sampleCount,
                                     void* userdata) {
     (void)userdata;
+
+    // If VQA has pre-decoded audio, fetch directly from VQAPlayer
+    // This avoids all circular buffer timing issues
+    if (g_videoPlayer && g_videoPlayer->HasPreDecodedAudio()) {
+        int samples = g_videoPlayer->GetAudioSamples(buffer, sampleCount);
+        if (samples > 0) {
+            g_lastVideoSample = buffer[samples - 1];
+        }
+        return samples;
+    }
+
+    // Fall back to circular buffer for legacy per-frame audio
     std::lock_guard<std::mutex> lock(g_videoAudioMutex);
 
     int available = g_videoAudioWritePos - g_videoAudioReadPos;
     if (available < 0) available += VIDEO_AUDIO_BUFFER_SIZE;
 
     int toRead = (sampleCount < available) ? sampleCount : available;
+
+    // Debug: track underruns
+    g_videoAudioCallbacks++;
+    if (toRead < sampleCount) {
+        g_videoAudioUnderruns++;
+        if (g_videoAudioUnderruns % 10 == 1) {
+            printf("Video audio UNDERRUN #%d: wanted %d, got %d (avail %d)\n",
+                   g_videoAudioUnderruns, sampleCount, toRead, available);
+        }
+    }
 
     for (int i = 0; i < toRead; i++) {
         int idx = (g_videoAudioReadPos + i) % VIDEO_AUDIO_BUFFER_SIZE;
@@ -1225,31 +1250,37 @@ static int VideoAudioStreamCallback(int16_t* buffer, int sampleCount,
     g_videoAudioReadPos = (g_videoAudioReadPos + toRead) %
                            VIDEO_AUDIO_BUFFER_SIZE;
 
-    // Remember last sample for smooth transition
+    // Remember last sample for smooth transition on underrun
     if (toRead > 0) {
         g_lastVideoSample = buffer[toRead - 1];
     }
 
-    // Fill remaining with last sample to avoid clicks (instead of jumping to 0)
-    for (int i = toRead; i < sampleCount; i++) {
-        buffer[i] = g_lastVideoSample;
-    }
-
+    // Return actual samples read - let audio.mm handle underrun
     return toRead;
 }
 
 // Add audio samples to the circular buffer
+static int g_videoAudioDropped = 0;  // Debug: track dropped samples
+
 static void QueueVideoAudio(const int16_t* samples, int count) {
     std::lock_guard<std::mutex> lock(g_videoAudioMutex);
 
+    int queued = 0;
     for (int i = 0; i < count; i++) {
         int nextPos = (g_videoAudioWritePos + 1) % VIDEO_AUDIO_BUFFER_SIZE;
         if (nextPos == g_videoAudioReadPos) {
-            // Buffer full - drop samples
+            // Buffer full - drop remaining samples
+            int dropped = count - i;
+            g_videoAudioDropped += dropped;
+            if (g_videoAudioDropped % 1000 < dropped) {
+                printf("Video audio: dropped %d samples (total %d)\n",
+                       dropped, g_videoAudioDropped);
+            }
             break;
         }
         g_videoAudioBuffer[g_videoAudioWritePos] = samples[i];
         g_videoAudioWritePos = nextPos;
+        queued++;
     }
 }
 
@@ -1308,25 +1339,26 @@ void Menu_PlayVideo(const char* name, VideoCompleteCallback onComplete,
     // Start playback
     g_videoPlayer->Play();
 
-    // Decode first frame
+    // Decode first frame and set up palette
     g_videoPlayer->NextFrame();
 
-    // Queue first frame's audio
-    if (g_videoPlayer->HasAudio()) {
-        static int16_t tempAudio[8192];
-        int samples = g_videoPlayer->GetAudioSamples(tempAudio, 8192);
-        if (samples > 0) {
-            QueueVideoAudio(tempAudio, samples);
-        }
-    }
-
-    // Set up initial palette
+    // Set up initial palette from first frame
     if (g_videoPlayer->PaletteChanged()) {
         const uint8_t* vqaPal = g_videoPlayer->GetPalette();
         for (int i = 0; i < 256; i++) {
             g_videoPalette.colors[i][0] = vqaPal[i * 3 + 0];  // R
             g_videoPalette.colors[i][1] = vqaPal[i * 3 + 1];  // G
             g_videoPalette.colors[i][2] = vqaPal[i * 3 + 2];  // B
+        }
+    }
+
+    // Queue first frame's audio (only if NOT pre-decoded)
+    // Pre-decoded audio is fetched directly in VideoAudioStreamCallback
+    if (g_videoPlayer->HasAudio() && !g_videoPlayer->HasPreDecodedAudio()) {
+        static int16_t tempAudio[8192];
+        int samples = g_videoPlayer->GetAudioSamples(tempAudio, 8192);
+        if (samples > 0) {
+            QueueVideoAudio(tempAudio, samples);
         }
     }
 
@@ -1367,8 +1399,9 @@ void Menu_UpdateVideo(void) {
             }
         }
 
-        // Queue audio for this frame
-        if (g_videoPlayer->HasAudio()) {
+        // Queue audio for this frame (only if NOT pre-decoded)
+        // If pre-decoded, the audio callback fetches directly from VQAPlayer
+        if (g_videoPlayer->HasAudio() && !g_videoPlayer->HasPreDecodedAudio()) {
             static int16_t tempAudio[8192];
             int samples = g_videoPlayer->GetAudioSamples(tempAudio, 8192);
             if (samples > 0) {

@@ -180,6 +180,9 @@ VQAPlayer::VQAPlayer()
     , audioBuffer_(nullptr)
     , audioBufferSize_(0)
     , audioSamplesReady_(0)
+    , fullAudioBuffer_(nullptr)
+    , fullAudioSize_(0)
+    , fullAudioPos_(0)
     , decompBuffer_(nullptr)
     , decompBufferSize_(0)
     , cbpBuffer_(nullptr)
@@ -279,6 +282,11 @@ void VQAPlayer::Unload() {
     delete[] audioBuffer_;
     audioBuffer_ = nullptr;
     audioBufferSize_ = 0;
+
+    delete[] fullAudioBuffer_;
+    fullAudioBuffer_ = nullptr;
+    fullAudioSize_ = 0;
+    fullAudioPos_ = 0;
 
     delete[] decompBuffer_;
     decompBuffer_ = nullptr;
@@ -398,9 +406,24 @@ bool VQAPlayer::ParseHeader() {
 
     // Allocate audio buffer if needed
     if (header_.flags & VQAHDF_AUDIO) {
-        // Enough for ~1 second of audio
+        // Enough for ~1 second of audio (per-frame decode buffer)
         audioBufferSize_ = header_.sampleRate * header_.channels * 2;
         audioBuffer_ = new int16_t[audioBufferSize_];
+
+        // Pre-decode ALL audio upfront to avoid streaming timing issues
+        // Estimate total audio: samples/frame * frames
+        // VQA typically has ~1470 samples per frame at 22050 Hz, 15 fps
+        int estimatedSamples = (header_.sampleRate / header_.fps + 100) *
+                                header_.frames;
+        fullAudioBuffer_ = new int16_t[estimatedSamples];
+        fullAudioSize_ = 0;
+        fullAudioPos_ = 0;
+
+        // Decode all audio by scanning the file
+        PreDecodeAllAudio();
+
+        printf("VQA: Pre-decoded %d audio samples (%.2f sec)\n",
+               fullAudioSize_, (float)fullAudioSize_ / header_.sampleRate);
     }
 
     // Allocate CBP accumulation buffer (codebook size for partial updates)
@@ -431,6 +454,98 @@ bool VQAPlayer::ParseFrameIndex() {
 }
 
 //===========================================================================
+// Pre-decode All Audio
+//===========================================================================
+
+void VQAPlayer::PreDecodeAllAudio() {
+    if (!data_ || !fullAudioBuffer_) return;
+
+    // IMA ADPCM step table
+    static const int stepTable[89] = {
+        7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
+        19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
+        50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
+        130, 143, 157, 173, 190, 209, 230, 253, 279, 307,
+        337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
+        876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066,
+        2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358,
+        5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899,
+        15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
+    };
+
+    static const int indexTable[16] = {
+        -1, -1, -1, -1, 2, 4, 6, 8,
+        -1, -1, -1, -1, 2, 4, 6, 8
+    };
+
+    // ADPCM state
+    int16_t predictor = 0;
+    int stepIndex = 0;
+
+    // Calculate max buffer size from allocation
+    int estimatedSamples = (header_.sampleRate / header_.fps + 100) *
+                            header_.frames;
+    int maxSamples = estimatedSamples;
+
+    // Scan the file for all audio chunks
+    const uint8_t* ptr = data_ + 12;  // Skip FORM header + WVQA
+    const uint8_t* end = data_ + dataSize_;
+
+    while (ptr + 8 <= end) {
+        const IFFChunk* chunk = (const IFFChunk*)ptr;
+        uint32_t chunkId = SwapBE32(chunk->id);
+        uint32_t chunkSize = SwapBE32(chunk->size);
+        ptr += 8;
+
+        if (ptr + chunkSize > end) break;
+
+        // Process audio chunks
+        if (chunkId == VQA_ID_SND0) {
+            // Uncompressed PCM audio
+            int samples = chunkSize / 2;
+            if (fullAudioSize_ + samples <= maxSamples) {
+                memcpy(fullAudioBuffer_ + fullAudioSize_, ptr, samples * 2);
+                fullAudioSize_ += samples;
+            }
+        } else if (chunkId == VQA_ID_SND2) {
+            // IMA ADPCM - decode directly into fullAudioBuffer_
+            const uint8_t* src = ptr;
+            for (uint32_t i = 0; i < chunkSize && fullAudioSize_ < maxSamples;
+                 i++) {
+                uint8_t byte = src[i];
+
+                for (int ni = 0; ni < 2 && fullAudioSize_ < maxSamples; ni++) {
+                    uint8_t nibble = ni == 0 ? (byte & 0x0F) : ((byte >> 4) & 0x0F);
+
+                    int step = stepTable[stepIndex];
+                    int diff = step >> 3;
+                    if (nibble & 1) diff += step >> 2;
+                    if (nibble & 2) diff += step >> 1;
+                    if (nibble & 4) diff += step;
+                    if (nibble & 8) diff = -diff;
+
+                    int newPred = predictor + diff;
+                    if (newPred > 32767) newPred = 32767;
+                    if (newPred < -32768) newPred = -32768;
+                    predictor = (int16_t)newPred;
+
+                    int newIdx = stepIndex + indexTable[nibble];
+                    if (newIdx < 0) newIdx = 0;
+                    if (newIdx > 88) newIdx = 88;
+                    stepIndex = newIdx;
+
+                    fullAudioBuffer_[fullAudioSize_++] = predictor;
+                }
+            }
+        }
+
+        // Move to next chunk (pad to even boundary)
+        ptr += chunkSize;
+        if (chunkSize & 1) ptr++;
+    }
+}
+
+//===========================================================================
 // Playback Control
 //===========================================================================
 
@@ -440,6 +555,7 @@ void VQAPlayer::Play() {
     if (state_ == VQAState::STOPPED || state_ == VQAState::FINISHED) {
         currentFrame_ = -1;
         timeAccumulator_ = 0;
+        fullAudioPos_ = 0;  // Reset audio position
     }
 
     state_ = VQAState::PLAYING;
@@ -455,6 +571,7 @@ void VQAPlayer::Stop() {
     state_ = VQAState::STOPPED;
     currentFrame_ = -1;
     timeAccumulator_ = 0;
+    fullAudioPos_ = 0;  // Reset audio position
     memset(frameBuffer_, 0, frameBufferSize_);
 }
 
@@ -792,15 +909,6 @@ bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size,
                             uint32_t chunkId) {
     if (!data || size == 0 || !audioBuffer_) return false;
 
-    // FIXME: VQA audio still has minor static/distortion artifacts.
-    // Possible causes:
-    // 1. Buffer underruns during real-time streaming (video decodes per-frame,
-    //    audio consumes continuously at 44100 Hz)
-    // 2. ADPCM decoder differences from original Westwood implementation
-    // 3. Resampling (22050->44100) may introduce artifacts
-    // 4. Timing jitter between video frame decode and audio consumption
-    // Consider: pre-buffer more audio, or decode all upfront like OpenRA
-
     // IMA ADPCM step table
     static const int stepTable[89] = {
         7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
@@ -938,7 +1046,25 @@ void VQAPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
 //===========================================================================
 
 int VQAPlayer::GetAudioSamples(int16_t* buffer, int maxSamples) {
-    if (!buffer || maxSamples <= 0 || audioSamplesReady_ <= 0) {
+    if (!buffer || maxSamples <= 0) {
+        return 0;
+    }
+
+    // Use pre-decoded audio buffer if available
+    if (fullAudioBuffer_ && fullAudioSize_ > 0) {
+        int available = fullAudioSize_ - fullAudioPos_;
+        if (available <= 0) {
+            return 0;  // End of audio
+        }
+
+        int samples = std::min(available, maxSamples);
+        memcpy(buffer, fullAudioBuffer_ + fullAudioPos_, samples * sizeof(int16_t));
+        fullAudioPos_ += samples;
+        return samples;
+    }
+
+    // Fall back to per-frame audio (legacy path)
+    if (audioSamplesReady_ <= 0) {
         return 0;
     }
 

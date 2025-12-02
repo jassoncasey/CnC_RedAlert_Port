@@ -241,6 +241,11 @@ private:
     int16_t adpcmPredictor_;
     int adpcmStepIndex_;
 
+    // Partial chunk state for streaming
+    const uint8_t* currentChunkData_;   // Current chunk's compressed data
+    int currentChunkSamples_;           // Total samples in current chunk
+    int currentChunkPos_;               // Position within current chunk
+
     // Decode methods
     int DecodeIMA(int16_t* output, int maxSamples);
     int DecodeWestwood(int16_t* output, int maxSamples);

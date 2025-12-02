@@ -104,34 +104,88 @@ static int DecodeIMAChunk(const uint8_t* src, int srcSize, int16_t* dst,
     return samplesWritten * sizeof(int16_t);
 }
 
-// Decode Westwood ADPCM (type 1) - simpler 4-bit ADPCM
-static const int8_t g_wsIndexAdj[8] = { -1, -1, -1, -1, 2, 4, 6, 8 };
-static const int16_t g_wsStepSize[4] = { 4, 2, 1, 1 };
+// Decode Westwood ADPCM (type 1) - based on XCC reference implementation
+// Mode 0: 2-bit deltas (4 samples per byte)
+// Mode 1: 4-bit deltas (2 samples per byte)
+// Mode 2: Raw or 5-bit signed delta
+// Mode 3: RLE repeat
+static const int g_wsStepTable2[] = {-2, -1, 0, 1};
+static const int g_wsStepTable4[] = {
+    -9, -8, -6, -5, -4, -3, -2, -1,
+     0,  1,  2,  3,  4,  5,  6,  8
+};
 
 static int DecodeWestwoodChunk(const uint8_t* src, int srcSize,
                                int16_t* dst, int maxSamples) {
     int samplesWritten = 0;
-    int16_t predictor = 0;
-    int step = 0;
+    int sample = 0x80;  // 8-bit center value
+    const uint8_t* srcEnd = src + srcSize;
 
-    for (int i = 0; i < srcSize && samplesWritten < maxSamples; i++) {
-        uint8_t byte = src[i];
+    while (src < srcEnd && samplesWritten < maxSamples) {
+        uint8_t cmd = *src++;
+        int count = cmd & 0x3F;
+        int mode = cmd >> 6;
 
-        for (int ni = 0; ni < 2 && samplesWritten < maxSamples; ni++) {
-            uint8_t nibble = (ni == 0) ? (byte & 0x0F) : (byte >> 4);
+        switch (mode) {
+        case 0:  // 2-bit deltas: 4 samples per byte
+            for (int i = 0; i <= count && src < srcEnd &&
+                 samplesWritten < maxSamples; i++) {
+                uint8_t code = *src++;
+                for (int j = 0; j < 4 && samplesWritten < maxSamples; j++) {
+                    sample += g_wsStepTable2[(code >> (j * 2)) & 3];
+                    if (sample < 0) sample = 0;
+                    if (sample > 255) sample = 255;
+                    dst[samplesWritten++] = (int16_t)((sample - 128) << 8);
+                }
+            }
+            break;
 
-            int diff = (nibble & 0x07) * g_wsStepSize[step & 3];
-            if (nibble & 0x08) diff = -diff;
+        case 1:  // 4-bit deltas: 2 samples per byte
+            for (int i = 0; i <= count && src < srcEnd &&
+                 samplesWritten < maxSamples; i++) {
+                uint8_t code = *src++;
+                // Low nibble
+                sample += g_wsStepTable4[code & 0x0F];
+                if (sample < 0) sample = 0;
+                if (sample > 255) sample = 255;
+                dst[samplesWritten++] = (int16_t)((sample - 128) << 8);
+                // High nibble
+                if (samplesWritten < maxSamples) {
+                    sample += g_wsStepTable4[code >> 4];
+                    if (sample < 0) sample = 0;
+                    if (sample > 255) sample = 255;
+                    dst[samplesWritten++] = (int16_t)((sample - 128) << 8);
+                }
+            }
+            break;
 
-            predictor += (int16_t)diff;
-            if (predictor > 32767) predictor = 32767;
-            if (predictor < -32768) predictor = -32768;
+        case 2:  // Raw samples or 5-bit signed delta
+            if (count & 0x20) {
+                // 5-bit signed delta (sign-extend from 6 bits)
+                int delta = (int8_t)(cmd << 2) >> 2;
+                sample += delta;
+                if (sample < 0) sample = 0;
+                if (sample > 255) sample = 255;
+                dst[samplesWritten++] = (int16_t)((sample - 128) << 8);
+            } else {
+                // Raw samples
+                count++;
+                while (count > 0 && src < srcEnd &&
+                       samplesWritten < maxSamples) {
+                    sample = *src++;
+                    dst[samplesWritten++] = (int16_t)((sample - 128) << 8);
+                    count--;
+                }
+            }
+            break;
 
-            dst[samplesWritten++] = predictor;
-
-            step += g_wsIndexAdj[nibble & 0x07];
-            if (step < 0) step = 0;
-            if (step > 3) step = 3;
+        case 3:  // RLE repeat
+            count++;
+            while (count > 0 && samplesWritten < maxSamples) {
+                dst[samplesWritten++] = (int16_t)((sample - 128) << 8);
+                count--;
+            }
+            break;
         }
     }
 
