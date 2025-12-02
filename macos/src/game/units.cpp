@@ -1793,3 +1793,57 @@ void Units_Render(void) {
         Renderer_FillRect(hx, hy, hw, 2, hc);
     }
 }
+
+// ============================================================================
+// Trigger-related destruction (called from mission.cpp via extern)
+// ============================================================================
+
+void Units_DestroyByTrigger(const char* triggerName) {
+    if (!triggerName || triggerName[0] == '\0') return;
+
+    int destroyed = 0;
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = &g_units[i];
+        if (!unit->active) continue;
+        if (unit->state == STATE_DYING) continue;
+
+        // Check if this unit has the matching trigger
+        if (strcasecmp(unit->triggerName, triggerName) == 0) {
+            // Mark unit as dying (will be removed next frame)
+            unit->state = STATE_DYING;
+            unit->health = 0;
+            destroyed++;
+            fprintf(stderr, "Units_DestroyByTrigger: Unit %d destroyed\n", i);
+        }
+    }
+
+    if (destroyed > 0) {
+        fprintf(stderr, "Units_DestroyByTrigger: %d units with trigger '%s'\n",
+                destroyed, triggerName);
+    }
+}
+
+void Buildings_DestroyByTrigger(const char* triggerName) {
+    if (!triggerName || triggerName[0] == '\0') return;
+
+    int destroyed = 0;
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = &g_buildings[i];
+        if (!bld->active) continue;
+
+        // Check if this building has the matching trigger
+        if (strcasecmp(bld->triggerName, triggerName) == 0) {
+            // Remove building immediately
+            bld->active = 0;
+            bld->health = 0;
+            destroyed++;
+            fprintf(stderr, "Buildings_DestroyByTrigger: Bld %d destroyed\n",
+                    i);
+        }
+    }
+
+    if (destroyed > 0) {
+        fprintf(stderr, "Buildings_DestroyByTrigger: %d blds with '%s'\n",
+                destroyed, triggerName);
+    }
+}

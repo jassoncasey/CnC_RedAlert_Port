@@ -19,6 +19,15 @@
 // Implemented in house_bridge.cpp
 extern void EnableAIProduction(int houseIndex);
 
+// Forward declaration for AI autocreate (sets isAlerted_ on house)
+// Implemented in house_bridge.cpp
+extern void EnableAIAutocreate(int houseIndex);
+
+// Forward declarations for destroying units/buildings by trigger
+// Implemented in units.cpp
+extern void Units_DestroyByTrigger(const char* triggerName);
+extern void Buildings_DestroyByTrigger(const char* triggerName);
+
 // Parsed trigger storage (simplified - stores raw INI data)
 // These will be used to create proper trigger instances when type systems merge
 struct ParsedTrigger {
@@ -45,6 +54,11 @@ static int g_parsedTriggerCount = 0;
 // Global flags for trigger system (up to 32 flags)
 #define MAX_GLOBAL_FLAGS 32
 static bool g_globalFlags[MAX_GLOBAL_FLAGS] = {false};
+
+// Mission timer state
+static bool g_missionTimerActive = false;
+static int g_missionTimerValue = 0;      // Current timer value in frames
+static int g_missionTimerInitial = 0;    // Initial value (for display)
 
 // ============================================================================
 // Trigger Event Notification Functions
@@ -84,6 +98,30 @@ void Mission_TriggerDestroyed(const char* triggerName) {
     if (idx >= 0) {
         g_parsedTriggers[idx].wasDestroyed = true;
     }
+}
+
+// ============================================================================
+// Mission Timer Functions
+// ============================================================================
+
+bool Mission_IsTimerActive(void) {
+    return g_missionTimerActive;
+}
+
+int Mission_GetTimerValue(void) {
+    return g_missionTimerValue;
+}
+
+void Mission_UpdateTimer(void) {
+    if (g_missionTimerActive && g_missionTimerValue > 0) {
+        g_missionTimerValue--;
+    }
+}
+
+void Mission_ResetTimer(void) {
+    g_missionTimerActive = false;
+    g_missionTimerValue = 0;
+    g_missionTimerInitial = 0;
 }
 
 void Mission_Init(MissionData* mission) {
@@ -2211,8 +2249,10 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             break;
 
         case RA_ACTION_AUTOCREATE:
-            fprintf(stderr, "  TRIGGER: Auto-create teams ON\n");
-            // TODO: Enable automatic team creation for AI
+            // Enable automatic team creation for this trigger's house
+            fprintf(stderr, "  TRIGGER: Auto-create teams ON for house %d\n",
+                    trig->house);
+            EnableAIAutocreate(trig->house);
             break;
 
         case RA_ACTION_REVEAL_ALL:
@@ -2250,12 +2290,18 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             break;
 
         case RA_ACTION_START_TIMER:
-            fprintf(stderr, "  TRIGGER: Start mission timer\n");
-            // TODO: Start countdown timer UI
+            // param3 = timer value (in 1/10th minutes, so 10 = 1 minute)
+            // Convert to frames: value * 6 seconds * 15 fps = value * 90 frames
+            g_missionTimerValue = param3 * 90;
+            g_missionTimerInitial = g_missionTimerValue;
+            g_missionTimerActive = true;
+            fprintf(stderr, "  TRIGGER: Start timer %d (%d frames)\n",
+                    param3, g_missionTimerValue);
             break;
 
         case RA_ACTION_STOP_TIMER:
             fprintf(stderr, "  TRIGGER: Stop mission timer\n");
+            g_missionTimerActive = false;
             break;
 
         case RA_ACTION_SET_GLOBAL:
@@ -2275,9 +2321,11 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             break;
 
         case RA_ACTION_DESTROY_OBJ:
-            // Destroy the object attached to this trigger
-            fprintf(stderr, "  TRIGGER: Destroy attached object\n");
-            // TODO: Track trigger-object attachment and destroy
+            // Destroy all objects attached to this trigger
+            fprintf(stderr, "  TRIGGER: Destroy objects with trigger '%s'\n",
+                    trig->name);
+            Units_DestroyByTrigger(trig->name);
+            Buildings_DestroyByTrigger(trig->name);
             break;
 
         default:

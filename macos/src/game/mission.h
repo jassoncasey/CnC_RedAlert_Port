@@ -291,6 +291,26 @@ void Mission_TriggerAttacked(const char* triggerName);
  */
 void Mission_TriggerDestroyed(const char* triggerName);
 
+/**
+ * Check if mission timer is active
+ */
+bool Mission_IsTimerActive(void);
+
+/**
+ * Get current timer value in frames
+ */
+int Mission_GetTimerValue(void);
+
+/**
+ * Update timer (call once per frame when game is running)
+ */
+void Mission_UpdateTimer(void);
+
+/**
+ * Reset timer state (call when mission ends/restarts)
+ */
+void Mission_ResetTimer(void);
+
 #ifdef __cplusplus
 }
 #endif

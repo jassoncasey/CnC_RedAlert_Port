@@ -765,3 +765,15 @@ void EnableAIProduction(int houseIndex) {
                 house->Name());
     }
 }
+
+void EnableAIAutocreate(int houseIndex) {
+    if (houseIndex < 0 || houseIndex >= HOUSE_MAX) return;
+
+    HousesType htype = static_cast<HousesType>(houseIndex);
+    HouseClass* house = HouseClass::As_Pointer(htype);
+    if (house && !house->isHuman_) {
+        house->isAlerted_ = true;
+        fprintf(stderr, "EnableAIAutocreate: House %s autocreate enabled\n",
+                house->Name());
+    }
+}
