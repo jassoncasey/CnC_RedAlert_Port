@@ -276,26 +276,55 @@ Assets are searched in this order:
 
 ---
 
-## Code Quality Backlog
+## TIER 8: Software Engineering (Code Quality)
 
-*Sorted by leverage: highest-impact refactors first.*
+*Systematic cleanup for maintainability, safety, and standards conformance.*
 
-### Critical Functions (>100 lines)
+### SE-1: Safety Issues (HIGH PRIORITY)
 
-These functions violate the 10-line guideline severely and should be
-decomposed for maintainability:
+| ID | Issue | File | Lines | Status |
+|----|-------|------|-------|--------|
+| SE-1.1 | ~~Replace strcpy with strncpy~~ | ~~mission.cpp~~ | ~~40-41, 1176-1177~~ | **DONE** |
+| SE-1.1b | ~~Replace strcpy~~ | ~~file.cpp~~ | ~~395~~ | **DONE** |
+| SE-1.2 | ~~Add range validation to parsers~~ | ~~mission.cpp~~ | ~~(already present)~~ | **DONE** |
 
-| Priority | Function | Lines | File | Decomposition Strategy |
-|----------|----------|-------|------|------------------------|
-| 1 | Mission_LoadFromINIClass | 503 | mission.cpp | Split by INI section |
-| 2 | GameUpdate | 302 | main.mm | Extract subsystem updates |
-| 3 | GameRender | 291 | main.mm | Extract render passes |
-| 4 | Execute (trigger) | 171 | mission.cpp | Table-driven dispatch |
-| 5 | GameUI_RenderRadar | 150 | game_ui.cpp | Extract radar components |
-| 6 | Mission_Start | 138 | mission.cpp | Extract init phases |
-| 7 | Map_GenerateDemo | 116 | map.cpp | Extract terrain/unit gen |
+### SE-2: Long Functions (>100 lines)
 
-### Simplified Implementations (60+ markers)
+| ID | Function | Lines | File | Strategy | Status |
+|----|----------|-------|------|----------|--------|
+| SE-2.1 | ~~Mission_LoadFromINIClass~~ | ~~503~~ | ~~mission.cpp~~ | ~~Split by section~~ | **DONE** |
+| SE-2.2 | ~~GameUpdate~~ | ~~302~~ | ~~main.mm~~ | ~~Extract helpers~~ | **DONE** |
+| SE-2.3 | ~~GameRender~~ | ~~291~~ | ~~main.mm~~ | ~~Extract helpers~~ | **DONE** |
+| SE-2.4 | TActionClass::Execute | 171 | trigger.cpp | Switch dispatch | **ACCEPTABLE** |
+| SE-2.5 | Shp_Load | 154 | shpfile.cpp | Extract decompression | PENDING |
+| SE-2.6 | ~~GameUI_RenderRadar~~ | ~~150~~ | ~~game_ui.cpp~~ | ~~Extract components~~ | **DONE** |
+| SE-2.7 | ~~Mission_Start~~ | ~~138~~ | ~~mission.cpp~~ | ~~Extract init phases~~ | **DONE** |
+| SE-2.8 | FindPath | 129 | units.cpp | A* algorithm | **ACCEPTABLE** |
+| SE-2.9 | ModMul | 127 | mixkey.cpp | Crypto algorithm | **ACCEPTABLE** |
+| SE-2.10 | RenderDemoMode | 125 | main.mm | Demo code - LOW PRIORITY | PENDING |
+
+### SE-3: 80-Column Violations
+
+| ID | File | Count | Fix Strategy | Status |
+|----|------|-------|--------------|--------|
+| SE-3.1 | rules.cpp | 105 | Break long INI getter chains | PENDING |
+| SE-3.2 | menu.cpp | 63 | Wrap strings, break conditionals | PENDING |
+| SE-3.3 | units.cpp | 53 | Break long conditionals | PENDING |
+| SE-3.4 | building_types.cpp | 50 | Data tables - ACCEPTABLE | N/A |
+| SE-3.5 | game_ui.cpp | 46 | Break long function calls | PENDING |
+| SE-3.6 | main.mm | 42 | Wrap strings, comments | PENDING |
+| SE-3.7 | mission.cpp | 40 | Break sscanf format strings | PENDING |
+
+### SE-4: Code Style Issues
+
+| ID | Issue | File(s) | Status |
+|----|-------|---------|--------|
+| SE-4.1 | Global state in ParseTrigsSection | mission.cpp:437-492 | PENDING |
+| SE-4.2 | Missing const qualifiers | mission.cpp, terrain.cpp | PENDING |
+| SE-4.3 | Large switch → table-driven | trigger.cpp:146-316 | PENDING |
+| SE-4.4 | Implicit int16_t casts | mission.cpp parsers | PENDING |
+
+### SE-5: Simplified Implementations (60+ markers)
 
 Code marked "simplified" that may need full implementation:
 
@@ -308,18 +337,35 @@ Code marked "simplified" that may need full implementation:
 | Pathfinding | ~5 | Naval, aircraft movement |
 | UI | ~10 | Radar zoom, sidebar scroll |
 
-### TODOs and FIXMEs
+### SE-6: TODOs and FIXMEs
 
 | Type | Count | High-Priority Examples |
 |------|-------|------------------------|
 | TODO | 39 | Mission entity linking, AI teams |
 | FIXME | 1 | None critical |
 
-### 80-Column Violations
+---
 
-- **Total:** 1,324 lines exceed 80 columns
-- **Acceptable:** ~1,200 in data tables (sprite coords, mappings)
-- **Actionable:** ~124 in logic code (menu.cpp, mission.cpp, main.mm)
+### Work Order (SE Phase)
+
+**Round 1: Safety (SE-1)** ✅ COMPLETE
+1. ~~SE-1.1: strcpy → strncpy~~ (mission.cpp, file.cpp)
+2. ~~SE-1.2: Parser range validation~~ (already present)
+
+**Round 2: Long Functions (SE-2)** ✅ COMPLETE
+3. ~~SE-2.4: TActionClass::Execute~~ (acceptable switch dispatch)
+4. ~~SE-2.6: GameUI_RenderRadar decomposition~~
+5. ~~SE-2.7: Mission_Start decomposition~~
+
+**Round 3: Style Fixes (SE-3, SE-4)**
+6. SE-3.1: rules.cpp 80-col fixes
+7. SE-4.1: ParseTrigsSection return data vs globals
+8. SE-4.3: Trigger action table-driven dispatch
+
+**Round 4: Lower Priority**
+9. SE-2.5: Shp_Load (binary parser, works)
+10. SE-2.10: RenderDemoMode (demo code)
+11. SE-3.2-3.7: Remaining 80-col fixes
 
 ---
 

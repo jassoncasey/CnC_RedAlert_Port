@@ -677,155 +677,135 @@ BOOL GameUI_HandleInput(int mouseX, int mouseY, BOOL leftClick, BOOL rightClick)
 // Radar Implementation
 //===========================================================================
 
+// Radar rendering context shared between helper functions
+struct RadarContext {
+    int mapWidth, mapHeight;
+    float scale;
+    int offsetX, offsetY;
+    bool fogEnabled;
+};
+
+static void CalcRadarContext(RadarContext* ctx) {
+    ctx->mapWidth = Map_GetWidth();
+    ctx->mapHeight = Map_GetHeight();
+    float scaleX = (float)(RADAR_WIDTH - 4) / (float)(ctx->mapWidth);
+    float scaleY = (float)(RADAR_HEIGHT - 4) / (float)(ctx->mapHeight);
+    ctx->scale = (scaleX < scaleY) ? scaleX : scaleY;
+    int displayW = (int)(ctx->mapWidth * ctx->scale);
+    int displayH = (int)(ctx->mapHeight * ctx->scale);
+    ctx->offsetX = RADAR_X + 2 + (RADAR_WIDTH - 4 - displayW) / 2;
+    ctx->offsetY = RADAR_Y + 2 + (RADAR_HEIGHT - 4 - displayH) / 2;
+    ctx->fogEnabled = Map_IsFogEnabled();
+}
+
+static uint8_t TerrainToRadarColor(uint8_t terrain) {
+    switch (terrain) {
+        case TERRAIN_WATER: return PAL_BLUE;
+        case TERRAIN_ROCK:  return PAL_GREY;
+        case TERRAIN_TREE:  return PAL_GREEN;
+        case TERRAIN_ROAD:
+        case TERRAIN_BRIDGE: return PAL_LTGREY;
+        case TERRAIN_ORE:
+        case TERRAIN_GEM:   return PAL_YELLOW;
+        default:            return PAL_BROWN;
+    }
+}
+
+static uint8_t DimColorForFog(uint8_t color) {
+    if (color == PAL_BLUE || color == PAL_GREY || color == PAL_GREEN)
+        return PAL_BLACK;
+    if (color == PAL_LTGREY) return PAL_GREY;
+    if (color == PAL_YELLOW) return PAL_BROWN;
+    return PAL_BLACK;
+}
+
+static void RenderRadarTerrain(const RadarContext* ctx) {
+    for (int cy = 0; cy < ctx->mapHeight; cy++) {
+        for (int cx = 0; cx < ctx->mapWidth; cx++) {
+            MapCell* cell = Map_GetCell(cx, cy);
+            if (!cell) continue;
+            int px = ctx->offsetX + (int)(cx * ctx->scale);
+            int py = ctx->offsetY + (int)(cy * ctx->scale);
+            if (ctx->fogEnabled && !(cell->flags & CELL_FLAG_REVEALED)) {
+                Renderer_PutPixel(px, py, PAL_BLACK);
+                continue;
+            }
+            uint8_t color = TerrainToRadarColor(cell->terrain);
+            if (ctx->fogEnabled && !(cell->flags & CELL_FLAG_VISIBLE))
+                color = DimColorForFog(color);
+            Renderer_PutPixel(px, py, color);
+        }
+    }
+}
+
+static void RenderRadarUnits(const RadarContext* ctx) {
+    for (int i = 0; i < MAX_UNITS; i++) {
+        Unit* unit = Units_Get(i);
+        if (!unit || !unit->active) continue;
+        int cellX = unit->worldX / CELL_SIZE;
+        int cellY = unit->worldY / CELL_SIZE;
+        if (ctx->fogEnabled && unit->team != TEAM_PLAYER) {
+            MapCell* cell = Map_GetCell(cellX, cellY);
+            if (!cell || !(cell->flags & CELL_FLAG_VISIBLE)) continue;
+        }
+        int px = ctx->offsetX + (int)(cellX * ctx->scale);
+        int py = ctx->offsetY + (int)(cellY * ctx->scale);
+        uint8_t color = (unit->team == TEAM_PLAYER) ? PAL_LTGREEN : PAL_RED;
+        Renderer_FillRect(px, py, 2, 2, color);
+    }
+}
+
+static void RenderRadarBuildings(const RadarContext* ctx) {
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bldg = Buildings_Get(i);
+        if (!bldg || !bldg->active) continue;
+        if (ctx->fogEnabled && bldg->team != TEAM_PLAYER) {
+            MapCell* cell = Map_GetCell(bldg->cellX, bldg->cellY);
+            if (!cell || !(cell->flags & CELL_FLAG_REVEALED)) continue;
+        }
+        int px = ctx->offsetX + (int)(bldg->cellX * ctx->scale);
+        int py = ctx->offsetY + (int)(bldg->cellY * ctx->scale);
+        int pw = (int)(bldg->width * ctx->scale);
+        int ph = (int)(bldg->height * ctx->scale);
+        if (pw < 2) pw = 2;
+        if (ph < 2) ph = 2;
+        uint8_t color = (bldg->team == TEAM_PLAYER) ? PAL_LTGREEN : PAL_RED;
+        Renderer_FillRect(px, py, pw, ph, color);
+    }
+}
+
+static void RenderRadarViewport(const RadarContext* ctx) {
+    Viewport* vp = Map_GetViewport();
+    if (!vp) return;
+    int vpCellX = vp->x / CELL_SIZE, vpCellY = vp->y / CELL_SIZE;
+    int vpCellW = vp->width / CELL_SIZE, vpCellH = vp->height / CELL_SIZE;
+    int vpx = ctx->offsetX + (int)(vpCellX * ctx->scale);
+    int vpy = ctx->offsetY + (int)(vpCellY * ctx->scale);
+    int vpw = (int)(vpCellW * ctx->scale);
+    int vph = (int)(vpCellH * ctx->scale);
+    uint8_t cursorColor = (g_radarPulse < 15) ? PAL_WHITE : PAL_LTGREEN;
+    Renderer_DrawRect(vpx, vpy, vpw, vph, cursorColor);
+}
+
 void GameUI_RenderRadar(void) {
-    int mapWidth = Map_GetWidth();
-    int mapHeight = Map_GetHeight();
-
-    // Draw radar frame
-    DrawBeveledBox(RADAR_X - 2, RADAR_Y - 2, RADAR_WIDTH + 4, RADAR_HEIGHT + 4, PAL_GREY, false);
-
-    // Inner background
+    DrawBeveledBox(RADAR_X - 2, RADAR_Y - 2,
+                   RADAR_WIDTH + 4, RADAR_HEIGHT + 4, PAL_GREY, false);
     Renderer_FillRect(RADAR_X, RADAR_Y, RADAR_WIDTH, RADAR_HEIGHT, PAL_BLACK);
 
+    int mapWidth = Map_GetWidth();
+    int mapHeight = Map_GetHeight();
     if (mapWidth <= 0 || mapHeight <= 0) {
-        // No map - show offline
         Renderer_DrawText("RADAR", RADAR_X + 14, RADAR_Y + 28, PAL_GREY, 0);
         Renderer_DrawText("OFFLINE", RADAR_X + 10, RADAR_Y + 40, PAL_GREY, 0);
         return;
     }
 
-    // Calculate scale to fit map in radar
-    float scaleX = (float)(RADAR_WIDTH - 4) / (float)(mapWidth);
-    float scaleY = (float)(RADAR_HEIGHT - 4) / (float)(mapHeight);
-    float scale = (scaleX < scaleY) ? scaleX : scaleY;
-
-    // Calculate centered offset
-    int displayWidth = (int)(mapWidth * scale);
-    int displayHeight = (int)(mapHeight * scale);
-    int offsetX = RADAR_X + 2 + (RADAR_WIDTH - 4 - displayWidth) / 2;
-    int offsetY = RADAR_Y + 2 + (RADAR_HEIGHT - 4 - displayHeight) / 2;
-
-    bool fogEnabled = Map_IsFogEnabled();
-
-    // Draw terrain (respect fog of war)
-    for (int cy = 0; cy < mapHeight; cy++) {
-        for (int cx = 0; cx < mapWidth; cx++) {
-            MapCell* cell = Map_GetCell(cx, cy);
-            if (!cell) continue;
-
-            int px = offsetX + (int)(cx * scale);
-            int py = offsetY + (int)(cy * scale);
-
-            // Check fog of war - unrevealed cells are black
-            if (fogEnabled && !(cell->flags & CELL_FLAG_REVEALED)) {
-                Renderer_PutPixel(px, py, PAL_BLACK);
-                continue;
-            }
-
-            uint8_t color;
-            switch (cell->terrain) {
-                case TERRAIN_WATER:
-                    color = PAL_BLUE;
-                    break;
-                case TERRAIN_ROCK:
-                    color = PAL_GREY;
-                    break;
-                case TERRAIN_TREE:
-                    color = PAL_GREEN;
-                    break;
-                case TERRAIN_ROAD:
-                case TERRAIN_BRIDGE:
-                    color = PAL_LTGREY;
-                    break;
-                case TERRAIN_ORE:
-                case TERRAIN_GEM:
-                    color = PAL_YELLOW;
-                    break;
-                default:
-                    color = PAL_BROWN;
-                    break;
-            }
-
-            // Dim revealed but not visible cells (fog)
-            if (fogEnabled && !(cell->flags & CELL_FLAG_VISIBLE)) {
-                // Darken the color for fog
-                if (color == PAL_BLUE) color = PAL_BLACK;
-                else if (color == PAL_GREY) color = PAL_BLACK;
-                else if (color == PAL_GREEN) color = PAL_BLACK;
-                else if (color == PAL_LTGREY) color = PAL_GREY;
-                else if (color == PAL_YELLOW) color = PAL_BROWN;
-                else color = PAL_BLACK;
-            }
-
-            Renderer_PutPixel(px, py, color);
-        }
-    }
-
-    // Draw units (only if visible)
-    for (int i = 0; i < MAX_UNITS; i++) {
-        Unit* unit = Units_Get(i);
-        if (!unit || !unit->active) continue;
-
-        int cellX = unit->worldX / CELL_SIZE;
-        int cellY = unit->worldY / CELL_SIZE;
-
-        // Check fog of war - only show units in visible cells
-        if (fogEnabled) {
-            MapCell* cell = Map_GetCell(cellX, cellY);
-            if (!cell || !(cell->flags & CELL_FLAG_VISIBLE)) {
-                // Exception: always show player units
-                if (unit->team != TEAM_PLAYER) continue;
-            }
-        }
-
-        int px = offsetX + (int)(cellX * scale);
-        int py = offsetY + (int)(cellY * scale);
-
-        uint8_t color = (unit->team == TEAM_PLAYER) ? PAL_LTGREEN : PAL_RED;
-
-        // Draw 2x2 dot for visibility
-        Renderer_FillRect(px, py, 2, 2, color);
-    }
-
-    // Draw buildings (only if revealed)
-    for (int i = 0; i < MAX_BUILDINGS; i++) {
-        Building* bldg = Buildings_Get(i);
-        if (!bldg || !bldg->active) continue;
-
-        // Check fog of war - only show buildings in revealed cells
-        if (fogEnabled && bldg->team != TEAM_PLAYER) {
-            MapCell* cell = Map_GetCell(bldg->cellX, bldg->cellY);
-            if (!cell || !(cell->flags & CELL_FLAG_REVEALED)) continue;
-        }
-
-        int px = offsetX + (int)(bldg->cellX * scale);
-        int py = offsetY + (int)(bldg->cellY * scale);
-        int pw = (int)(bldg->width * scale);
-        int ph = (int)(bldg->height * scale);
-        if (pw < 2) pw = 2;
-        if (ph < 2) ph = 2;
-
-        uint8_t color = (bldg->team == TEAM_PLAYER) ? PAL_LTGREEN : PAL_RED;
-        Renderer_FillRect(px, py, pw, ph, color);
-    }
-
-    // Draw viewport rectangle
-    Viewport* vp = Map_GetViewport();
-    if (vp) {
-        int vpCellX = vp->x / CELL_SIZE;
-        int vpCellY = vp->y / CELL_SIZE;
-        int vpCellW = vp->width / CELL_SIZE;
-        int vpCellH = vp->height / CELL_SIZE;
-
-        int vpx = offsetX + (int)(vpCellX * scale);
-        int vpy = offsetY + (int)(vpCellY * scale);
-        int vpw = (int)(vpCellW * scale);
-        int vph = (int)(vpCellH * scale);
-
-        // Pulsing viewport rectangle
-        uint8_t cursorColor = (g_radarPulse < 15) ? PAL_WHITE : PAL_LTGREEN;
-        Renderer_DrawRect(vpx, vpy, vpw, vph, cursorColor);
-    }
+    RadarContext ctx;
+    CalcRadarContext(&ctx);
+    RenderRadarTerrain(&ctx);
+    RenderRadarUnits(&ctx);
+    RenderRadarBuildings(&ctx);
+    RenderRadarViewport(&ctx);
 }
 
 BOOL GameUI_RadarClick(int mouseX, int mouseY) {

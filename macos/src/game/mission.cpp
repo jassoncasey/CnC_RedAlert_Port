@@ -37,8 +37,9 @@ void Mission_Init(MissionData* mission) {
     if (!mission) return;
 
     memset(mission, 0, sizeof(MissionData));
-    strcpy(mission->name, "Untitled");
-    strcpy(mission->description, "No description");
+    strncpy(mission->name, "Untitled", sizeof(mission->name) - 1);
+    strncpy(mission->description, "No description",
+            sizeof(mission->description) - 1);
     mission->theater = 0;  // Temperate
     mission->mapWidth = 64;
     mission->mapHeight = 64;
@@ -295,9 +296,10 @@ static void ParseBriefingSection(MissionData* mission, INIClass* ini) {
 
         if (strlen(line) > 0 && descLen < sizeof(mission->description) - 2) {
             size_t lineLen = strlen(line);
-            if (descLen + lineLen + 1 < sizeof(mission->description)) {
+            size_t remaining = sizeof(mission->description) - descLen - 1;
+            if (lineLen < remaining) {
                 if (descLen > 0) mission->description[descLen++] = ' ';
-                strcpy(mission->description + descLen, line);
+                strncpy(mission->description + descLen, line, remaining);
                 descLen += lineLen;
             }
         }
@@ -911,12 +913,9 @@ int Mission_LoadFromBuffer(MissionData* mission, const char* buffer, int size) {
     return 1;
 }
 
-void Mission_Start(const MissionData* mission) {
-    if (!mission) return;
-
-    // Set theater for correct palette and terrain tiles
-    // mission->theater: 0=temperate, 1=snow, 2=interior, 3=desert
-    TheaterType theater = THEATER_SNOW;  // Default
+// Helper: Set theater from mission data
+static void SetupTheater(const MissionData* mission) {
+    TheaterType theater = THEATER_SNOW;
     switch (mission->theater) {
         case 0: theater = THEATER_TEMPERATE; break;
         case 1: theater = THEATER_SNOW; break;
@@ -929,47 +928,39 @@ void Mission_Start(const MissionData* mission) {
             theater == THEATER_TEMPERATE ? "TEMPERATE" :
             theater == THEATER_SNOW ? "SNOW" :
             theater == THEATER_INTERIOR ? "INTERIOR" : "DESERT");
+}
 
-    // Initialize systems
-    Map_Init();
-    Units_Init();
-    AI_Init();
-
-    // Load map from mission data if available, otherwise fall back to demo
+// Helper: Load terrain data or generate demo map
+static void LoadMissionMap(const MissionData* mission) {
     if (mission->terrainType && mission->terrainIcon) {
-        // Use real mission terrain data (with overlay for ore/gems)
         Map_LoadFromMission(mission->terrainType, mission->terrainIcon,
                            mission->overlayType, mission->overlayData,
                            mission->mapX, mission->mapY,
                            mission->mapWidth, mission->mapHeight);
     } else {
-        // Fall back to procedural demo map
         Map_GenerateDemo();
     }
+}
 
-    // Set player credits
-    // (Credits are managed by GameUI, this is just for reference)
-
-    // Spawn buildings first (they affect map passability)
-    // Convert from 128x128 map coords to local map coords
+// Helper: Spawn buildings, converting 128x128 coords to local
+static void SpawnMissionBuildings(const MissionData* mission) {
     for (int i = 0; i < mission->buildingCount; i++) {
         const MissionBuilding* bld = &mission->buildings[i];
         int localX = bld->cellX - mission->mapX;
         int localY = bld->cellY - mission->mapY;
-        // Only spawn if within visible map bounds
         if (localX >= 0 && localX < mission->mapWidth &&
             localY >= 0 && localY < mission->mapHeight) {
             Buildings_Spawn(bld->type, bld->team, localX, localY);
         }
     }
+}
 
-    // Spawn units
-    // Convert from 128x128 map coords to local world coords
+// Helper: Spawn units, converting 128x128 coords to local world
+static void SpawnMissionUnits(const MissionData* mission) {
     for (int i = 0; i < mission->unitCount; i++) {
         const MissionUnit* unit = &mission->units[i];
         int localCellX = unit->cellX - mission->mapX;
         int localCellY = unit->cellY - mission->mapY;
-        // Only spawn if within visible map bounds
         if (localCellX >= 0 && localCellX < mission->mapWidth &&
             localCellY >= 0 && localCellY < mission->mapHeight) {
             int worldX = localCellX * CELL_SIZE + CELL_SIZE / 2;
@@ -977,8 +968,10 @@ void Mission_Start(const MissionData* mission) {
             Units_Spawn(unit->type, unit->team, worldX, worldY);
         }
     }
+}
 
-    // Center viewport on first player unit
+// Helper: Center viewport on first player unit
+static void CenterOnPlayerUnit(const MissionData* mission) {
     for (int i = 0; i < mission->unitCount; i++) {
         const MissionUnit* unit = &mission->units[i];
         if (unit->team == TEAM_PLAYER) {
@@ -989,12 +982,14 @@ void Mission_Start(const MissionData* mission) {
                 int worldX = localCellX * CELL_SIZE + CELL_SIZE / 2;
                 int worldY = localCellY * CELL_SIZE + CELL_SIZE / 2;
                 Map_CenterViewport(worldX, worldY);
-                break;
+                return;
             }
         }
     }
+}
 
-    // Log parsed triggers (from [Trigs] section)
+// Helper: Log mission data for debugging
+static void LogMissionData(const MissionData* mission) {
     if (g_parsedTriggerCount > 0) {
         fprintf(stderr, "  Loaded %d triggers from mission INI\n",
                 g_parsedTriggerCount);
@@ -1003,13 +998,9 @@ void Mission_Start(const MissionData* mission) {
             fprintf(stderr, "    Trigger '%s': event1=%d action1=%d\n",
                     trig->name, trig->event1, trig->action1);
         }
-        if (g_parsedTriggerCount > 5) {
-            fprintf(stderr, "    ... and %d more\n",
-                    g_parsedTriggerCount - 5);
-        }
+        if (g_parsedTriggerCount > 5)
+            fprintf(stderr, "    ... and %d more\n", g_parsedTriggerCount - 5);
     }
-
-    // Log waypoints
     if (mission->waypointCount > 0) {
         fprintf(stderr, "  Loaded %d waypoints\n", mission->waypointCount);
         int shown = 0;
@@ -1023,31 +1014,37 @@ void Mission_Start(const MissionData* mission) {
             }
         }
     }
-
-    // Log team types
     if (mission->teamTypeCount > 0) {
         fprintf(stderr, "  Loaded %d team types\n", mission->teamTypeCount);
         for (int i = 0; i < mission->teamTypeCount && i < 5; i++) {
             const MissionTeamType* team = &mission->teamTypes[i];
             fprintf(stderr, "    Team '%s': house=%d members=%d missions=%d\n",
-                    team->name, team->house, team->memberCount, team->missionCount);
+                    team->name, team->house,
+                    team->memberCount, team->missionCount);
         }
-        if (mission->teamTypeCount > 5) {
+        if (mission->teamTypeCount > 5)
             fprintf(stderr, "    ... and %d more\n", mission->teamTypeCount - 5);
-        }
     }
-
-    // Log terrain objects
-    if (mission->terrainObjCount > 0) {
+    if (mission->terrainObjCount > 0)
         fprintf(stderr, "  Loaded %d terrain objects (trees, etc.)\n",
                 mission->terrainObjCount);
-    }
-
-    // Log smudges
-    if (mission->smudgeCount > 0) {
+    if (mission->smudgeCount > 0)
         fprintf(stderr, "  Loaded %d smudges (craters, etc.)\n",
                 mission->smudgeCount);
-    }
+}
+
+void Mission_Start(const MissionData* mission) {
+    if (!mission) return;
+
+    SetupTheater(mission);
+    Map_Init();
+    Units_Init();
+    AI_Init();
+    LoadMissionMap(mission);
+    SpawnMissionBuildings(mission);
+    SpawnMissionUnits(mission);
+    CenterOnPlayerUnit(mission);
+    LogMissionData(mission);
 }
 
 int Mission_CheckVictory(const MissionData* mission, int frameCount) {
@@ -1173,8 +1170,9 @@ void Mission_GetDemo(MissionData* mission) {
 
     Mission_Init(mission);
 
-    strcpy(mission->name, "Demo Skirmish");
-    strcpy(mission->description, "Destroy the enemy base.");
+    strncpy(mission->name, "Demo Skirmish", sizeof(mission->name) - 1);
+    strncpy(mission->description, "Destroy the enemy base.",
+            sizeof(mission->description) - 1);
     mission->theater = 1;  // Snow
     mission->mapWidth = 64;
     mission->mapHeight = 64;

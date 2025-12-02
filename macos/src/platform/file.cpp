@@ -392,7 +392,8 @@ HANDLE FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData) {
         *lastSlash = '\0';
         pattern = lastSlash + 1;
     } else {
-        strcpy(dirPath, ".");
+        dirPath[0] = '.';
+        dirPath[1] = '\0';
         pattern = lpFileName;
     }
 
