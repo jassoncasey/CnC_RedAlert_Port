@@ -210,304 +210,282 @@ static void StartCampaignMission(int campaign, int difficulty) {
     Menu_SetCurrentScreen(MENU_SCREEN_BRIEFING);
 }
 
+// ============================================================================
+// GameUpdate Helpers
+// ============================================================================
+
+// Handle menu screen updates. Returns true if in menu (skip game logic).
+static bool UpdateMenuScreen(float /*deltaTime*/) {
+    MenuScreen currentScreen = Menu_GetCurrentScreen();
+    if (currentScreen == MENU_SCREEN_NONE) return false;
+
+    Menu* activeMenu = nullptr;
+    switch (currentScreen) {
+        case MENU_SCREEN_MAIN:
+            activeMenu = Menu_GetMainMenu();
+            break;
+        case MENU_SCREEN_CAMPAIGN_SELECT:
+            activeMenu = Menu_GetCampaignMenu();
+            break;
+        case MENU_SCREEN_DIFFICULTY_SELECT:
+            activeMenu = Menu_GetDifficultyMenu();
+            break;
+        case MENU_SCREEN_OPTIONS:
+            activeMenu = Menu_GetOptionsMenu();
+            break;
+        case MENU_SCREEN_CREDITS:
+            if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
+                Input_WasKeyPressed(VK_SPACE) ||
+                (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
+                Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            }
+            break;
+        case MENU_SCREEN_BRIEFING:
+            Menu_UpdateBriefing();
+            break;
+        case MENU_SCREEN_VIDEO:
+            Menu_UpdateVideo();
+            break;
+        default:
+            break;
+    }
+
+    if (activeMenu) Menu_Update(activeMenu);
+
+    // ESC goes back from submenus
+    if (Input_WasKeyPressed(VK_ESCAPE)) {
+        if (currentScreen == MENU_SCREEN_OPTIONS ||
+            currentScreen == MENU_SCREEN_CAMPAIGN_SELECT) {
+            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+        } else if (currentScreen == MENU_SCREEN_DIFFICULTY_SELECT) {
+            Menu_SetCurrentScreen(MENU_SCREEN_CAMPAIGN_SELECT);
+        }
+    }
+    return true;
+}
+
+// Shutdown gameplay and return to menu
+static void ExitToMenu(void) {
+    g_inGameplay = false;
+    g_missionResult = MISSION_ONGOING;
+    AI_Shutdown();
+    GameUI_Shutdown();
+    Map_Shutdown();
+    Units_Shutdown();
+    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+}
+
+// Handle map scrolling (keyboard and mouse edge)
+static void UpdateMapScrolling(void) {
+    int scrollSpeed = 8;
+
+    // Keyboard scrolling
+    if (Input_IsKeyDown(VK_UP) || Input_IsKeyDown('W'))
+        Map_ScrollViewport(0, -scrollSpeed);
+    if (Input_IsKeyDown(VK_DOWN) || Input_IsKeyDown('S'))
+        Map_ScrollViewport(0, scrollSpeed);
+    if (Input_IsKeyDown(VK_LEFT) || Input_IsKeyDown('A'))
+        Map_ScrollViewport(-scrollSpeed, 0);
+    if (Input_IsKeyDown(VK_RIGHT) || Input_IsKeyDown('D'))
+        Map_ScrollViewport(scrollSpeed, 0);
+
+    // Mouse edge scrolling
+    int mx = Input_GetMouseX();
+    int my = Input_GetMouseY();
+    if (mx < 10) Map_ScrollViewport(-scrollSpeed, 0);
+    if (mx > WINDOW_WIDTH - 10) Map_ScrollViewport(scrollSpeed, 0);
+    if (my < 10) Map_ScrollViewport(0, -scrollSpeed);
+    if (my > WINDOW_HEIGHT - 10) Map_ScrollViewport(0, scrollSpeed);
+}
+
+// Handle left-click selection. Returns true if UI consumed click.
+static bool UpdateUnitSelection(int mx, int my) {
+    static bool wasLeftDown = false;
+    uint8_t buttons = Input_GetMouseButtons();
+    bool leftDown = (buttons & INPUT_MOUSE_LEFT) != 0;
+
+    // UI input first
+    if (leftDown && !wasLeftDown) {
+        if (GameUI_HandleInput(mx, my, TRUE, FALSE)) {
+            wasLeftDown = leftDown;
+            return true;
+        }
+    }
+
+    // Selection handling
+    if (leftDown && !wasLeftDown) {
+        g_selectionStartX = mx;
+        g_selectionStartY = my;
+        g_isSelecting = true;
+    } else if (!leftDown && wasLeftDown && g_isSelecting) {
+        int x1 = g_selectionStartX, y1 = g_selectionStartY;
+        int x2 = mx, y2 = my;
+
+        if (abs(x2 - x1) < 5 && abs(y2 - y1) < 5) {
+            int unitId = Units_GetAtScreen(mx, my);
+            if (unitId >= 0) Units_Select(unitId, Input_IsKeyDown(VK_SHIFT));
+            else Units_DeselectAll();
+        } else {
+            Units_SelectInRect(x1, y1, x2, y2, TEAM_PLAYER);
+        }
+        g_isSelecting = false;
+    }
+    wasLeftDown = leftDown;
+    return false;
+}
+
+// Handle right-click commands
+static void UpdateRightClickCommands(int mx, int my) {
+    static bool wasRightDown = false;
+    uint8_t buttons = Input_GetMouseButtons();
+    bool rightDown = (buttons & INPUT_MOUSE_RIGHT) != 0;
+
+    if (rightDown && !wasRightDown) {
+        int worldX, worldY;
+        Map_ScreenToWorld(mx, my, &worldX, &worldY);
+        int targetId = Units_GetAtScreen(mx, my);
+        Unit* target = Units_Get(targetId);
+        bool ctrlDown = Input_IsKeyDown(VK_CONTROL);
+
+        for (int i = 0; i < MAX_UNITS; i++) {
+            Unit* unit = Units_Get(i);
+            if (!unit || !unit->selected) continue;
+
+            if (ctrlDown) {
+                Units_CommandForceAttack(i, worldX, worldY);
+            } else if (g_attackMoveMode) {
+                Units_CommandAttackMove(i, worldX, worldY);
+            } else if (target && target->team == TEAM_ENEMY) {
+                Units_CommandAttack(i, targetId);
+            } else {
+                Units_CommandMove(i, worldX, worldY);
+            }
+        }
+        g_attackMoveMode = false;
+    }
+    wasRightDown = rightDown;
+}
+
+// Handle hotkey commands (S, A, G)
+static void UpdateHotkeyCommands(void) {
+    // Stop (S - but not if holding WASD)
+    if (Input_WasKeyPressed('S') && !Input_IsKeyDown('W')) {
+        for (int i = 0; i < MAX_UNITS; i++) {
+            Unit* unit = Units_Get(i);
+            if (unit && unit->selected) Units_CommandStop(i);
+        }
+    }
+
+    // Attack-move mode (A - but not if holding WASD)
+    if (Input_WasKeyPressed('A') && !Input_IsKeyDown('W') &&
+        !Input_IsKeyDown('S') && !Input_IsKeyDown('D')) {
+        g_attackMoveMode = true;
+    }
+
+    // Guard (G)
+    if (Input_WasKeyPressed('G')) {
+        for (int i = 0; i < MAX_UNITS; i++) {
+            Unit* unit = Units_Get(i);
+            if (unit && unit->selected) Units_CommandGuard(i);
+        }
+    }
+}
+
+// Check mission triggers and victory/defeat conditions
+static void UpdateMissionState(void) {
+    if (g_missionResult != MISSION_ONGOING) return;
+
+    // Process triggers
+    int triggerResult = Mission_ProcessTriggers(&g_currentMission,
+                                                 g_gameFrameCount);
+    if (triggerResult == 1) {
+        g_missionResult = MISSION_VICTORY;
+        g_resultDisplayTimer = 180;
+        NSLog(@"VICTORY via trigger!");
+    } else if (triggerResult == -1) {
+        g_missionResult = MISSION_DEFEAT;
+        g_resultDisplayTimer = 180;
+        NSLog(@"DEFEAT via trigger!");
+    }
+
+    // Check victory/defeat
+    if (g_missionResult == MISSION_ONGOING) {
+        int result = Mission_CheckVictory(&g_currentMission, g_gameFrameCount);
+        if (result == 1) {
+            g_missionResult = MISSION_VICTORY;
+            g_resultDisplayTimer = 180;
+            NSLog(@"VICTORY!");
+        } else if (result == -1) {
+            g_missionResult = MISSION_DEFEAT;
+            g_resultDisplayTimer = 180;
+            NSLog(@"DEFEAT!");
+        }
+    }
+}
+
+// Handle result screen display. Returns true if should exit to menu.
+static bool UpdateResultScreen(void) {
+    if (g_missionResult == MISSION_ONGOING || g_resultDisplayTimer <= 0)
+        return false;
+
+    g_resultDisplayTimer--;
+    if (g_resultDisplayTimer < 120) {
+        if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
+            Input_WasKeyPressed(VK_SPACE) ||
+            (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 #pragma mark - Game Callbacks
 
 // Called at game logic rate (15 FPS default)
 void GameUpdate(uint32_t frame, float deltaTime) {
-    (void)deltaTime;
-
-    // Update music system (handles fading, track completion)
     Music_Update((int)(deltaTime * 1000));
 
-    // Handle menus
-    MenuScreen currentScreen = Menu_GetCurrentScreen();
-    if (currentScreen != MENU_SCREEN_NONE) {
-        // Update active menu
-        Menu* activeMenu = nullptr;
-        switch (currentScreen) {
-            case MENU_SCREEN_MAIN:
-                activeMenu = Menu_GetMainMenu();
-                break;
-            case MENU_SCREEN_CAMPAIGN_SELECT:
-                activeMenu = Menu_GetCampaignMenu();
-                break;
-            case MENU_SCREEN_DIFFICULTY_SELECT:
-                activeMenu = Menu_GetDifficultyMenu();
-                break;
-            case MENU_SCREEN_OPTIONS:
-                activeMenu = Menu_GetOptionsMenu();
-                break;
-            case MENU_SCREEN_CREDITS:
-                // Show credits then return to main on any key or mouse click
-                if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
-                    Input_WasKeyPressed(VK_SPACE) || (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
-                    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-                }
-                break;
-            case MENU_SCREEN_BRIEFING:
-                Menu_UpdateBriefing();
-                break;
-            case MENU_SCREEN_VIDEO:
-                Menu_UpdateVideo();
-                break;
-            default:
-                break;
-        }
+    // Menu mode
+    if (UpdateMenuScreen(deltaTime)) return;
 
-        if (activeMenu) {
-            Menu_Update(activeMenu);
-        }
-
-        // ESC goes back from submenus
-        if (Input_WasKeyPressed(VK_ESCAPE)) {
-            if (currentScreen == MENU_SCREEN_OPTIONS) {
-                Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-            } else if (currentScreen == MENU_SCREEN_CAMPAIGN_SELECT) {
-                Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-            } else if (currentScreen == MENU_SCREEN_DIFFICULTY_SELECT) {
-                Menu_SetCurrentScreen(MENU_SCREEN_CAMPAIGN_SELECT);
-            }
-        }
-        return; // Don't process game logic while in menus
-    }
-
-    // === GAMEPLAY MODE ===
+    // Gameplay mode
     if (g_inGameplay) {
-        // Pause (P key) - check early before any early returns
-        if (Input_WasKeyPressed('P')) {
-            GameLoop_Pause(!GameLoop_IsPaused());
-        }
+        if (Input_WasKeyPressed('P')) GameLoop_Pause(!GameLoop_IsPaused());
+        if (Input_WasKeyPressed('F')) ToggleFullscreen();
 
-        // Fullscreen (F key) - check early before any early returns
-        if (Input_WasKeyPressed('F')) {
-            ToggleFullscreen();
-        }
-
-        // ESC cancels attack-move mode or returns to main menu
+        // ESC handling
         if (Input_WasKeyPressed(VK_ESCAPE)) {
-            if (g_attackMoveMode) {
-                g_attackMoveMode = false;
-            } else {
-                g_inGameplay = false;
-                AI_Shutdown();
-                GameUI_Shutdown();
-                Map_Shutdown();
-                Units_Shutdown();
-                Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-                return;
-            }
+            if (g_attackMoveMode) g_attackMoveMode = false;
+            else { ExitToMenu(); return; }
         }
 
-        // Map scrolling with arrow keys or WASD
-        int scrollSpeed = 8;
-        if (Input_IsKeyDown(VK_UP) || Input_IsKeyDown('W')) {
-            Map_ScrollViewport(0, -scrollSpeed);
-        }
-        if (Input_IsKeyDown(VK_DOWN) || Input_IsKeyDown('S')) {
-            Map_ScrollViewport(0, scrollSpeed);
-        }
-        if (Input_IsKeyDown(VK_LEFT) || Input_IsKeyDown('A')) {
-            Map_ScrollViewport(-scrollSpeed, 0);
-        }
-        if (Input_IsKeyDown(VK_RIGHT) || Input_IsKeyDown('D')) {
-            Map_ScrollViewport(scrollSpeed, 0);
-        }
+        UpdateMapScrolling();
 
-        // Mouse edge scrolling
-        int mx = Input_GetMouseX();
-        int my = Input_GetMouseY();
-        if (mx < 10) Map_ScrollViewport(-scrollSpeed, 0);
-        if (mx > WINDOW_WIDTH - 10) Map_ScrollViewport(scrollSpeed, 0);
-        if (my < 10) Map_ScrollViewport(0, -scrollSpeed);
-        if (my > WINDOW_HEIGHT - 10) Map_ScrollViewport(0, scrollSpeed);
-
-        // Unit selection with left mouse button
-        uint8_t buttons = Input_GetMouseButtons();
-        static bool wasLeftDown = false;
-        bool leftDown = (buttons & INPUT_MOUSE_LEFT) != 0;
-        bool rightDown = (buttons & INPUT_MOUSE_RIGHT) != 0;
-
-        // Handle UI input first (sidebar, radar)
-        if (leftDown && !wasLeftDown) {
-            if (GameUI_HandleInput(mx, my, TRUE, FALSE)) {
-                // UI consumed the click, don't process as game input
-                wasLeftDown = leftDown;
-                return;
-            }
-        }
-
-        if (leftDown && !wasLeftDown) {
-            // Start selection
-            g_selectionStartX = mx;
-            g_selectionStartY = my;
-            g_isSelecting = true;
-        } else if (!leftDown && wasLeftDown && g_isSelecting) {
-            // End selection
-            int x1 = g_selectionStartX;
-            int y1 = g_selectionStartY;
-            int x2 = mx;
-            int y2 = my;
-
-            // If click (small drag), try to select single unit
-            if (abs(x2 - x1) < 5 && abs(y2 - y1) < 5) {
-                int unitId = Units_GetAtScreen(mx, my);
-                if (unitId >= 0) {
-                    Units_Select(unitId, Input_IsKeyDown(VK_SHIFT));
-                } else {
-                    Units_DeselectAll();
-                }
-            } else {
-                // Box selection
-                Units_SelectInRect(x1, y1, x2, y2, TEAM_PLAYER);
-            }
-            g_isSelecting = false;
-        }
-        wasLeftDown = leftDown;
-
-        // Right click commands
-        static bool wasRightDown = false;
-        bool ctrlDown = Input_IsKeyDown(VK_CONTROL);
-
-        if (rightDown && !wasRightDown) {
-            int worldX, worldY;
-            Map_ScreenToWorld(mx, my, &worldX, &worldY);
-
-            // Check if clicking on enemy unit
-            int targetId = Units_GetAtScreen(mx, my);
-            Unit* target = Units_Get(targetId);
-
-            // Command selected units
-            for (int i = 0; i < MAX_UNITS; i++) {
-                Unit* unit = Units_Get(i);
-                if (unit && unit->selected) {
-                    if (ctrlDown) {
-                        // Force-attack (Ctrl+click) - attack anything at location
-                        Units_CommandForceAttack(i, worldX, worldY);
-                    } else if (g_attackMoveMode) {
-                        // Attack-move mode - move but attack enemies encountered
-                        Units_CommandAttackMove(i, worldX, worldY);
-                    } else if (target && target->team == TEAM_ENEMY) {
-                        // Attack command
-                        Units_CommandAttack(i, targetId);
-                    } else {
-                        // Move command
-                        Units_CommandMove(i, worldX, worldY);
-                    }
-                }
-            }
-            g_attackMoveMode = false;  // Clear attack-move mode after click
-        }
-        wasRightDown = rightDown;
-
-        // Stop command (S key)
-        if (Input_WasKeyPressed('S') && !Input_IsKeyDown('W')) {
-            for (int i = 0; i < MAX_UNITS; i++) {
-                Unit* unit = Units_Get(i);
-                if (unit && unit->selected) {
-                    Units_CommandStop(i);
-                }
-            }
-        }
-
-        // Attack-move mode (A key) - next click will be attack-move
-        if (Input_WasKeyPressed('A') && !Input_IsKeyDown('W') && !Input_IsKeyDown('S') && !Input_IsKeyDown('D')) {
-            g_attackMoveMode = true;
-        }
-
-        // Guard command (G key) - stay in place but attack nearby enemies
-        if (Input_WasKeyPressed('G')) {
-            for (int i = 0; i < MAX_UNITS; i++) {
-                Unit* unit = Units_Get(i);
-                if (unit && unit->selected) {
-                    Units_CommandGuard(i);
-                }
-            }
-        }
+        int mx = Input_GetMouseX(), my = Input_GetMouseY();
+        if (UpdateUnitSelection(mx, my)) return;
+        UpdateRightClickCommands(mx, my);
+        UpdateHotkeyCommands();
 
         // Update game systems
         Map_Update();
         Units_Update();
         GameUI_Update();
         AI_Update();
-
-        // Increment game frame counter
         g_gameFrameCount++;
 
-        // Process mission triggers
-        if (g_missionResult == MISSION_ONGOING) {
-            int triggerResult = Mission_ProcessTriggers(&g_currentMission,
-                                                         g_gameFrameCount);
-            if (triggerResult == 1) {
-                g_missionResult = MISSION_VICTORY;
-                g_resultDisplayTimer = 180;
-                NSLog(@"VICTORY via trigger!");
-            } else if (triggerResult == -1) {
-                g_missionResult = MISSION_DEFEAT;
-                g_resultDisplayTimer = 180;
-                NSLog(@"DEFEAT via trigger!");
-            }
-        }
-
-        // Check victory/defeat conditions (only if game still ongoing)
-        if (g_missionResult == MISSION_ONGOING) {
-            int result = Mission_CheckVictory(&g_currentMission, g_gameFrameCount);
-            if (result == 1) {
-                g_missionResult = MISSION_VICTORY;
-                g_resultDisplayTimer = 180;  // 3 seconds at 60fps render rate
-                NSLog(@"VICTORY!");
-            } else if (result == -1) {
-                g_missionResult = MISSION_DEFEAT;
-                g_resultDisplayTimer = 180;
-                NSLog(@"DEFEAT!");
-            }
-        }
-
-        // Handle result screen timer
-        if (g_missionResult != MISSION_ONGOING && g_resultDisplayTimer > 0) {
-            g_resultDisplayTimer--;
-            // Any key or click dismisses result screen after delay
-            if (g_resultDisplayTimer < 120) {  // Allow dismiss after 1 second
-                if (Input_WasKeyPressed(VK_ESCAPE) || Input_WasKeyPressed(VK_RETURN) ||
-                    Input_WasKeyPressed(VK_SPACE) || (Input_GetMouseButtons() & INPUT_MOUSE_LEFT)) {
-                    // Return to main menu
-                    g_inGameplay = false;
-                    g_missionResult = MISSION_ONGOING;
-                    AI_Shutdown();
-                    GameUI_Shutdown();
-                    Map_Shutdown();
-                    Units_Shutdown();
-                    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-                    return;
-                }
-            }
-        }
-
+        UpdateMissionState();
+        if (UpdateResultScreen()) { ExitToMenu(); return; }
         return;
     }
 
-    // === OLD DEMO MODE (when not in gameplay) ===
+    // Demo mode fallback
     g_animPhase += 0.1f;
-
-    // Handle game input
     if (Input_WasKeyPressed(VK_ESCAPE)) {
-        // First try to cancel placement mode
-        if (!GameUI_HandleEscape()) {
-            // If not in placement mode, go to menu
-            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
-        }
+        if (!GameUI_HandleEscape()) Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
     }
+    if (Input_WasKeyPressed('P')) GameLoop_Pause(!GameLoop_IsPaused());
+    if (Input_WasKeyPressed('F')) ToggleFullscreen();
 
-    // Pause (P key)
-    if (Input_WasKeyPressed('P')) {
-        GameLoop_Pause(!GameLoop_IsPaused());
-    }
-
-    // Fullscreen (F key)
-    if (Input_WasKeyPressed('F')) {
-        ToggleFullscreen();
-    }
-
-    // Log every 60 game frames
     if (frame % 60 == 0) {
         const FrameStats* stats = GameLoop_GetStats();
         NSLog(@"Game frame %u, Render FPS: %.1f, Speed: %d%s",
@@ -562,214 +540,186 @@ static void RenderCredits(void) {
 }
 
 // Called every render frame (60 FPS)
-void GameRender(void) {
+// ============================================================================
+// GameRender Helpers
+// ============================================================================
+
+// Render menu screens. Returns true if menu was rendered.
+static bool RenderMenuScreen(void) {
+    MenuScreen screen = Menu_GetCurrentScreen();
+    if (screen == MENU_SCREEN_NONE) return false;
+
+    switch (screen) {
+        case MENU_SCREEN_CREDITS:   RenderCredits();        return true;
+        case MENU_SCREEN_BRIEFING:  Menu_RenderBriefing();  return true;
+        case MENU_SCREEN_VIDEO:     Menu_RenderVideo();     return true;
+        default: break;
+    }
+
+    Menu* activeMenu = nullptr;
+    switch (screen) {
+        case MENU_SCREEN_MAIN:              activeMenu = Menu_GetMainMenu(); break;
+        case MENU_SCREEN_CAMPAIGN_SELECT:   activeMenu = Menu_GetCampaignMenu(); break;
+        case MENU_SCREEN_DIFFICULTY_SELECT: activeMenu = Menu_GetDifficultyMenu(); break;
+        case MENU_SCREEN_OPTIONS:           activeMenu = Menu_GetOptionsMenu(); break;
+        default: break;
+    }
+    if (activeMenu) Menu_Render(activeMenu);
+    return true;
+}
+
+// Render selection box while dragging
+static void RenderSelectionBox(void) {
+    if (!g_isSelecting) return;
+
+    int mx = Input_GetMouseX(), my = Input_GetMouseY();
+    int x1 = g_selectionStartX, y1 = g_selectionStartY;
+    int x2 = mx, y2 = my;
+    if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
+    if (y1 > y2) { int t = y1; y1 = y2; y2 = t; }
+    Renderer_DrawRect(x1, y1, x2 - x1, y2 - y1, 15);
+}
+
+// Render mouse cursor crosshair
+static void RenderCursor(void) {
+    int mx = Input_GetMouseX(), my = Input_GetMouseY();
+    Renderer_DrawLine(mx - 8, my, mx + 8, my, 15);
+    Renderer_DrawLine(mx, my - 8, mx, my + 8, 15);
+}
+
+// Render top HUD bar
+static void RenderGameHUD(void) {
     const FrameStats* stats = GameLoop_GetStats();
+    Renderer_FillRect(0, 0, 560, 16, 0);
 
-    // Handle menu rendering
-    MenuScreen currentScreen = Menu_GetCurrentScreen();
-    if (currentScreen != MENU_SCREEN_NONE) {
-        Menu* activeMenu = nullptr;
-        switch (currentScreen) {
-            case MENU_SCREEN_MAIN:
-                activeMenu = Menu_GetMainMenu();
-                break;
-            case MENU_SCREEN_CAMPAIGN_SELECT:
-                activeMenu = Menu_GetCampaignMenu();
-                break;
-            case MENU_SCREEN_DIFFICULTY_SELECT:
-                activeMenu = Menu_GetDifficultyMenu();
-                break;
-            case MENU_SCREEN_OPTIONS:
-                activeMenu = Menu_GetOptionsMenu();
-                break;
-            case MENU_SCREEN_CREDITS:
-                RenderCredits();
-                return;
-            case MENU_SCREEN_BRIEFING:
-                Menu_RenderBriefing();
-                return;
-            case MENU_SCREEN_VIDEO:
-                Menu_RenderVideo();
-                return;
-            default:
-                break;
-        }
+    char hudText[64];
+    snprintf(hudText, sizeof(hudText), "%s", g_currentMission.name);
+    Renderer_DrawText(hudText, 10, 3, 14, 0);
 
-        if (activeMenu) {
-            Menu_Render(activeMenu);
-        }
-        return;
+    snprintf(hudText, sizeof(hudText), "P:%d E:%d",
+             Units_CountByTeam(TEAM_PLAYER), Units_CountByTeam(TEAM_ENEMY));
+    Renderer_DrawText(hudText, 200, 3, 10, 0);
+
+    int selected = Units_GetSelectedCount();
+    if (selected > 0) {
+        snprintf(hudText, sizeof(hudText), "SEL:%d", selected);
+        Renderer_DrawText(hudText, 300, 3, 15, 0);
     }
 
-    // === GAMEPLAY RENDERING ===
-    if (g_inGameplay) {
-        Renderer_Clear(0);
+    snprintf(hudText, sizeof(hudText), "%.0f", stats->currentFPS);
+    Renderer_DrawText(hudText, 540, 3, 7, 0);
+}
 
-        // Clip to game view area (don't draw over sidebar)
-        Renderer_SetClipRect(0, 16, 560, 368);
+// Render pause overlay
+static void RenderPauseOverlay(void) {
+    if (!GameLoop_IsPaused()) return;
+    Renderer_FillRect(220, 180, 120, 40, 0);
+    Renderer_DrawRect(220, 180, 120, 40, 15);
+    Renderer_DrawText("PAUSED", 245, 195, 15, 0);
+}
 
-        // Render map terrain
-        Map_Render();
+// Render victory/defeat overlay
+static void RenderResultOverlay(void) {
+    if (g_missionResult == MISSION_ONGOING) return;
 
-        // Render units and buildings
-        Units_Render();
+    // Scanline effect
+    for (int y = 0; y < 400; y += 2) Renderer_HLine(0, 560, y, 0);
 
-        // Reset clip for UI
-        Renderer_ResetClip();
+    int boxW = 300, boxH = 100;
+    int boxX = (560 - boxW) / 2, boxY = (400 - boxH) / 2 - 20;
 
-        // Render game UI (sidebar, radar, selection panel)
-        GameUI_Render();
+    Renderer_FillRect(boxX, boxY, boxW, boxH, 0);
+    Renderer_DrawRect(boxX, boxY, boxW, boxH, 15);
+    Renderer_DrawRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4, 7);
 
-        // Draw selection box if dragging
-        if (g_isSelecting) {
-            int mx = Input_GetMouseX();
-            int my = Input_GetMouseY();
-            int x1 = g_selectionStartX;
-            int y1 = g_selectionStartY;
-            int x2 = mx;
-            int y2 = my;
-
-            // Normalize
-            if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
-            if (y1 > y2) { int t = y1; y1 = y2; y2 = t; }
-
-            Renderer_DrawRect(x1, y1, x2 - x1, y2 - y1, 15);
-        }
-
-        // Draw mouse cursor
-        int mx = Input_GetMouseX();
-        int my = Input_GetMouseY();
-        Renderer_DrawLine(mx - 8, my, mx + 8, my, 15);
-        Renderer_DrawLine(mx, my - 8, mx, my + 8, 15);
-
-        // Draw HUD (top bar - game view only, sidebar has its own)
-        const FrameStats* stats = GameLoop_GetStats();
-        Renderer_FillRect(0, 0, 560, 16, 0);
-
-        // Mission name/objective
-        char hudText[64];
-        snprintf(hudText, sizeof(hudText), "%s", g_currentMission.name);
-        Renderer_DrawText(hudText, 10, 3, 14, 0);
-
-        // Unit count
-        snprintf(hudText, sizeof(hudText), "P:%d E:%d",
-                 Units_CountByTeam(TEAM_PLAYER), Units_CountByTeam(TEAM_ENEMY));
-        Renderer_DrawText(hudText, 200, 3, 10, 0);
-
-        // Selected count
-        int selected = Units_GetSelectedCount();
-        if (selected > 0) {
-            snprintf(hudText, sizeof(hudText), "SEL:%d", selected);
-            Renderer_DrawText(hudText, 300, 3, 15, 0);
-        }
-
-        // FPS
-        snprintf(hudText, sizeof(hudText), "%.0f", stats->currentFPS);
-        Renderer_DrawText(hudText, 540, 3, 7, 0);
-
-        // Pause overlay
-        if (GameLoop_IsPaused()) {
-            Renderer_FillRect(220, 180, 120, 40, 0);
-            Renderer_DrawRect(220, 180, 120, 40, 15);
-            Renderer_DrawText("PAUSED", 245, 195, 15, 0);
-        }
-
-        // Victory/Defeat overlay
-        if (g_missionResult != MISSION_ONGOING) {
-            // Semi-transparent overlay effect (draw dark rects)
-            for (int y = 0; y < 400; y += 2) {
-                Renderer_HLine(0, 560, y, 0);
-            }
-
-            // Result box
-            int boxW = 300, boxH = 100;
-            int boxX = (560 - boxW) / 2;
-            int boxY = (400 - boxH) / 2 - 20;
-
-            Renderer_FillRect(boxX, boxY, boxW, boxH, 0);
-            Renderer_DrawRect(boxX, boxY, boxW, boxH, 15);
-            Renderer_DrawRect(boxX + 2, boxY + 2, boxW - 4, boxH - 4, 7);
-
-            if (g_missionResult == MISSION_VICTORY) {
-                // Green text for victory
-                Renderer_DrawText("MISSION ACCOMPLISHED", boxX + 50, boxY + 20, 10, 0);
-                Renderer_DrawText("You have defeated the enemy!", boxX + 40, boxY + 45, 15, 0);
-            } else {
-                // Red text for defeat
-                Renderer_DrawText("MISSION FAILED", boxX + 75, boxY + 20, 4, 0);
-                Renderer_DrawText("Your forces were destroyed.", boxX + 45, boxY + 45, 15, 0);
-            }
-
-            Renderer_DrawText("Press any key to continue...", boxX + 55, boxY + 75, 7, 0);
-        }
-
-        // Controls help at bottom (only in game view area)
-        Renderer_FillRect(0, 384, 560, 16, 0);
-        if (g_attackMoveMode) {
-            Renderer_DrawText("ATTACK-MOVE: RMB=TARGET  ESC=CANCEL", 20, 387, 14, 0);
-        } else {
-            Renderer_DrawText("WASD=SCROLL A=ATTACK-MOVE G=GUARD S=STOP", 20, 387, 7, 0);
-        }
-
-        return;
+    if (g_missionResult == MISSION_VICTORY) {
+        Renderer_DrawText("MISSION ACCOMPLISHED", boxX + 50, boxY + 20, 10, 0);
+        Renderer_DrawText("You have defeated the enemy!", boxX + 40, boxY + 45, 15, 0);
+    } else {
+        Renderer_DrawText("MISSION FAILED", boxX + 75, boxY + 20, 4, 0);
+        Renderer_DrawText("Your forces were destroyed.", boxX + 45, boxY + 45, 15, 0);
     }
+    Renderer_DrawText("Press any key to continue...", boxX + 55, boxY + 75, 7, 0);
+}
 
-    // Clear to dark gray
+// Render bottom controls help bar
+static void RenderControlsHelp(void) {
+    Renderer_FillRect(0, 384, 560, 16, 0);
+    if (g_attackMoveMode) {
+        Renderer_DrawText("ATTACK-MOVE: RMB=TARGET  ESC=CANCEL", 20, 387, 14, 0);
+    } else {
+        Renderer_DrawText("WASD=SCROLL A=ATTACK-MOVE G=GUARD S=STOP", 20, 387, 7, 0);
+    }
+}
+
+// Render gameplay mode
+static void RenderGameplay(void) {
+    Renderer_Clear(0);
+    Renderer_SetClipRect(0, 16, 560, 368);
+    Map_Render();
+    Units_Render();
+    Renderer_ResetClip();
+
+    GameUI_Render();
+    RenderSelectionBox();
+    RenderCursor();
+    RenderGameHUD();
+    RenderPauseOverlay();
+    RenderResultOverlay();
+    RenderControlsHelp();
+}
+
+// Render demo mode graphics test
+static void RenderDemoMode(void) {
+    const FrameStats* stats = GameLoop_GetStats();
     Renderer_Clear(8);
 
-    // === OLD DEMO (when not in gameplay) ===
-
-    // Draw title text
+    // Title
     Renderer_DrawText("RED ALERT MACOS PORT", 200, 10, 15, 0);
     Renderer_DrawText("MILESTONE 9: RENDERING", 195, 25, 14, 0);
 
-    // Draw lines radiating from center
+    // Radial lines
     int cx = 100, cy = 100;
     for (int angle = 0; angle < 360; angle += 30) {
         float rad = angle * 3.14159f / 180.0f;
         int ex = cx + (int)(50 * cosf(rad));
         int ey = cy + (int)(50 * sinf(rad));
-        uint8_t color = 1 + (angle / 30) % 14;
-        Renderer_DrawLine(cx, cy, ex, ey, color);
+        Renderer_DrawLine(cx, cy, ex, ey, 1 + (angle / 30) % 14);
     }
 
-    // Draw circles
-    Renderer_DrawCircle(250, 100, 40, 12);  // Red outline
-    Renderer_FillCircle(250, 100, 30, 4);   // Dark red fill
-    Renderer_DrawCircle(350, 100, 40, 10);  // Green outline
-    Renderer_FillCircle(350, 100, 30, 2);   // Dark green fill
-    Renderer_DrawCircle(450, 100, 40, 9);   // Blue outline
-    Renderer_FillCircle(450, 100, 30, 1);   // Dark blue fill
+    // Circles
+    Renderer_DrawCircle(250, 100, 40, 12);
+    Renderer_FillCircle(250, 100, 30, 4);
+    Renderer_DrawCircle(350, 100, 40, 10);
+    Renderer_FillCircle(350, 100, 30, 2);
+    Renderer_DrawCircle(450, 100, 40, 9);
+    Renderer_FillCircle(450, 100, 30, 1);
 
-    // Draw rectangle outlines
-    Renderer_DrawRect(520, 60, 60, 80, 14);  // Yellow outline
-    Renderer_DrawRect(525, 65, 50, 70, 6);   // Cyan outline
+    // Rectangles
+    Renderer_DrawRect(520, 60, 60, 80, 14);
+    Renderer_DrawRect(525, 65, 50, 70, 6);
 
-    // Draw horizontal and vertical lines
-    Renderer_HLine(50, 590, 160, 7);   // Gray horizontal
-    Renderer_VLine(320, 170, 240, 7);  // Gray vertical center
+    // Lines
+    Renderer_HLine(50, 590, 160, 7);
+    Renderer_VLine(320, 170, 240, 7);
 
-    // Draw sprites with transparency (index 0 = transparent)
+    // Sprites
     Renderer_Blit(g_testSprite, 16, 16, 50, 180, TRUE);
     Renderer_Blit(g_testSprite, 16, 16, 80, 180, TRUE);
     Renderer_Blit(g_testSprite, 16, 16, 110, 180, TRUE);
-
-    // Draw scaled sprite
     Renderer_ScaleBlit(g_testSprite, 16, 16, 150, 170, 48, 48, TRUE);
 
-    // Bouncing box (changes color based on game frame)
-    uint8_t boxColor = 1 + (stats->gameFrame % 14);
-    Renderer_FillRect(g_bounceX, g_bounceY, 30, 30, boxColor);
+    // Bouncing box
+    Renderer_FillRect(g_bounceX, g_bounceY, 30, 30, 1 + (stats->gameFrame % 14));
     Renderer_DrawRect(g_bounceX - 2, g_bounceY - 2, 34, 34, 15);
 
-    // Draw mouse cursor with crosshair
-    int mx = Input_GetMouseX();
-    int my = Input_GetMouseY();
+    // Cursor
+    int mx = Input_GetMouseX(), my = Input_GetMouseY();
     Renderer_DrawLine(mx - 10, my, mx + 10, my, 15);
     Renderer_DrawLine(mx, my - 10, mx, my + 10, 15);
     Renderer_FillCircle(mx, my, 3, 12);
 
-    // Mouse button indicators
+    // Mouse buttons
     uint8_t buttons = Input_GetMouseButtons();
     Renderer_FillCircle(60, 260, 12, (buttons & INPUT_MOUSE_LEFT) ? 12 : 4);
     Renderer_FillCircle(100, 260, 12, (buttons & INPUT_MOUSE_RIGHT) ? 9 : 1);
@@ -778,15 +728,13 @@ void GameRender(void) {
     Renderer_DrawText("R", 96, 255, 15, 0);
     Renderer_DrawText("M", 135, 255, 15, 0);
 
-    // Speed indicator with text
+    // Speed indicator
     int speed = GameLoop_GetSpeed();
     Renderer_DrawText("SPEED:", 450, 180, 15, 0);
-    for (int i = 0; i <= 7; i++) {
-        uint8_t barColor = (i <= speed) ? 10 : 2;
-        Renderer_FillRect(450 + i * 15, 195, 12, 20, barColor);
-    }
+    for (int i = 0; i <= 7; i++)
+        Renderer_FillRect(450 + i * 15, 195, 12, 20, (i <= speed) ? 10 : 2);
 
-    // Pause indicator with text
+    // Pause
     if (GameLoop_IsPaused()) {
         Renderer_FillRect(260, 130, 120, 30, 0);
         Renderer_DrawRect(260, 130, 120, 30, 15);
@@ -816,42 +764,43 @@ void GameRender(void) {
     Renderer_FillRect(370, keyY + 25, 80, 20, Input_IsKeyDown(VK_SPACE) ? 15 : 2);
     Renderer_DrawText("SPACE", 385, keyY + 30, 0, 0);
 
-    // FPS display
+    // FPS
     Renderer_FillRect(10, 370, 120, 20, 0);
     Renderer_DrawText("FPS:", 15, 375, 15, 0);
     char fpsText[16];
     snprintf(fpsText, sizeof(fpsText), "%.1f", stats->currentFPS);
     Renderer_DrawText(fpsText, 55, 375, 10, 0);
 
-    // Audio section
+    // Audio
     Renderer_DrawText("AUDIO:", 10, 230, 15, 0);
-
-    // Volume bar
     uint8_t vol = Audio_GetMasterVolume();
-    int volBarWidth = (vol * 60) / 255;
     Renderer_FillRect(10, 245, 60, 10, 2);
-    Renderer_FillRect(10, 245, volBarWidth, 10, 10);
+    Renderer_FillRect(10, 245, (vol * 60) / 255, 10, 10);
     Renderer_DrawRect(10, 245, 60, 10, 7);
 
-    // Sound buttons (1-4)
     Renderer_DrawText("1234=PLAY", 10, 260, 7, 0);
     for (int i = 0; i < 4; i++) {
-        uint8_t btnColor = Input_IsKeyDown('1' + i) ? 14 : 6;
-        Renderer_FillRect(80 + i * 20, 258, 15, 12, btnColor);
+        Renderer_FillRect(80 + i * 20, 258, 15, 12, Input_IsKeyDown('1' + i) ? 14 : 6);
         char num[2] = {static_cast<char>('1' + i), '\0'};
         Renderer_DrawText(num, 84 + i * 20, 260, 0, 0);
     }
 
-    // Audio info
     char audioText[32];
     snprintf(audioText, sizeof(audioText), "VOL:%d", vol);
     Renderer_DrawText(audioText, 10, 275, 7, 0);
     snprintf(audioText, sizeof(audioText), "PLAYING:%d", Audio_GetPlayingCount());
     Renderer_DrawText(audioText, 80, 275, 7, 0);
 
-    // Controls help
+    // Help
     Renderer_DrawText("ESC=QUIT P=PAUSE +/-=SPEED F=FULLSCREEN", 180, 375, 7, 0);
     Renderer_DrawText("1234=SOUND M=MUTE []=VOL", 210, 385, 7, 0);
+}
+
+// Called at render rate (60 FPS)
+void GameRender(void) {
+    if (RenderMenuScreen()) return;
+    if (g_inGameplay) { RenderGameplay(); return; }
+    RenderDemoMode();
 }
 
 #pragma mark - Custom View for Input
