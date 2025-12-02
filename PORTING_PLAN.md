@@ -2,407 +2,244 @@
 
 **Goal:** Full playable game with all 44 campaign missions and skirmish mode.
 
-**Current State:** Demo mode works. Real mission loading partially implemented but simplified.
+**Current State:** Demo mode works. Real mission loading implemented with
+simplifications. Triggers parsed but many actions stubbed.
 
 ---
 
-## Prioritized Work Queue
+## Active Work Queue
 
-*Ordered by leverage - each tier unlocks the next.*
+*Ordered by leverage - highest impact items first.*
 
-### TIER 0: Remove The Blocker ✓ COMPLETE
+### TIER A: Mission Playability (HIGH LEVERAGE)
 
-| ID | Item | Effort | Unlocks |
-|----|------|--------|---------|
-| **TD-9** | ~~Wire Mission_Start to load real terrain~~ | ~~2 hrs~~ | **DONE** |
+These items block campaign missions from being completable.
 
-### TIER 1: Mission Logic Loop ✓ COMPLETE
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **TR-1** | CREATE_TEAM action (spawn AI teams) | 4 hrs | **CRITICAL** | STUB |
+| **TR-2** | REINFORCE action (spawn units at edge) | 4 hrs | **CRITICAL** | STUB |
+| **TR-3** | ALL_HUNT action (AI attack mode) | 2 hrs | HIGH | STUB |
+| **TR-4** | BEGIN_PROD action (AI production) | 3 hrs | HIGH | STUB |
+| **TR-5** | AUTOCREATE action (auto team creation) | 2 hrs | MEDIUM | STUB |
 
-| Order | ID | Item | Effort | Status |
-|-------|-----|------|--------|--------|
-| 1.1 | TD-5a | ~~Parse [Triggers] section~~ | ~~4 hrs~~ | **DONE** - 47 triggers parse from SCU01EA |
-| 1.2 | TD-5b | ~~Parse [Waypoints] section~~ | ~~2 hrs~~ | **DONE** - 29 waypoints parse from SCU01EA |
-| 1.3 | B3-core | ~~4 events: Time, Destroyed, NoBuildings, NoUnits~~ | ~~4 hrs~~ | **DONE** |
-| 1.4 | B3-core | ~~4 actions: Win, Lose, Reinforce, Text~~ | ~~4 hrs~~ | **DONE** |
+**Why critical:** Most campaign missions use CREATE_TEAM and REINFORCE to spawn
+enemy waves. Without these, missions have no enemy reinforcements and are
+trivially easy or broken.
 
-**Status:** Mission_ProcessTriggers() evaluates parsed triggers each frame.
-Win/lose conditions fire correctly based on house destruction events.
+### TIER B: Trigger Event Completion (HIGH LEVERAGE)
 
-### TIER 2: Content Recognition ✓ COMPLETE
+Events that control when triggers fire.
 
-| Order | ID | Item | Effort | Status |
-|-------|-----|------|--------|--------|
-| 2.1 | TD-1a | ~~10 unit types~~ | ~~3 hrs~~ | **DONE** - Added 23 unit types total |
-| 2.2 | TD-2a | ~~10 building types~~ | ~~3 hrs~~ | **DONE** - Added 19 building types total |
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **EV-1** | ENTERED event (unit in waypoint zone) | 3 hrs | **CRITICAL** | STUB |
+| **EV-2** | ATTACKED event (trigger-linked attacked) | 2 hrs | HIGH | STUB |
+| **EV-3** | DESTROYED event (trigger-linked destroyed) | 2 hrs | HIGH | STUB |
+| **EV-4** | CREDITS event (player credits threshold) | 1 hr | MEDIUM | STUB |
+| **EV-5** | DISCOVERED event (fog reveal) | 2 hrs | MEDIUM | STUB |
+| **EV-6** | HOUSE_DISC event (house discovery) | 1 hr | LOW | STUB |
 
-**Status:** All standard Red Alert unit and building types are recognized.
-Mission INI files now parse all entity types correctly.
+**Why critical:** ENTERED triggers ambushes, mission objectives, and scripted
+events. Many missions won't progress without it.
 
-### TIER 3: Visual Correctness (Days 7-8)
+### TIER C: UI Features (MEDIUM LEVERAGE)
 
-| Order | ID | Item | Effort | Status |
-|-------|-----|------|--------|--------|
-| 3.1 | TD-11 | ~~Load TEMPERAT.MIX, palette switching~~ | ~~4 hrs~~ | **DONE** |
-| 3.2 | TD-8 | ~~Map overlay types, render ore/gems~~ | ~~4 hrs~~ | **DONE** |
-| 3.3 | TD-7 | ~~OpenRA template ID mappings~~ | ~~6 hrs~~ | **DONE** |
+User-visible features that affect gameplay clarity.
 
-**Status:** TIER 3 COMPLETE - Visual correctness achieved.
-- Theater switching: TEMPERATE/SNOW/INTERIOR/DESERT
-- Overlay mapping: Ore (GOLD1-4), Gems (GEMS1-4), Walls
-- Template IDs: Exact OpenRA YAML mappings for snow/temperate
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **UI-1** | Mission timer display | 2 hrs | MEDIUM | MISSING |
+| **UI-2** | TEXT action (mission text messages) | 3 hrs | MEDIUM | STUB |
+| **UI-3** | Radar zoom levels | 2 hrs | LOW | MISSING |
+| **UI-4** | Sidebar scroll | 1 hr | LOW | MISSING |
 
-### TIER 4: Audio (Parallel Track)
+### TIER D: Audio Bugs (MEDIUM LEVERAGE)
 
-| Order | ID | Item | Effort | Why Now |
-|-------|-----|------|--------|---------|
-| 4.1 | BUG-01 | Debug music ADPCM distortion | 4-8 hrs | Investigation |
-| 4.2 | BUG-02 | Debug VQA audio static | 4-8 hrs | Likely related |
+High annoyance but don't block gameplay.
 
-**Note:** High annoyance but low gameplay leverage. Unknown scope. Run parallel with Tiers 2-3.
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **BUG-01** | Music ADPCM distortion | 4-8 hrs | HIGH | OPEN |
+| **BUG-02** | Video audio static | 4-8 hrs | HIGH | OPEN |
 
-### TIER 5: Mission Fidelity (Week 2)
+### TIER E: Combat/AI Refinement (LOW LEVERAGE)
 
-| Order | ID | Item | Effort | Status |
-|-------|-----|------|--------|--------|
-| 5.1 | TD-5c | ~~Parse [TeamTypes], [Base], [Reinforcements]~~ | ~~4 hrs~~ | **DONE** |
-| 5.2 | TD-4 | ~~Use health, facing, mission fields~~ | ~~2 hrs~~ | **DONE** |
-| 5.3 | B3-full | ~~Remaining trigger events/actions~~ | ~~8 hrs~~ | **DONE** (basic) |
-| 5.4 | TD-5d | ~~Parse [Terrain], [Smudge], [Ships]~~ | ~~4 hrs~~ | **DONE** |
+Affects realism but game is playable without.
 
-**Status:** TIER 5 COMPLETE
-- TeamTypes parsing complete (15 teams parse from SCU01EA)
-- Base section parsing complete ([Reinforcements] not in files - via triggers)
-- Entity data parsing: health, facing, mission, subCell now stored
-- Trigger events: ENTERED, ATTACKED, DESTROYED, ALL_DESTR, TIME, ANY, DISCOVERED
-- Trigger actions: Win/Lose, CreateTeam, Reinforce, Text, RevealAll, RevealArea, DestroyTrigger, etc.
-- Map_RevealAll() and Map_RevealArea() implemented
-- [TERRAIN] section parsed (trees T01-T17, tree clumps TC01-TC05)
-- [SMUDGE] section parsed (craters CR1-CR6, scorch marks SC1-SC6)
-- [SHIPS] section parsed (naval units: SS, DD, CA, LST, PT, GNBT)
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **AI-1** | Hunt mode for units | 3 hrs | MEDIUM | MISSING |
+| **AI-2** | Team tactics (formations) | 4 hrs | LOW | MISSING |
+| **AI-3** | Threat assessment | 4 hrs | LOW | MISSING |
+| **CB-1** | Armor types (light/medium/heavy) | 3 hrs | LOW | SIMPLIFIED |
+| **CB-2** | Weapon damage modifiers | 2 hrs | LOW | SIMPLIFIED |
+| **CB-3** | Scatter on explosion | 1 hr | LOW | SIMPLIFIED |
 
-### TIER 6: UI Polish ✓ COMPLETE
+### TIER F: Additional Trigger Actions (LOW LEVERAGE)
+
+Used by specific missions, not all.
+
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **TR-6** | DESTROY_TEAM action | 1 hr | LOW | STUB |
+| **TR-7** | FIRE_SALE action (sell all buildings) | 2 hrs | LOW | STUB |
+| **TR-8** | DZ action (drop zone flare) | 2 hrs | LOW | STUB |
+| **TR-9** | PLAY_MOVIE action | 2 hrs | LOW | STUB |
+| **TR-10** | START_TIMER/STOP_TIMER actions | 2 hrs | LOW | STUB |
+| **TR-11** | DESTROY_OBJ action | 2 hrs | LOW | STUB |
+
+### TIER G: Production/Economy (LOW LEVERAGE)
+
+Demo mode already has basic production working.
+
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **PR-1** | Build prerequisites validation | 3 hrs | LOW | SIMPLIFIED |
+| **PR-2** | Production queue | 2 hrs | LOW | SIMPLIFIED |
+| **PR-3** | Power affects production | 2 hrs | LOW | MISSING |
+
+### TIER H: Movement/Pathfinding (LOW LEVERAGE)
+
+Ground pathfinding works, specialized movement missing.
+
+| ID | Item | Effort | Leverage | Status |
+|----|------|--------|----------|--------|
+| **MV-1** | Naval pathfinding | 4 hrs | LOW | MISSING |
+| **MV-2** | Aircraft movement | 4 hrs | LOW | MISSING |
+| **MV-3** | Transport loading/unloading | 3 hrs | LOW | MISSING |
+
+### TIER Z: Code Quality (NO GAMEPLAY LEVERAGE)
+
+Style and maintainability. Do when convenient.
 
 | ID | Item | Effort | Status |
 |----|------|--------|--------|
-| BUG-05 | ~~Fog re-blacks revealed terrain~~ | ~~2 hrs~~ | **DONE** - Code correct, alpha=128 for fog |
-| BUG-03 | ~~P for pause doesn't work~~ | ~~1 hr~~ | **DONE** - Input_Update moved to end of frame |
-| BUG-04 | ~~Briefing garbled after video~~ | ~~2 hrs~~ | **DONE** - Palette restoration verified |
-| BUG-06 | ~~Sound volume slider untestable~~ | ~~1 hr~~ | **DONE** - Added test sound on slider change |
-
-### TIER 7: Tech Debt (Before Release) ✓ COMPLETE
-
-| ID | Item | Effort | Status |
-|----|------|--------|--------|
-| TD-6 | ~~MapPack chunk mask (0xDFFFFFFF)~~ | ~~30 min~~ | **DONE** |
-| TD-12 | ~~Hardcoded paths~~ | ~~2 hrs~~ | **DONE** - `make dist-full` bundles assets |
-| TD-3 | ~~8-house system foundation~~ | ~~2 hrs~~ | **DONE** - HouseType enum, Team mapping |
-| TD-10 | ~~Complex win/lose conditions~~ | ~~4 hrs~~ | **DONE** - Time-based, capture, protect |
-
-**Status:**
-- MapPack chunk mask fixed (0xDFFFFFFF masks compression flag)
-- HouseType enum: Spain(0), Greece(1), USSR(2), England(3), Ukraine(4), Germany(5), France(6), Turkey(7)
-- House_ToTeam(), House_IsAlly(), House_GetName() functions added
-- Mission_CheckVictory now supports: destroy_all, destroy_buildings, survive_time, capture
-- Mission_ProcessTriggers integrated into game loop with frame counter
+| SE-3.1 | rules.cpp 80-col fixes | 1 hr | PENDING |
+| SE-3.2 | menu.cpp 80-col fixes | 1 hr | PENDING |
+| SE-3.3 | units.cpp 80-col fixes | 1 hr | PENDING |
+| SE-4.1 | ParseTrigsSection globals | 1 hr | PENDING |
+| SE-4.3 | Trigger table-driven dispatch | 2 hrs | PENDING |
 
 ---
 
-## Schedule Overview
+## Detailed Stub Documentation
 
-```
-Week 1:
-├── Day 1: TD-9 (real terrain) ───────────────► CAN TEST REAL MISSIONS
-├── Day 2: TD-5a (parse triggers) + TD-5b (waypoints)
-├── Day 3: B3-core events (Time, Destroyed, NoBuildings, NoUnits)
-├── Day 4: B3-core actions (Win, Lose, Reinforce, Text) ► MISSION 1 COMPLETABLE
-├── Day 5: TD-1a + TD-2a (essential unit/building types)
-└── Day 6: TD-11 (theater support) ───────────► ALLIED CAMPAIGN VISIBLE
+### Stubbed Trigger Events (mission.cpp)
 
-Week 2:
-├── Day 7: TD-8 (overlays) + TD-7 (template mapping)
-├── Day 8: BUG-01/02 (audio investigation) ───► AUDIO FIXED
-├── Day 9: TD-5c (TeamTypes, Reinforcements)
-├── Day 10: B3-full (remaining triggers) ─────► ALL MISSIONS WORK
-└── Remaining: Polish, remaining types, edge cases
-```
+| Event | Line | What's Missing |
+|-------|------|----------------|
+| ENTERED | 1455 | No waypoint zone tracking - need to check if player units are within N cells of waypoint |
+| ATTACKED | 1461 | No attack event tracking - need to track attacks on trigger-linked objects |
+| DESTROYED | 1467 | No destruction tracking - need to track death of trigger-linked objects |
+| CREDITS | 1506 | No credit threshold check - need to compare player credits to param2 |
+| DISCOVERED | 1514 | No fog reveal tracking - need to track when cells are revealed |
+| HOUSE_DISC | 1519 | No house discovery tracking - need to track when enemy units first seen |
+
+### Stubbed Trigger Actions (mission.cpp)
+
+| Action | Line | What's Missing |
+|--------|------|----------------|
+| BEGIN_PROD | 1571 | AI production not started - need to enable AI build queue |
+| CREATE_TEAM | 1582 | Team not spawned - need to spawn members at origin waypoint |
+| DESTROY_TEAM | 1589 | Team removal not implemented |
+| ALL_HUNT | 1594 | Hunt mode not in AI - need to set all enemy units to attack-move |
+| REINFORCE | 1605 | Units not spawned - need edge spawn or transport arrival |
+| DZ | 1610 | Drop zone flare not implemented |
+| FIRE_SALE | 1616 | AI sell-all not implemented |
+| TEXT | 1627 | Mission text not displayed - need UI overlay |
+| AUTOCREATE | 1641 | Auto team creation not enabled |
+| START_TIMER | 1680 | Timer UI not implemented |
+| STOP_TIMER | 1695 | Timer UI not implemented |
+| DESTROY_OBJ | 1706 | Trigger-object link not tracked |
+
+### Simplified Implementations
+
+| Area | File | What's Simplified |
+|------|------|-------------------|
+| Infantry scatter | units.cpp | No scatter on nearby explosions |
+| Armor types | combat.cpp | All units use same armor class |
+| Weapon ranges | weapon_types.cpp | Simplified range calculations |
+| Team formations | ai.cpp | No formation movement |
+| Threat assessment | ai.cpp | Basic nearest-enemy targeting |
+| Build prerequisites | building_types.cpp | No tech tree validation |
+| Naval movement | units.cpp | Uses ground pathfinding |
+| Aircraft movement | units.cpp | Uses ground pathfinding |
 
 ---
 
-## Technical Debt Reference
+## Completed Tiers (Reference)
 
-### TD-1: Unit Types ✓ RESOLVED
+### TIER 0-7: ✓ COMPLETE
 
-**Location:** `units.h:21-62`, `mission.cpp:75-121`
+| Tier | Description | Status |
+|------|-------------|--------|
+| 0 | Real terrain loading | ✓ DONE |
+| 1 | Mission logic loop | ✓ DONE |
+| 2 | Content recognition | ✓ DONE |
+| 3 | Visual correctness | ✓ DONE |
+| 4 | Audio (bugs remain) | PARTIAL |
+| 5 | Mission fidelity (stubs remain) | PARTIAL |
+| 6 | UI polish | ✓ DONE |
+| 7 | Tech debt | ✓ DONE |
 
-**Implemented (35 types):**
+### What Works
 
-| Category | Types |
-|----------|-------|
-| Infantry | E1, E2, E3, E6, DOG, SPY, MEDI, THF, SHOK |
-| Vehicles | HARV, 1TNK, 2TNK, 3TNK, 4TNK, APC, ARTY, JEEP, MCV, V2RL, MNLY, TRUK, CTNK |
-| Naval | GNBT, DD, SS, CA, LST, PT |
-| Aircraft | HIND, HELI, TRAN, YAK, MIG |
+- Metal renderer 60 FPS
+- Terrain from theater MIX files
+- Sprites from conquer.mix
+- A* pathfinding (ground units)
+- Combat system (basic)
+- Menu system
+- Sidebar UI
+- Production/placement
+- Tech tree (simplified)
+- Economy
+- AI opponent (basic)
+- Fog of war
+- Attack commands
+- Campaign flow
+- VQA playback
+- Background music (distorted)
+- Trigger parsing and basic evaluation
+- Global flags (SET_GLOBAL, CLEAR_GLOBAL, GLOBAL_SET, GLOBAL_CLR)
+- FORCE_TRIG action
 
-### TD-2: Building Types ✓ RESOLVED
+### Recently Completed
 
-**Location:** `units.h:64-99`, `mission.cpp:123-164`
-
-**Implemented (27 types):**
-
-| Category | Types |
-|----------|-------|
-| Core | FACT, POWR, APWR, PROC, SILO |
-| Production | TENT/BARR, WEAP, AFLD, HPAD, SYRD, SPEN |
-| Tech | DOME, ATEK/STEK, KENN |
-| Defense | GUN, SAM, TSLA, AGUN, PBOX, HBOX, FTUR, GAP |
-| Special | FIX, IRON, PDOX, MSLO |
-
-### TD-3: Team/House Oversimplified
-
-**Location:** `mission.cpp:98-123`
-
-Current: 3 teams (PLAYER, ENEMY, NEUTRAL). Need 8-house support.
-
-### TD-4: Entity Data ✓ RESOLVED
-
-**Location:** `mission.cpp:430-525`, `mission.h:35-69`
-
-| Field | Purpose | Status |
-|-------|---------|--------|
-| health | Starting HP | ✓ Parsed |
-| facing | Direction | ✓ Parsed |
-| mission | Guard/Hunt | ✓ Parsed |
-| trigger | Link | Not yet |
-| subCell | Infantry pos | ✓ Parsed |
-
-Added MissionType enum and extended MissionUnit/MissionBuilding structs to store all fields.
-
-### TD-5: Unparsed INI Sections
-
-**Location:** `mission.cpp`
-
-| Section | Purpose | Priority | Status |
-|---------|---------|----------|--------|
-| [Trigs] | Event scripting | TIER 1 | ✓ DONE |
-| [Waypoints] | Movement points | TIER 1 | ✓ DONE |
-| [TeamTypes] | AI teams | TIER 5 | ✓ DONE |
-| [Base] | AI build order | TIER 5 | ✓ DONE |
-| [Reinforcements] | Unit arrivals | TIER 5 | N/A (via triggers) |
-| [Terrain] | Trees/cliffs | TIER 5 | |
-| [Smudge] | Craters | TIER 5 | |
-| [Ships] | Naval units | TIER 5 | |
-
-### TD-6: MapPack Chunk Mask
-
-**Location:** `mission.cpp:201`
-
-```cpp
-chunkLen &= 0x0000FFFF;  // Current
-chunkLen &= 0xDFFFFFFF;  // Correct
-```
-
-### TD-7: Template ID Mapping ✓ RESOLVED
-
-**Location:** `terrain.cpp:222-299`
-
-**Solution:** Updated GetTemplateFilename() with exact OpenRA YAML mappings:
-- 1-2: Water (w1, w2)
-- 3-58: Shore/Beach (sh01-sh56)
-- 59-96: Water cliffs (wc01-wc38)
-- 112-124, 229-230: Rivers (rv01-rv15)
-- 135-172: Roads/slopes (s01-s38)
-- 173-215, 227-228: Debris (d01-d45)
-- 231-234: Road cliffs (rc01-rc04)
-- 235-244: Bridges (br1a-br2c)
-- 255, 65535: Clear (clear1)
-
-### TD-8: Overlay Types ✓ RESOLVED
-
-**Location:** `map.cpp:27-55, 376-406`
-
-**Solution:** Added OverlayTypeRA enum matching original DEFINES.H values.
-Map_LoadFromMission() now processes overlay data:
-- GOLD1-4 (5-8) → TERRAIN_ORE with scaled oreAmount
-- GEMS1-4 (9-12) → TERRAIN_GEM with scaled oreAmount
-- Walls (0-4, 23) → TERRAIN_ROCK (impassable)
-- V12-V18 vegetation and crates left as passable terrain
-
-### TD-9: Mission_Start Uses Demo Map
-
-**Location:** `mission.cpp:477`
-
-```cpp
-Map_GenerateDemo();  // Should use mission->terrainType
-```
-
-### TD-10: Win/Lose Conditions Limited
-
-**Location:** `mission.h:89-91`
-
-Only destroy_all, destroy_buildings. Missing time-based, protect, capture.
-
-### TD-11: Theater Support ✓ RESOLVED
-
-**Location:** `mission.cpp:629-646`, `assetloader.cpp:558-579`
-
-**Solution:** Mission_Start() now calls Assets_SetTheater() and Terrain_SetTheater()
-based on mission->theater value from INI. TEMPERATE and SNOW fully work.
-INTERIOR/DESERT still fall back to SNOW (assets not extracted).
-
-### TD-12: Hardcoded Paths ✓ RESOLVED
-
-**Location:** `asset_paths.cpp`
-
-**Solution:** Added bundle asset discovery. The `make dist-full` target creates
-a self-contained DMG (~729MB) with all game assets bundled inside the .app.
-Assets are searched in this order:
-1. Bundle: `Contents/Resources/assets` (for dist-full builds)
-2. User: `~/Library/Application Support/RedAlert/assets`
-3. Portable: `./assets`, `../assets`
-4. Mounted ISOs: `/Volumes/CD1/INSTALL`, `/Volumes/CD2/INSTALL`
+| Commit | Description |
+|--------|-------------|
+| bba4184 | Complete unit/building types (E4, E7, C1-C10, civilians, fakes) |
+| | Global flags for trigger inter-communication |
+| | FORCE_TRIG action for trigger chaining |
 
 ---
 
 ## Known Bugs
 
-| ID | Issue | Severity | File(s) | Status |
-|----|-------|----------|---------|--------|
-| BUG-01 | Music heavily distorted | High | audio.mm, music.cpp | OPEN |
-| BUG-02 | Video audio has static | High | vqa.cpp, audio.mm | OPEN |
-| BUG-03 | ~~P for Pause doesn't work~~ | ~~Medium~~ | ~~main.mm~~ | **FIXED** |
-| BUG-04 | ~~Briefing garbled after video~~ | ~~Medium~~ | ~~menu.cpp~~ | **FIXED** |
-| BUG-05 | ~~Fog re-blacks revealed terrain~~ | ~~Medium~~ | ~~map.cpp~~ | **N/A** |
-| BUG-06 | ~~Sound volume slider untestable~~ | ~~Low~~ | ~~menu.cpp~~ | **FIXED** |
+| ID | Issue | Severity | Status |
+|----|-------|----------|--------|
+| BUG-01 | Music heavily distorted | High | OPEN |
+| BUG-02 | Video audio has static | High | OPEN |
 
 ---
 
-## TIER 8: Software Engineering (Code Quality)
+## Recommended Next Step
 
-*Systematic cleanup for maintainability, safety, and standards conformance.*
+**TR-1: CREATE_TEAM action** - 4 hours, CRITICAL leverage
 
-### SE-1: Safety Issues (HIGH PRIORITY)
+This is the highest-impact single item. Most campaign missions use triggers
+like:
 
-| ID | Issue | File | Lines | Status |
-|----|-------|------|-------|--------|
-| SE-1.1 | ~~Replace strcpy with strncpy~~ | ~~mission.cpp~~ | ~~40-41, 1176-1177~~ | **DONE** |
-| SE-1.1b | ~~Replace strcpy~~ | ~~file.cpp~~ | ~~395~~ | **DONE** |
-| SE-1.2 | ~~Add range validation to parsers~~ | ~~mission.cpp~~ | ~~(already present)~~ | **DONE** |
+```
+[Trigs]
+atk1=USSR,Time,90,Create Team,badat,0,1,1,0
+```
 
-### SE-2: Long Functions (>100 lines)
+Without CREATE_TEAM, these do nothing. Implementing it requires:
 
-| ID | Function | Lines | File | Strategy | Status |
-|----|----------|-------|------|----------|--------|
-| SE-2.1 | ~~Mission_LoadFromINIClass~~ | ~~503~~ | ~~mission.cpp~~ | ~~Split by section~~ | **DONE** |
-| SE-2.2 | ~~GameUpdate~~ | ~~302~~ | ~~main.mm~~ | ~~Extract helpers~~ | **DONE** |
-| SE-2.3 | ~~GameRender~~ | ~~291~~ | ~~main.mm~~ | ~~Extract helpers~~ | **DONE** |
-| SE-2.4 | TActionClass::Execute | 171 | trigger.cpp | Switch dispatch | **ACCEPTABLE** |
-| SE-2.5 | Shp_Load | 154 | shpfile.cpp | Extract decompression | PENDING |
-| SE-2.6 | ~~GameUI_RenderRadar~~ | ~~150~~ | ~~game_ui.cpp~~ | ~~Extract components~~ | **DONE** |
-| SE-2.7 | ~~Mission_Start~~ | ~~138~~ | ~~mission.cpp~~ | ~~Extract init phases~~ | **DONE** |
-| SE-2.8 | FindPath | 129 | units.cpp | A* algorithm | **ACCEPTABLE** |
-| SE-2.9 | ModMul | 127 | mixkey.cpp | Crypto algorithm | **ACCEPTABLE** |
-| SE-2.10 | RenderDemoMode | 125 | main.mm | Demo code - LOW PRIORITY | PENDING |
+1. Look up team definition from parsed TeamTypes
+2. Spawn each member unit at the team's origin waypoint
+3. Set units to team's initial mission (Guard, Hunt, etc.)
 
-### SE-3: 80-Column Violations
-
-| ID | File | Count | Fix Strategy | Status |
-|----|------|-------|--------------|--------|
-| SE-3.1 | rules.cpp | 105 | Break long INI getter chains | PENDING |
-| SE-3.2 | menu.cpp | 63 | Wrap strings, break conditionals | PENDING |
-| SE-3.3 | units.cpp | 53 | Break long conditionals | PENDING |
-| SE-3.4 | building_types.cpp | 50 | Data tables - ACCEPTABLE | N/A |
-| SE-3.5 | game_ui.cpp | 46 | Break long function calls | PENDING |
-| SE-3.6 | main.mm | 42 | Wrap strings, comments | PENDING |
-| SE-3.7 | mission.cpp | 40 | Break sscanf format strings | PENDING |
-
-### SE-4: Code Style Issues
-
-| ID | Issue | File(s) | Status |
-|----|-------|---------|--------|
-| SE-4.1 | Global state in ParseTrigsSection | mission.cpp:437-492 | PENDING |
-| SE-4.2 | Missing const qualifiers | mission.cpp, terrain.cpp | PENDING |
-| SE-4.3 | Large switch → table-driven | trigger.cpp:146-316 | PENDING |
-| SE-4.4 | Implicit int16_t casts | mission.cpp parsers | PENDING |
-
-### SE-5: Simplified Implementations (60+ markers)
-
-Code marked "simplified" that may need full implementation:
-
-| Category | Count | Examples |
-|----------|-------|----------|
-| AI behavior | ~15 | Team tactics, threat assessment |
-| Trigger actions | ~12 | CreateTeam, Reinforce timing |
-| Combat mechanics | ~10 | Armor types, weapon ranges |
-| Production | ~8 | Build prerequisites, queue |
-| Pathfinding | ~5 | Naval, aircraft movement |
-| UI | ~10 | Radar zoom, sidebar scroll |
-
-### SE-6: TODOs and FIXMEs
-
-| Type | Count | High-Priority Examples |
-|------|-------|------------------------|
-| TODO | 39 | Mission entity linking, AI teams |
-| FIXME | 1 | None critical |
-
----
-
-### Work Order (SE Phase)
-
-**Round 1: Safety (SE-1)** ✅ COMPLETE
-1. ~~SE-1.1: strcpy → strncpy~~ (mission.cpp, file.cpp)
-2. ~~SE-1.2: Parser range validation~~ (already present)
-
-**Round 2: Long Functions (SE-2)** ✅ COMPLETE
-3. ~~SE-2.4: TActionClass::Execute~~ (acceptable switch dispatch)
-4. ~~SE-2.6: GameUI_RenderRadar decomposition~~
-5. ~~SE-2.7: Mission_Start decomposition~~
-
-**Round 3: Style Fixes (SE-3, SE-4)**
-6. SE-3.1: rules.cpp 80-col fixes
-7. SE-4.1: ParseTrigsSection return data vs globals
-8. SE-4.3: Trigger action table-driven dispatch
-
-**Round 4: Lower Priority**
-9. SE-2.5: Shp_Load (binary parser, works)
-10. SE-2.10: RenderDemoMode (demo code)
-11. SE-3.2-3.7: Remaining 80-col fixes
-
----
-
-## Completed Work
-
-See [COMPLETED.md](COMPLETED.md) for full history.
-
-| Phase | Milestones | Status |
-|-------|------------|--------|
-| Infrastructure | M0-M14 | Complete |
-| Core Engine | M15-M19 | Complete |
-| Game Systems | M20-M22 | Complete |
-| UI Systems | M23-M25 | Complete |
-| Polish Systems | M26-M29 | Complete |
-| Integration | M30-M32 | Complete |
-| Playable Demo | M33-M37 | Complete |
-| Combat Polish | M38-M40 | Complete |
-| Campaign Support | M41-M44 | Complete |
-| Media | M45-M46 | Complete |
-
-**Tests passing:** ~400
-
-### What Works (Demo Mode)
-
-- Metal renderer 60 FPS
-- Terrain from snow.mix
-- Sprites from conquer.mix
-- A* pathfinding
-- Combat system
-- Menu system
-- Sidebar UI
-- Production/placement
-- Tech tree
-- Economy
-- AI opponent
-- Fog of war
-- Attack commands
-- Campaign flow
-- VQA playback
-- Background music
+Once CREATE_TEAM works, enemy waves will spawn and missions become playable.
