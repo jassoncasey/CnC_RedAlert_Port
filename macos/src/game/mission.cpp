@@ -47,6 +47,8 @@ void Mission_Init(MissionData* mission) {
     mission->winCondition = 0;  // Destroy all enemies
     mission->loseCondition = 0; // Lose all units
     mission->timeLimit = 0;     // Unlimited
+    mission->baseHouse = -1;    // No base
+    mission->baseCount = 0;
     mission->terrainType = nullptr;
     mission->terrainIcon = nullptr;
     mission->overlayType = nullptr;
@@ -192,6 +194,46 @@ static Team ParseTeam(const char* str) {
     }
 
     return TEAM_NEUTRAL;
+}
+
+// Parse mission type from string
+static MissionType ParseMissionType(const char* str) {
+    if (!str) return MISSION_GUARD;
+
+    if (strcasecmp(str, "Guard") == 0) return MISSION_GUARD;
+    if (strcasecmp(str, "Hunt") == 0) return MISSION_HUNT;
+    if (strcasecmp(str, "Sleep") == 0) return MISSION_SLEEP;
+    if (strcasecmp(str, "Harvest") == 0) return MISSION_HARVEST;
+    if (strcasecmp(str, "Attack") == 0) return MISSION_ATTACK;
+    if (strcasecmp(str, "Area Guard") == 0) return MISSION_GUARD_AREA;
+    if (strcasecmp(str, "Retreat") == 0) return MISSION_RETREAT;
+    if (strcasecmp(str, "None") == 0) return MISSION_NONE;
+    if (strcasecmp(str, "Stop") == 0) return MISSION_NONE;
+
+    return MISSION_GUARD;  // Default
+}
+
+// Parse house name to house number (for TeamTypes, Base sections)
+// House numbers: 0=Spain, 1=Greece, 2=USSR, 3=England, 4=Ukraine, 5=Germany, 6=France, 7=Turkey
+static int ParseHouseName(const char* str) {
+    if (!str) return -1;
+
+    if (strcasecmp(str, "Spain") == 0) return 0;
+    if (strcasecmp(str, "Greece") == 0) return 1;
+    if (strcasecmp(str, "USSR") == 0) return 2;
+    if (strcasecmp(str, "England") == 0) return 3;
+    if (strcasecmp(str, "Ukraine") == 0) return 4;
+    if (strcasecmp(str, "Germany") == 0) return 5;
+    if (strcasecmp(str, "France") == 0) return 6;
+    if (strcasecmp(str, "Turkey") == 0) return 7;
+
+    // Aliases
+    if (strcasecmp(str, "GoodGuy") == 0) return 1;  // Greece
+    if (strcasecmp(str, "BadGuy") == 0) return 2;   // USSR
+    if (strcasecmp(str, "Neutral") == 0) return 0;  // Spain (often neutral)
+    if (strcasecmp(str, "Special") == 0) return 0;
+
+    return -1;
 }
 
 // Convert cell number to X/Y coordinates (Red Alert uses 128-wide maps internally)
@@ -397,6 +439,8 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
 
         char house[32], type[32], missionStr[32], trigger[32];
         int health, cell, facing;
+        missionStr[0] = '\0';
+        trigger[0] = '\0';
 
         if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%31s",
                    house, type, &health, &cell, &facing, missionStr, trigger) >= 5) {
@@ -405,6 +449,10 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
             unit->team = ParseTeam(house);
             unit->cellX = CELL_TO_X(cell);
             unit->cellY = CELL_TO_Y(cell);
+            unit->health = (int16_t)health;
+            unit->facing = (int16_t)facing;
+            unit->mission = ParseMissionType(missionStr);
+            unit->subCell = 0;  // Vehicles don't have sub-cells
 
             if (unit->type != UNIT_NONE) {
                 mission->unitCount++;
@@ -423,7 +471,8 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
         ini->GetString("STRUCTURES", entry, "", value, sizeof(value));
 
         char house[32], type[32], trigger[32];
-        int health, cell, facing, sellable, rebuild;
+        int health, cell, facing, sellable = 1, rebuild = 0;
+        trigger[0] = '\0';
 
         if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%d",
                    house, type, &health, &cell, &facing, trigger, &sellable, &rebuild) >= 4) {
@@ -432,6 +481,10 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
             bld->team = ParseTeam(house);
             bld->cellX = CELL_TO_X(cell);
             bld->cellY = CELL_TO_Y(cell);
+            bld->health = (int16_t)health;
+            bld->facing = (int16_t)facing;
+            bld->sellable = (int8_t)sellable;
+            bld->rebuild = (int8_t)rebuild;
 
             if (bld->type != BUILDING_NONE) {
                 mission->buildingCount++;
@@ -450,7 +503,9 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
         ini->GetString("INFANTRY", entry, "", value, sizeof(value));
 
         char house[32], type[32], missionStr[32], trigger[32];
-        int health, cell, subCell, facing;
+        int health, cell, subCell, facing = 0;
+        missionStr[0] = '\0';
+        trigger[0] = '\0';
 
         if (sscanf(value, "%31[^,],%31[^,],%d,%d,%d,%31[^,],%d,%31s",
                    house, type, &health, &cell, &subCell, missionStr, &facing, trigger) >= 5) {
@@ -459,6 +514,10 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
             unit->team = ParseTeam(house);
             unit->cellX = CELL_TO_X(cell);
             unit->cellY = CELL_TO_Y(cell);
+            unit->health = (int16_t)health;
+            unit->facing = (int16_t)facing;
+            unit->mission = ParseMissionType(missionStr);
+            unit->subCell = (int16_t)subCell;
 
             if (unit->type != UNIT_NONE) {
                 mission->unitCount++;
@@ -603,6 +662,120 @@ int Mission_LoadFromINIClass(MissionData* mission, INIClass* ini) {
         free(overlayPackData);
     }
 
+    // [TeamTypes] section - AI team definitions
+    // Format: name=house,flags,recruitPriority,initNum,maxAllowed,origin,trigger,
+    //         numMembers,memberType1:qty1,memberType2:qty2,...,
+    //         numMissions,mission1:data1,mission2:data2,...
+    count = ini->EntryCount("TeamTypes");
+    mission->teamTypeCount = 0;
+    for (int i = 0; i < count && mission->teamTypeCount < MAX_TEAM_TYPES; i++) {
+        const char* teamName = ini->GetEntry("TeamTypes", i);
+        if (!teamName) continue;
+
+        char value[512];
+        ini->GetString("TeamTypes", teamName, "", value, sizeof(value));
+        if (value[0] == '\0') continue;
+
+        MissionTeamType* team = &mission->teamTypes[mission->teamTypeCount];
+        memset(team, 0, sizeof(MissionTeamType));
+
+        // Store team name
+        strncpy(team->name, teamName, sizeof(team->name) - 1);
+
+        // Parse comma-separated values
+        char* ptr = value;
+        char* next;
+
+        // house (0-7)
+        team->house = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // flags (packed: roundabout, suicide, autocreate, etc.)
+        team->flags = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // recruitPriority
+        team->recruitPriority = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // initNum
+        team->initNum = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // maxAllowed
+        team->maxAllowed = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // origin waypoint
+        team->origin = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // trigger ID (or -1 for none)
+        team->trigger = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // numMembers
+        int numMembers = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1; else continue;
+
+        // Parse member entries (type:qty)
+        team->memberCount = 0;
+        for (int m = 0; m < numMembers && m < MAX_TEAM_MEMBERS; m++) {
+            // Find colon separating type:qty
+            char* colon = strchr(ptr, ':');
+            if (!colon) break;
+
+            // Extract type name
+            int typeLen = (int)(colon - ptr);
+            if (typeLen > 7) typeLen = 7;
+            strncpy(team->members[m].unitType, ptr, typeLen);
+            team->members[m].unitType[typeLen] = '\0';
+
+            // Extract quantity
+            ptr = colon + 1;
+            team->members[m].quantity = strtol(ptr, &next, 10);
+            team->memberCount++;
+
+            if (*next == ',') ptr = next + 1;
+            else break;
+        }
+
+        // numMissions
+        int numMissions = strtol(ptr, &next, 10);
+        if (*next == ',') ptr = next + 1;
+
+        // Parse mission entries (mission:data)
+        team->missionCount = 0;
+        for (int m = 0; m < numMissions && m < MAX_TEAM_MISSIONS; m++) {
+            // Find colon separating mission:data
+            char* colon = strchr(ptr, ':');
+            if (!colon) break;
+
+            // Extract mission type
+            team->missions[m].mission = strtol(ptr, &colon, 10);
+
+            // Extract data
+            ptr = colon + 1;
+            team->missions[m].data = strtol(ptr, &next, 10);
+            team->missionCount++;
+
+            if (*next == ',') ptr = next + 1;
+            else break;
+        }
+
+        mission->teamTypeCount++;
+    }
+
+    // [Base] section - AI base rebuild info
+    // Format: Player=<house>, Count=<number>
+    char basePlayer[32];
+    ini->GetString("Base", "Player", "", basePlayer, sizeof(basePlayer));
+    if (basePlayer[0] != '\0') {
+        // Map house name to number
+        mission->baseHouse = ParseHouseName(basePlayer);
+    }
+    mission->baseCount = ini->GetInt("Base", "Count", 0);
+
     return 1;
 }
 
@@ -738,6 +911,19 @@ void Mission_Start(const MissionData* mission) {
             }
         }
     }
+
+    // Log team types
+    if (mission->teamTypeCount > 0) {
+        fprintf(stderr, "  Loaded %d team types\n", mission->teamTypeCount);
+        for (int i = 0; i < mission->teamTypeCount && i < 5; i++) {
+            const MissionTeamType* team = &mission->teamTypes[i];
+            fprintf(stderr, "    Team '%s': house=%d members=%d missions=%d\n",
+                    team->name, team->house, team->memberCount, team->missionCount);
+        }
+        if (mission->teamTypeCount > 5) {
+            fprintf(stderr, "    ... and %d more\n", mission->teamTypeCount - 5);
+        }
+    }
 }
 
 int Mission_CheckVictory(const MissionData* mission) {
@@ -828,40 +1014,40 @@ void Mission_GetDemo(MissionData* mission) {
     mission->winCondition = 0;  // Destroy all
     mission->loseCondition = 0; // Lose all
 
-    // Player buildings
-    mission->buildings[mission->buildingCount++] = {BUILDING_CONSTRUCTION, TEAM_PLAYER, 2, 15};
-    mission->buildings[mission->buildingCount++] = {BUILDING_POWER, TEAM_PLAYER, 6, 16};
-    mission->buildings[mission->buildingCount++] = {BUILDING_BARRACKS, TEAM_PLAYER, 2, 19};
-    mission->buildings[mission->buildingCount++] = {BUILDING_REFINERY, TEAM_PLAYER, 6, 19};
+    // Player buildings (type, team, cellX, cellY, health, facing, sellable, rebuild)
+    mission->buildings[mission->buildingCount++] = {BUILDING_CONSTRUCTION, TEAM_PLAYER, 2, 15, 256, 0, 1, 0};
+    mission->buildings[mission->buildingCount++] = {BUILDING_POWER, TEAM_PLAYER, 6, 16, 256, 0, 1, 0};
+    mission->buildings[mission->buildingCount++] = {BUILDING_BARRACKS, TEAM_PLAYER, 2, 19, 256, 0, 1, 0};
+    mission->buildings[mission->buildingCount++] = {BUILDING_REFINERY, TEAM_PLAYER, 6, 19, 256, 0, 1, 0};
 
     // Enemy buildings
-    mission->buildings[mission->buildingCount++] = {BUILDING_CONSTRUCTION, TEAM_ENEMY, 55, 10};
-    mission->buildings[mission->buildingCount++] = {BUILDING_POWER, TEAM_ENEMY, 52, 10};
-    mission->buildings[mission->buildingCount++] = {BUILDING_BARRACKS, TEAM_ENEMY, 55, 6};
-    mission->buildings[mission->buildingCount++] = {BUILDING_FACTORY, TEAM_ENEMY, 52, 6};
-    mission->buildings[mission->buildingCount++] = {BUILDING_TURRET, TEAM_ENEMY, 50, 12};
-    mission->buildings[mission->buildingCount++] = {BUILDING_TURRET, TEAM_ENEMY, 58, 12};
-    mission->buildings[mission->buildingCount++] = {BUILDING_REFINERY, TEAM_ENEMY, 58, 8};
+    mission->buildings[mission->buildingCount++] = {BUILDING_CONSTRUCTION, TEAM_ENEMY, 55, 10, 256, 0, 0, 1};
+    mission->buildings[mission->buildingCount++] = {BUILDING_POWER, TEAM_ENEMY, 52, 10, 256, 0, 0, 1};
+    mission->buildings[mission->buildingCount++] = {BUILDING_BARRACKS, TEAM_ENEMY, 55, 6, 256, 0, 0, 1};
+    mission->buildings[mission->buildingCount++] = {BUILDING_FACTORY, TEAM_ENEMY, 52, 6, 256, 0, 0, 1};
+    mission->buildings[mission->buildingCount++] = {BUILDING_TURRET, TEAM_ENEMY, 50, 12, 256, 0, 0, 1};
+    mission->buildings[mission->buildingCount++] = {BUILDING_TURRET, TEAM_ENEMY, 58, 12, 256, 0, 0, 1};
+    mission->buildings[mission->buildingCount++] = {BUILDING_REFINERY, TEAM_ENEMY, 58, 8, 256, 0, 0, 1};
 
-    // Player units
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_PLAYER, 4, 16};
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_PLAYER, 5, 17};
-    mission->units[mission->unitCount++] = {UNIT_TANK_LIGHT, TEAM_PLAYER, 7, 16};
-    mission->units[mission->unitCount++] = {UNIT_TANK_LIGHT, TEAM_PLAYER, 7, 18};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 3, 18};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 4, 18};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 5, 18};
-    mission->units[mission->unitCount++] = {UNIT_ROCKET, TEAM_PLAYER, 2, 17};
-    mission->units[mission->unitCount++] = {UNIT_HARVESTER, TEAM_PLAYER, 8, 20};
+    // Player units (type, team, cellX, cellY, health, facing, mission, subCell)
+    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_PLAYER, 4, 16, 256, 64, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_PLAYER, 5, 17, 256, 64, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_TANK_LIGHT, TEAM_PLAYER, 7, 16, 256, 64, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_TANK_LIGHT, TEAM_PLAYER, 7, 18, 256, 64, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 3, 18, 256, 64, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 4, 18, 256, 64, MISSION_GUARD, 1};
+    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_PLAYER, 5, 18, 256, 64, MISSION_GUARD, 2};
+    mission->units[mission->unitCount++] = {UNIT_ROCKET, TEAM_PLAYER, 2, 17, 256, 64, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_HARVESTER, TEAM_PLAYER, 8, 20, 256, 64, MISSION_HARVEST, 0};
 
     // Enemy units
-    mission->units[mission->unitCount++] = {UNIT_TANK_HEAVY, TEAM_ENEMY, 54, 12};
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_ENEMY, 52, 13};
-    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_ENEMY, 56, 13};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 50, 14};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 51, 14};
-    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 52, 14};
-    mission->units[mission->unitCount++] = {UNIT_ROCKET, TEAM_ENEMY, 54, 10};
+    mission->units[mission->unitCount++] = {UNIT_TANK_HEAVY, TEAM_ENEMY, 54, 12, 256, 192, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_ENEMY, 52, 13, 256, 192, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_TANK_MEDIUM, TEAM_ENEMY, 56, 13, 256, 192, MISSION_GUARD, 0};
+    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 50, 14, 256, 192, MISSION_HUNT, 0};
+    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 51, 14, 256, 192, MISSION_HUNT, 1};
+    mission->units[mission->unitCount++] = {UNIT_RIFLE, TEAM_ENEMY, 52, 14, 256, 192, MISSION_HUNT, 2};
+    mission->units[mission->unitCount++] = {UNIT_ROCKET, TEAM_ENEMY, 54, 10, 256, 192, MISSION_GUARD, 0};
 }
 
 // ============================================================================

@@ -23,11 +23,26 @@ class INIClass;
 #define MAX_MISSION_BUILDINGS   32
 #define MAX_MISSION_TRIGGERS    32
 #define MAX_MISSION_WAYPOINTS   100
+#define MAX_TEAM_TYPES          32
+#define MAX_TEAM_MEMBERS        5
+#define MAX_TEAM_MISSIONS       20
 
 // Map constants (Red Alert uses 128x128 cell maps)
 #define MAP_CELL_W              128
 #define MAP_CELL_H              128
 #define MAP_CELL_TOTAL          (MAP_CELL_W * MAP_CELL_H)
+
+// Unit/entity mission types (simplified from original)
+typedef enum {
+    MISSION_NONE = 0,
+    MISSION_GUARD,      // Stay in place, attack if attacked
+    MISSION_HUNT,       // Seek and destroy enemies
+    MISSION_SLEEP,      // Inactive (civilians, triggers)
+    MISSION_HARVEST,    // Collect ore/gems
+    MISSION_ATTACK,     // Attack a specific target
+    MISSION_GUARD_AREA, // Guard an area
+    MISSION_RETREAT,    // Return to base
+} MissionType;
 
 // Mission unit placement data
 typedef struct {
@@ -35,6 +50,10 @@ typedef struct {
     Team team;
     int16_t cellX;
     int16_t cellY;
+    int16_t health;     // Starting health (0-256, 256=full)
+    int16_t facing;     // Direction (0-255, 0=N, 64=E, 128=S, 192=W)
+    MissionType mission; // Initial mission
+    int16_t subCell;    // Sub-cell position for infantry (0-4)
 } MissionUnit;
 
 // Mission building placement data
@@ -43,6 +62,10 @@ typedef struct {
     Team team;
     int16_t cellX;
     int16_t cellY;
+    int16_t health;     // Starting health (0-256)
+    int16_t facing;     // Turret direction
+    int8_t sellable;    // Can be sold by player
+    int8_t rebuild;     // AI will rebuild if destroyed
 } MissionBuilding;
 
 // Mission trigger (simplified)
@@ -58,6 +81,34 @@ typedef struct {
     int16_t cellX;      // Extracted X coordinate
     int16_t cellY;      // Extracted Y coordinate
 } MissionWaypoint;
+
+// Team member (unit type and quantity)
+typedef struct {
+    char unitType[8];   // Unit type name (E1, 1TNK, etc.)
+    int quantity;       // Number of units
+} TeamMember;
+
+// Team mission (action and data)
+typedef struct {
+    int mission;        // Team mission type (0=Attack, 3=Move, etc.)
+    int data;           // Mission data (waypoint #, etc.)
+} TeamMission;
+
+// Team type definition (AI team composition and behavior)
+typedef struct {
+    char name[24];          // Team name (from INI key)
+    int house;              // House/owner (0=Spain, 2=USSR, etc.)
+    int flags;              // Packed flags (roundabout, suicide, autocreate, etc.)
+    int recruitPriority;    // Priority for recruiting
+    int initNum;            // Initial number to create
+    int maxAllowed;         // Maximum allowed
+    int origin;             // Origin waypoint
+    int trigger;            // Associated trigger ID
+    TeamMember members[MAX_TEAM_MEMBERS];
+    int memberCount;
+    TeamMission missions[MAX_TEAM_MISSIONS];
+    int missionCount;
+} MissionTeamType;
 
 // Mission data
 typedef struct {
@@ -96,6 +147,14 @@ typedef struct {
     // Waypoints (indexed by waypoint number)
     MissionWaypoint waypoints[MAX_MISSION_WAYPOINTS];
     int waypointCount;
+
+    // Team types (AI team definitions)
+    MissionTeamType teamTypes[MAX_TEAM_TYPES];
+    int teamTypeCount;
+
+    // Base section (AI build order info)
+    int baseHouse;          // House that owns the base (-1 if not set)
+    int baseCount;          // Number of base structures (for AI rebuild)
 
     // Win/Lose conditions (simplified)
     int winCondition;   // 0=destroy all, 1=destroy buildings, 2=survive time

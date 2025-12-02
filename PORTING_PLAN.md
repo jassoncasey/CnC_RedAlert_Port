@@ -62,12 +62,17 @@ Mission INI files now parse all entity types correctly.
 
 ### TIER 5: Mission Fidelity (Week 2)
 
-| Order | ID | Item | Effort | Why Now |
-|-------|-----|------|--------|---------|
-| 5.1 | TD-5c | Parse [TeamTypes], [Base], [Reinforcements] | 4 hrs | AI teams |
-| 5.2 | TD-4 | Use health, facing, mission fields | 2 hrs | Authentic spawn |
-| 5.3 | B3-full | Remaining trigger events/actions | 8 hrs | Complex missions |
-| 5.4 | TD-5d | Parse [Terrain], [Smudge], [Ships] | 4 hrs | Scenery, naval |
+| Order | ID | Item | Effort | Status |
+|-------|-----|------|--------|--------|
+| 5.1 | TD-5c | ~~Parse [TeamTypes], [Base], [Reinforcements]~~ | ~~4 hrs~~ | **DONE** |
+| 5.2 | TD-4 | ~~Use health, facing, mission fields~~ | ~~2 hrs~~ | **DONE** |
+| 5.3 | B3-full | Remaining trigger events/actions | 8 hrs | |
+| 5.4 | TD-5d | Parse [Terrain], [Smudge], [Ships] | 4 hrs | |
+
+**Status:**
+- TeamTypes parsing complete (15 teams parse from SCU01EA)
+- Base section parsing complete ([Reinforcements] not in files - via triggers)
+- Entity data parsing: health, facing, mission, subCell now stored
 
 ### TIER 6: UI Polish
 
@@ -145,17 +150,19 @@ Week 2:
 
 Current: 3 teams (PLAYER, ENEMY, NEUTRAL). Need 8-house support.
 
-### TD-4: Entity Data Discarded
+### TD-4: Entity Data ✓ RESOLVED
 
-**Location:** `mission.cpp:316-395`
+**Location:** `mission.cpp:430-525`, `mission.h:35-69`
 
 | Field | Purpose | Status |
 |-------|---------|--------|
-| health | Starting HP | Ignored |
-| facing | Direction | Ignored |
-| mission | Guard/Hunt | Ignored |
-| trigger | Link | Ignored |
-| subCell | Infantry pos | Ignored |
+| health | Starting HP | ✓ Parsed |
+| facing | Direction | ✓ Parsed |
+| mission | Guard/Hunt | ✓ Parsed |
+| trigger | Link | Not yet |
+| subCell | Infantry pos | ✓ Parsed |
+
+Added MissionType enum and extended MissionUnit/MissionBuilding structs to store all fields.
 
 ### TD-5: Unparsed INI Sections
 
@@ -165,9 +172,9 @@ Current: 3 teams (PLAYER, ENEMY, NEUTRAL). Need 8-house support.
 |---------|---------|----------|--------|
 | [Trigs] | Event scripting | TIER 1 | ✓ DONE |
 | [Waypoints] | Movement points | TIER 1 | ✓ DONE |
-| [TeamTypes] | AI teams | TIER 5 | |
-| [Base] | AI build order | TIER 5 | |
-| [Reinforcements] | Unit arrivals | TIER 5 | |
+| [TeamTypes] | AI teams | TIER 5 | ✓ DONE |
+| [Base] | AI build order | TIER 5 | ✓ DONE |
+| [Reinforcements] | Unit arrivals | TIER 5 | N/A (via triggers) |
 | [Terrain] | Trees/cliffs | TIER 5 | |
 | [Smudge] | Craters | TIER 5 | |
 | [Ships] | Naval units | TIER 5 | |
