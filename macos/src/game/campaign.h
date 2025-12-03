@@ -238,6 +238,9 @@ public:
     // Choose mission variant (for branching)
     void Choose_Variant(ScenarioVarType variant);
 
+    // Check if current mission has map choice
+    bool Has_Map_Choice() const;
+
     // Advance to next mission
     void Advance_Mission();
 

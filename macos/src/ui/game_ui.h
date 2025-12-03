@@ -73,6 +73,18 @@ extern "C" {
 #define CREDITS_WIDTH       100
 #define CREDITS_HEIGHT      16
 
+// Options button (top-right of game view, before sidebar)
+#define OPTIONS_BTN_WIDTH   56
+#define OPTIONS_BTN_HEIGHT  16
+#define OPTIONS_BTN_X       (SIDEBAR_X - OPTIONS_BTN_WIDTH - 8)
+#define OPTIONS_BTN_Y       4
+
+// Mission timer (next to credits)
+#define TIMER_X             (CREDITS_X + CREDITS_WIDTH + 16)
+#define TIMER_Y             CREDITS_Y
+#define TIMER_WIDTH         48
+#define TIMER_HEIGHT        16
+
 //===========================================================================
 // Palette Color Indices
 //===========================================================================

@@ -61,6 +61,13 @@ static char g_briefingName[128] = "";
 static char g_briefingText[1024] = "";
 static BriefingConfirmCallback g_briefingConfirmCallback = nullptr;
 
+// Variant selection state
+static char g_variantMissionName[128] = "";
+static char g_variantDescA[256] = "";
+static char g_variantDescB[256] = "";
+static VariantSelectCallback g_variantCallback = nullptr;
+static int g_variantHovered = -1;  // 0=A, 1=B, -1=none
+
 // Sound effects for menus
 static AudioSample* g_clickSound = nullptr;
 static AudioSample* g_hoverSound = nullptr;
@@ -1489,5 +1496,327 @@ void Menu_StopVideo(void) {
     // Call completion callback
     if (callback) {
         callback();
+    }
+}
+
+//===========================================================================
+// Variant Selection Screen
+//===========================================================================
+
+void Menu_SetVariantSelect(const char* missionName,
+                           const char* descA, const char* descB,
+                           VariantSelectCallback callback) {
+    if (missionName) {
+        strncpy(g_variantMissionName, missionName,
+                sizeof(g_variantMissionName) - 1);
+    } else {
+        g_variantMissionName[0] = '\0';
+    }
+
+    if (descA) {
+        strncpy(g_variantDescA, descA, sizeof(g_variantDescA) - 1);
+    } else {
+        strcpy(g_variantDescA, "Standard approach");
+    }
+
+    if (descB) {
+        strncpy(g_variantDescB, descB, sizeof(g_variantDescB) - 1);
+    } else {
+        strcpy(g_variantDescB, "Alternative approach");
+    }
+
+    g_variantCallback = callback;
+    g_variantHovered = -1;
+}
+
+void Menu_RenderVariantSelect(void) {
+    Renderer_ResetClip();
+
+    // Use stub palette for menu UI
+    Palette menuPal;
+    StubAssets_CreatePalette(&menuPal);
+    Renderer_SetPalette(&menuPal);
+
+    // Dark background
+    Renderer_Clear(PAL_BLACK);
+
+    // Title banner (dark red gradient like other menus)
+    for (int y = 10; y < 60; y++) {
+        int intensity = 115 + (y - 10) / 3;
+        if (y > 40) intensity = 125 - (y - 40) / 3;
+        if (intensity < 115) intensity = 115;
+        if (intensity > 125) intensity = 125;
+        Renderer_HLine(40, 600, y, (uint8_t)intensity);
+    }
+
+    // Banner borders
+    Renderer_HLine(40, 600, 9, 127);
+    Renderer_HLine(40, 600, 60, 112);
+    Renderer_VLine(39, 9, 60, 127);
+    Renderer_VLine(600, 9, 60, 112);
+
+    // Title
+    Renderer_DrawText("CHOOSE YOUR APPROACH", 210, 20, PAL_GOLD, 0);
+    if (g_variantMissionName[0]) {
+        int nameLen = (int)strlen(g_variantMissionName) * 8;
+        int nameX = 320 - nameLen / 2;
+        Renderer_DrawText(g_variantMissionName, nameX, 40, PAL_WHITE, 0);
+    }
+
+    // Two option boxes
+    int boxW = 260;
+    int boxH = 180;
+    int boxY = 90;
+    int boxAX = 40;
+    int boxBX = 340;
+
+    // Box A
+    bool hoverA = (g_variantHovered == 0);
+    uint8_t borderA = hoverA ? PAL_GOLD : BTN_HIGHLIGHT;
+    Renderer_HLine(boxAX, boxAX + boxW, boxY, borderA);
+    Renderer_VLine(boxAX, boxY, boxY + boxH, borderA);
+    Renderer_HLine(boxAX, boxAX + boxW, boxY + boxH, BTN_SHADOW);
+    Renderer_VLine(boxAX + boxW, boxY, boxY + boxH, BTN_SHADOW);
+    Renderer_FillRect(boxAX + 1, boxY + 1, boxW - 1, boxH - 1,
+                      hoverA ? 3 : 1);
+
+    // Box B
+    bool hoverB = (g_variantHovered == 1);
+    uint8_t borderB = hoverB ? PAL_GOLD : BTN_HIGHLIGHT;
+    Renderer_HLine(boxBX, boxBX + boxW, boxY, borderB);
+    Renderer_VLine(boxBX, boxY, boxY + boxH, borderB);
+    Renderer_HLine(boxBX, boxBX + boxW, boxY + boxH, BTN_SHADOW);
+    Renderer_VLine(boxBX + boxW, boxY, boxY + boxH, BTN_SHADOW);
+    Renderer_FillRect(boxBX + 1, boxY + 1, boxW - 1, boxH - 1,
+                      hoverB ? 3 : 1);
+
+    // Labels
+    uint8_t colorA = hoverA ? PAL_GOLD : PAL_WHITE;
+    uint8_t colorB = hoverB ? PAL_GOLD : PAL_WHITE;
+
+    Renderer_DrawText("OPTION A", boxAX + boxW/2 - 32, boxY + 15, colorA, 0);
+    Renderer_DrawText("OPTION B", boxBX + boxW/2 - 32, boxY + 15, colorB, 0);
+
+    // Descriptions (wrapped)
+    RenderWrappedText(g_variantDescA, boxAX + 10, boxY + 45, boxW - 20,
+                      PAL_GREY);
+    RenderWrappedText(g_variantDescB, boxBX + 10, boxY + 45, boxW - 20,
+                      PAL_GREY);
+
+    // Key hints
+    Renderer_DrawText("Press 1 or A", boxAX + boxW/2 - 48, boxY + boxH - 25,
+                      PAL_GREY, 0);
+    Renderer_DrawText("Press 2 or B", boxBX + boxW/2 - 48, boxY + boxH - 25,
+                      PAL_GREY, 0);
+
+    // Instructions
+    Renderer_DrawText("CLICK AN OPTION OR PRESS 1/2 TO SELECT",
+                      130, 300, PAL_GREY, 0);
+}
+
+void Menu_UpdateVariantSelect(void) {
+    int mx = Input_GetMouseX();
+    int my = Input_GetMouseY();
+    uint8_t buttons = Input_GetMouseButtons();
+    static bool wasLeftDown = false;
+    bool leftDown = (buttons & INPUT_MOUSE_LEFT) != 0;
+    bool leftClicked = !leftDown && wasLeftDown;
+    wasLeftDown = leftDown;
+
+    // Box dimensions (must match render)
+    int boxW = 260;
+    int boxH = 180;
+    int boxY = 90;
+    int boxAX = 40;
+    int boxBX = 340;
+
+    // Check hover
+    int oldHovered = g_variantHovered;
+    g_variantHovered = -1;
+
+    if (mx >= boxAX && mx < boxAX + boxW && my >= boxY && my < boxY + boxH) {
+        g_variantHovered = 0;
+    } else if (mx >= boxBX && mx < boxBX + boxW &&
+               my >= boxY && my < boxY + boxH) {
+        g_variantHovered = 1;
+    }
+
+    // Play hover sound
+    if (g_variantHovered != oldHovered && g_variantHovered >= 0) {
+        if (g_hoverSound) Audio_Play(g_hoverSound, 100, 0, FALSE);
+    }
+
+    // Check selection
+    int selected = -1;
+
+    // Mouse click
+    if (leftClicked && g_variantHovered >= 0) {
+        selected = g_variantHovered;
+    }
+
+    // Keyboard
+    if (Input_WasKeyPressed('1') || Input_WasKeyPressed('A') ||
+        Input_WasKeyPressed('a')) {
+        selected = 0;
+    }
+    if (Input_WasKeyPressed('2') || Input_WasKeyPressed('B') ||
+        Input_WasKeyPressed('b')) {
+        selected = 1;
+    }
+
+    if (selected >= 0) {
+        if (g_clickSound) Audio_Play(g_clickSound, 150, 0, FALSE);
+        Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+        if (g_variantCallback) {
+            g_variantCallback(selected);
+        }
+    }
+}
+
+//===========================================================================
+// Score Screen Implementation
+//===========================================================================
+
+static ScoreScreenData g_scoreData;
+static ScoreDismissCallback g_scoreCallback = nullptr;
+
+void Menu_SetScoreScreen(const ScoreScreenData* data,
+                         ScoreDismissCallback callback) {
+    if (data) {
+        g_scoreData = *data;
+    }
+    g_scoreCallback = callback;
+}
+
+void Menu_RenderScoreScreen(void) {
+    // Dark background
+    Renderer_FillRect(0, 0, 640, 400, 0);
+
+    // Title based on victory/defeat
+    const char* title = g_scoreData.isVictory ? "MISSION ACCOMPLISHED" :
+                                                 "MISSION FAILED";
+    uint8_t titleColor = g_scoreData.isVictory ? 120 : 127;  // Green or Red
+
+    int titleX = (640 - (int)strlen(title) * 8) / 2;
+    Renderer_DrawText(title, titleX, 30, titleColor, 0);
+
+    // Box for stats
+    int boxX = 120, boxY = 60, boxW = 400, boxH = 260;
+    Renderer_DrawRect(boxX, boxY, boxW, boxH, 15);
+    Renderer_DrawRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2, 7);
+
+    // Stats display
+    int leftCol = boxX + 20;
+    int rightCol = boxX + boxW - 100;
+    int y = boxY + 20;
+    int lineH = 22;
+
+    char buf[64];
+
+    // Time elapsed
+    int seconds = g_scoreData.elapsedFrames / 15;  // Assuming 15 FPS
+    int minutes = seconds / 60;
+    seconds = seconds % 60;
+    Renderer_DrawText("Time Elapsed:", leftCol, y, 15, 0);
+    snprintf(buf, sizeof(buf), "%d:%02d", minutes, seconds);
+    Renderer_DrawText(buf, rightCol, y, 14, 0);
+    y += lineH;
+
+    // Separator
+    y += 5;
+    Renderer_HLine(leftCol, leftCol + boxW - 40, y, 7);
+    y += 10;
+
+    // Enemy units destroyed
+    Renderer_DrawText("Enemy Units Destroyed:", leftCol, y, 15, 0);
+    snprintf(buf, sizeof(buf), "%d", g_scoreData.enemyUnitsKilled);
+    Renderer_DrawText(buf, rightCol, y, 120, 0);  // Green
+    y += lineH;
+
+    // Enemy buildings destroyed
+    Renderer_DrawText("Enemy Buildings Razed:", leftCol, y, 15, 0);
+    snprintf(buf, sizeof(buf), "%d", g_scoreData.enemyBuildingsKilled);
+    Renderer_DrawText(buf, rightCol, y, 120, 0);
+    y += lineH;
+
+    // Separator
+    y += 5;
+    Renderer_HLine(leftCol, leftCol + boxW - 40, y, 7);
+    y += 10;
+
+    // Units lost
+    Renderer_DrawText("Units Lost:", leftCol, y, 15, 0);
+    snprintf(buf, sizeof(buf), "%d", g_scoreData.unitsLost);
+    Renderer_DrawText(buf, rightCol, y, 127, 0);  // Red
+    y += lineH;
+
+    // Buildings lost
+    Renderer_DrawText("Buildings Lost:", leftCol, y, 15, 0);
+    snprintf(buf, sizeof(buf), "%d", g_scoreData.buildingsLost);
+    Renderer_DrawText(buf, rightCol, y, 127, 0);
+    y += lineH;
+
+    // Civilians killed (penalty)
+    if (g_scoreData.civiliansKilled > 0) {
+        Renderer_DrawText("Civilians Killed:", leftCol, y, 15, 0);
+        snprintf(buf, sizeof(buf), "%d", g_scoreData.civiliansKilled);
+        Renderer_DrawText(buf, rightCol, y, 127, 0);
+        y += lineH;
+    }
+
+    // Separator
+    y += 5;
+    Renderer_HLine(leftCol, leftCol + boxW - 40, y, 7);
+    y += 10;
+
+    // Credits harvested
+    Renderer_DrawText("Credits Harvested:", leftCol, y, 15, 0);
+    snprintf(buf, sizeof(buf), "%d", g_scoreData.oreHarvested);
+    Renderer_DrawText(buf, rightCol, y, 14, 0);  // Yellow
+    y += lineH;
+
+    // Mission score
+    y += 5;
+    Renderer_HLine(leftCol, leftCol + boxW - 40, y, 14);
+    y += 10;
+
+    Renderer_DrawText("MISSION SCORE:", leftCol, y, 14, 0);
+    snprintf(buf, sizeof(buf), "%d", g_scoreData.missionScore);
+    Renderer_DrawText(buf, rightCol, y, 14, 0);
+    y += lineH;
+
+    // Total campaign score
+    Renderer_DrawText("TOTAL SCORE:", leftCol, y, 15, 0);
+    snprintf(buf, sizeof(buf), "%d", g_scoreData.totalScore);
+    Renderer_DrawText(buf, rightCol, y, 15, 0);
+
+    // Continue prompt
+    const char* prompt = "Press any key or click to continue...";
+    int promptX = (640 - (int)strlen(prompt) * 8) / 2;
+    Renderer_DrawText(prompt, promptX, 340, 7, 0);
+}
+
+void Menu_UpdateScoreScreen(void) {
+    uint8_t buttons = Input_GetMouseButtons();
+    static bool wasLeftDown = false;
+    bool leftDown = (buttons & INPUT_MOUSE_LEFT) != 0;
+    bool leftClicked = !leftDown && wasLeftDown;
+    wasLeftDown = leftDown;
+
+    // Any key or click dismisses
+    bool dismiss = leftClicked;
+
+    // Check for common keys (space, enter, escape)
+    if (Input_WasKeyPressed(' ') || Input_WasKeyPressed('\r') ||
+        Input_WasKeyPressed(27)) {  // ESC
+        dismiss = true;
+    }
+
+    if (dismiss) {
+        if (g_clickSound) Audio_Play(g_clickSound, 150, 0, FALSE);
+        Menu_SetCurrentScreen(MENU_SCREEN_NONE);
+        if (g_scoreCallback) {
+            g_scoreCallback();
+        }
     }
 }

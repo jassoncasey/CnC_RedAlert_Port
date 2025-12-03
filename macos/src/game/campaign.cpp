@@ -704,6 +704,12 @@ void CampaignClass::Choose_Variant(ScenarioVarType variant) {
     chosenVariant_ = variant;
 }
 
+bool CampaignClass::Has_Map_Choice() const {
+    const MissionData* data = Get_Mission_Data(currentMission_);
+    if (!data) return false;
+    return data->hasMapChoice;
+}
+
 void CampaignClass::Advance_Mission() {
     int nextMission = Get_Next_Mission();
     if (nextMission > 0) {
@@ -1008,4 +1014,84 @@ bool CampaignClass::Load_Progress(const char* filename) {
 
 extern "C" void Campaign_Load_Carryover(void) {
     Campaign.Load_Carryover();
+}
+
+extern "C" bool Campaign_Is_Active(void) {
+    return Campaign.Is_Campaign_Active();
+}
+
+extern "C" bool Campaign_Has_Map_Choice(void) {
+    return Campaign.Has_Map_Choice();
+}
+
+extern "C" void Campaign_Choose_Variant(int variant) {
+    ScenarioVarType var = (variant == 0) ? ScenarioVarType::A : ScenarioVarType::B;
+    Campaign.Choose_Variant(var);
+}
+
+extern "C" void Campaign_Mission_Won(void) {
+    Campaign.Mission_Won();
+}
+
+extern "C" int Campaign_Get_Current_Mission(void) {
+    return Campaign.Get_Current_Mission();
+}
+
+extern "C" bool Campaign_Is_Complete(void) {
+    return Campaign.Is_Campaign_Complete();
+}
+
+extern "C" int Campaign_Get_Type(void) {
+    CampaignType ct = Campaign.Get_Campaign();
+    return (ct == CampaignType::SOVIET) ? 1 : 0;
+}
+
+extern "C" const char* Campaign_Get_Next_Mission_Name(void) {
+    int nextMission = Campaign.Get_Current_Mission();
+    static char buf[64];
+    CampaignType ct = Campaign.Get_Campaign();
+    bool isSoviet = (ct == CampaignType::SOVIET);
+    snprintf(buf, sizeof(buf), "%s Mission %d",
+             isSoviet ? "Soviet" : "Allied", nextMission);
+    return buf;
+}
+
+extern "C" int Campaign_Get_Score_UnitsLost(void) {
+    return Campaign.Score().Units_Killed();
+}
+
+extern "C" int Campaign_Get_Score_EnemyUnitsKilled(void) {
+    return Campaign.Score().Enemy_Units_Killed();
+}
+
+extern "C" int Campaign_Get_Score_BuildingsLost(void) {
+    return Campaign.Score().Buildings_Destroyed();
+}
+
+extern "C" int Campaign_Get_Score_EnemyBuildingsKilled(void) {
+    return Campaign.Score().Enemy_Buildings_Destroyed();
+}
+
+extern "C" int Campaign_Get_Score_CiviliansKilled(void) {
+    return Campaign.Score().Civilians_Killed();
+}
+
+extern "C" int Campaign_Get_Score_OreHarvested(void) {
+    return Campaign.Score().Ore_Harvested();
+}
+
+extern "C" int Campaign_Get_Score_ElapsedTime(void) {
+    return Campaign.Score().Elapsed_Time();
+}
+
+extern "C" int Campaign_Get_Score_MissionScore(void) {
+    return Campaign.Score().Calculate_Score();
+}
+
+extern "C" int Campaign_Get_Total_Score(void) {
+    return Campaign.Get_Total_Score();
+}
+
+extern "C" void Campaign_Reset_Score(void) {
+    Campaign.Score().Reset();
 }

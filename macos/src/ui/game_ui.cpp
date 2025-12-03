@@ -7,9 +7,12 @@
  */
 
 #include "game_ui.h"
+#include "menu.h"
 #include "../graphics/metal/renderer.h"
 #include "../game/map.h"
 #include "../game/units.h"
+#include "../assets/assetloader.h"
+#include "../assets/shpfile.h"
 #include <cstdio>
 #include <cstring>
 #include <cmath>
@@ -73,6 +76,109 @@ static bool g_placementValid = false;  // Is current placement position valid?
 static bool g_repairMode = false;      // Repair mode active
 static bool g_sellMode = false;        // Sell mode active
 
+// Radar state
+static bool g_radarOnline = false;     // Radar building powered
+static int g_radarSweepAngle = 0;      // Current sweep position (0-359)
+
+// Options button state
+static bool g_optionsHover = false;    // Mouse over options button
+
+//===========================================================================
+// Cameo Icon Cache
+//===========================================================================
+
+// Original cameo dimensions (before 2x scaling)
+#define CAMEO_WIDTH  32
+#define CAMEO_HEIGHT 24
+
+// Maximum cached cameos
+#define MAX_CAMEO_CACHE 32
+
+struct CameoCacheEntry {
+    char name[16];              // Type name (e.g., "POWR", "E1")
+    ShpFileHandle shp;          // Loaded SHP handle (NULL if failed)
+    bool loaded;                // True if load was attempted
+};
+
+static CameoCacheEntry g_cameoCache[MAX_CAMEO_CACHE];
+static int g_cameoCacheCount = 0;
+static bool g_cameosInitialized = false;
+
+/**
+ * Load a cameo SHP for a given type name.
+ * Cameo files are named <TYPE>ICON.SHP in CONQUER.MIX.
+ */
+static ShpFileHandle LoadCameoShp(const char* typeName) {
+    if (!typeName || !typeName[0]) return nullptr;
+
+    // Build cameo filename: <TYPE>ICON.SHP
+    // Special handling: some types need different icon names
+    char iconName[32];
+
+    // Most cameos are <TYPE>ICON.SHP but some are different:
+    // Buildings: POWIICON for POWR, PROCIICON for PROC, etc.
+    // Units: E1ICNH for E1 (infantry use ICNH suffix)
+    // Tanks: 1TNKICON for 1TNK, etc.
+
+    // Try standard pattern first: <TYPE>ICON.SHP
+    snprintf(iconName, sizeof(iconName), "%sICON.SHP", typeName);
+
+    ShpFileHandle shp = Assets_LoadSHP(iconName);
+    if (shp) return shp;
+
+    // Try alternate pattern for infantry: <TYPE>ICNH.SHP
+    snprintf(iconName, sizeof(iconName), "%sICNH.SHP", typeName);
+    shp = Assets_LoadSHP(iconName);
+    if (shp) return shp;
+
+    // Try with I suffix: <TYPE>I.SHP (some cameos)
+    snprintf(iconName, sizeof(iconName), "%sI.SHP", typeName);
+    shp = Assets_LoadSHP(iconName);
+
+    return shp;  // May be null
+}
+
+/**
+ * Get or load a cameo for a type name.
+ */
+static ShpFileHandle GetCameo(const char* typeName) {
+    if (!typeName || !typeName[0]) return nullptr;
+
+    // Check cache first
+    for (int i = 0; i < g_cameoCacheCount; i++) {
+        if (strcasecmp(g_cameoCache[i].name, typeName) == 0) {
+            return g_cameoCache[i].shp;  // May be null if load failed
+        }
+    }
+
+    // Not in cache, try to load
+    if (g_cameoCacheCount >= MAX_CAMEO_CACHE) {
+        return nullptr;  // Cache full
+    }
+
+    CameoCacheEntry& entry = g_cameoCache[g_cameoCacheCount++];
+    strncpy(entry.name, typeName, sizeof(entry.name) - 1);
+    entry.name[sizeof(entry.name) - 1] = '\0';
+    entry.shp = LoadCameoShp(typeName);
+    entry.loaded = true;
+
+    return entry.shp;
+}
+
+/**
+ * Free all cached cameos.
+ */
+static void FreeCameoCache(void) {
+    for (int i = 0; i < g_cameoCacheCount; i++) {
+        if (g_cameoCache[i].shp) {
+            Shp_Free(g_cameoCache[i].shp);
+            g_cameoCache[i].shp = nullptr;
+        }
+    }
+    g_cameoCacheCount = 0;
+    g_cameosInitialized = false;
+}
+
 //===========================================================================
 // Forward Declarations
 //===========================================================================
@@ -80,6 +186,8 @@ static bool g_sellMode = false;        // Sell mode active
 static void GameUI_RenderTopButtons(void);
 static BOOL GameUI_TopButtonsClick(int mouseX, int mouseY);
 static void GameUI_RenderPowerBar(void);
+static void CalcPlayerPower(int* produced, int* consumed);
+static void UpdateRadarState(void);
 
 //===========================================================================
 // Helper: Find player production building
@@ -312,6 +420,7 @@ void GameUI_Init(void) {
 }
 
 void GameUI_Shutdown(void) {
+    FreeCameoCache();
     g_uiInitialized = false;
 }
 
@@ -489,6 +598,9 @@ void GameUI_Update(void) {
     g_radarPulse = (g_radarPulse + 1) % 30;
     g_flashFrame = (g_flashFrame + 1) % 20;
 
+    // Update radar online status and sweep animation
+    UpdateRadarState();
+
     // Refresh player building flags (in case buildings were destroyed)
     UpdatePlayerBuildings();
 
@@ -639,6 +751,35 @@ void GameUI_RenderPlacement(void) {
 }
 
 //===========================================================================
+// Radar Status Check
+//===========================================================================
+
+// Check if player has a powered radar building
+static bool CheckRadarOnline(void) {
+    int produced, consumed;
+    CalcPlayerPower(&produced, &consumed);
+    bool hasPower = produced >= consumed;
+
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bldg = Buildings_Get(i);
+        if (!bldg || !bldg->active) continue;
+        if (bldg->team != TEAM_PLAYER) continue;
+        if (bldg->type == BUILDING_RADAR && hasPower) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Update radar state each frame
+static void UpdateRadarState(void) {
+    g_radarOnline = CheckRadarOnline();
+    if (g_radarOnline) {
+        g_radarSweepAngle = (g_radarSweepAngle + 6) % 360;  // ~60 degrees/sec
+    }
+}
+
+//===========================================================================
 // Main Render
 //===========================================================================
 
@@ -716,6 +857,20 @@ BOOL GameUI_HandleInput(int mouseX, int mouseY,
             return GameUI_SidebarClick(mouseX, mouseY, leftClick);
         }
         return TRUE;
+    }
+
+    // Check options button in game area (always update hover state)
+    if (mouseX >= OPTIONS_BTN_X - 2 &&
+        mouseX < OPTIONS_BTN_X + OPTIONS_BTN_WIDTH - 2 &&
+        mouseY >= OPTIONS_BTN_Y - 2 &&
+        mouseY < OPTIONS_BTN_Y + OPTIONS_BTN_HEIGHT - 2) {
+        g_optionsHover = true;
+        if (leftClick) {
+            Menu_SetCurrentScreen(MENU_SCREEN_OPTIONS);
+            return TRUE;
+        }
+    } else {
+        g_optionsHover = false;
     }
 
     return FALSE;
@@ -835,25 +990,64 @@ static void RenderRadarViewport(const RadarContext* ctx) {
     Renderer_DrawRect(vpx, vpy, vpw, vph, cursorColor);
 }
 
+static void RenderRadarSweep(void) {
+    // Draw rotating sweep line from center
+    int centerX = RADAR_X + RADAR_WIDTH / 2;
+    int centerY = RADAR_Y + RADAR_HEIGHT / 2;
+    int radius = (RADAR_WIDTH < RADAR_HEIGHT ? RADAR_WIDTH : RADAR_HEIGHT) / 2 - 4;
+
+    // Convert angle to radians
+    float rad = (float)g_radarSweepAngle * 3.14159f / 180.0f;
+    int endX = centerX + (int)(radius * sinf(rad));
+    int endY = centerY - (int)(radius * cosf(rad));
+
+    // Draw sweep line
+    Renderer_DrawLine(centerX, centerY, endX, endY, PAL_LTGREEN);
+}
+
 void GameUI_RenderRadar(void) {
+    // Draw beveled frame around radar
     DrawBeveledBox(RADAR_X - 2, RADAR_Y - 2,
                    RADAR_WIDTH + 4, RADAR_HEIGHT + 4, PAL_GREY, false);
+
+    // Draw inner border for enhanced frame effect
+    Renderer_DrawRect(RADAR_X - 1, RADAR_Y - 1,
+                      RADAR_WIDTH + 2, RADAR_HEIGHT + 2, PAL_BLACK);
+
     Renderer_FillRect(RADAR_X, RADAR_Y, RADAR_WIDTH, RADAR_HEIGHT, PAL_BLACK);
 
     int mapWidth = Map_GetWidth();
     int mapHeight = Map_GetHeight();
-    if (mapWidth <= 0 || mapHeight <= 0) {
-        Renderer_DrawText("RADAR", RADAR_X + 14, RADAR_Y + 28, PAL_GREY, 0);
-        Renderer_DrawText("OFFLINE", RADAR_X + 10, RADAR_Y + 40, PAL_GREY, 0);
+
+    // Check if radar should be offline (no map or no radar building)
+    if (mapWidth <= 0 || mapHeight <= 0 || !g_radarOnline) {
+        // Draw static/noise pattern for offline state
+        int centerX = RADAR_X + RADAR_WIDTH / 2;
+        int centerY = RADAR_Y + RADAR_HEIGHT / 2;
+
+        // Draw "RADAR OFFLINE" text
+        Renderer_DrawText("RADAR", centerX - 20, centerY - 8, PAL_GREY, 0);
+        Renderer_DrawText("OFFLINE", centerX - 28, centerY + 4, PAL_GREY, 0);
+
+        // Draw some static dots for visual interest
+        for (int i = 0; i < 20; i++) {
+            int x = RADAR_X + (g_flashFrame * 17 + i * 31) % RADAR_WIDTH;
+            int y = RADAR_Y + (g_flashFrame * 13 + i * 23) % RADAR_HEIGHT;
+            Renderer_PutPixel(x, y, PAL_GREY);
+        }
         return;
     }
 
+    // Radar is online - render terrain, units, buildings
     RadarContext ctx;
     CalcRadarContext(&ctx);
     RenderRadarTerrain(&ctx);
     RenderRadarUnits(&ctx);
     RenderRadarBuildings(&ctx);
     RenderRadarViewport(&ctx);
+
+    // Draw sweep line animation
+    RenderRadarSweep();
 }
 
 BOOL GameUI_RadarClick(int mouseX, int mouseY) {
@@ -1119,44 +1313,56 @@ static void DrawCameoButton(int x, int y, const BuildItemDef* item,
     bool raised = available && !isBuilding;
     DrawBeveledBox(x, y, STRIP_ITEM_WIDTH, STRIP_ITEM_HEIGHT, bgColor, raised);
 
-    // Text color
-    uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
+    // Try to render cameo sprite
+    ShpFileHandle cameo = GetCameo(item->name);
+    bool hasCameo = false;
 
-    // Item name (centered)
-    int textX = x + 4;
-    int textY = y + 4;
-    Renderer_DrawText(item->name, textX, textY, textColor, 0);
+    if (cameo) {
+        const ShpFrame* frame = Shp_GetFrame(cameo, 0);
+        if (frame && frame->pixels) {
+            // Scale 2x (32x24 -> 64x48) to match our UI scale
+            // Use ScaleBlit for proper scaling
+            Renderer_ScaleBlit(frame->pixels, frame->width, frame->height,
+                               x, y, STRIP_ITEM_WIDTH, STRIP_ITEM_HEIGHT, TRUE);
+            hasCameo = true;
 
-    // Status or cost
+            // Dim if not available
+            if (!available) {
+                Renderer_DimRect(x, y, STRIP_ITEM_WIDTH, STRIP_ITEM_HEIGHT, 2);
+            }
+        }
+    }
+
+    // Fallback: draw text if no cameo
+    if (!hasCameo) {
+        uint8_t textColor = available ? PAL_WHITE : PAL_GREY;
+        int textX = x + 4;
+        int textY = y + 4;
+        Renderer_DrawText(item->name, textX, textY, textColor, 0);
+    }
+
+    // Production status overlay
     if (isBuilding) {
         if (isReady) {
             // Ready - pulsing READY text
             bool flash = g_flashFrame < 10;
             uint8_t rdyClr = flash ? PAL_WHITE : PAL_LTGREEN;
-            Renderer_DrawText("READY", textX, y + 20, rdyClr, 0);
+            int txtX = x + (STRIP_ITEM_WIDTH - 40) / 2;
+            Renderer_DrawText("READY", txtX, y + STRIP_ITEM_HEIGHT - 12,
+                             rdyClr, 0);
         } else {
-            // Progress bar
+            // Progress bar at bottom
             int barW = (STRIP_ITEM_WIDTH - 8) * progress / 100;
-            Renderer_FillRect(x + 4, y + STRIP_ITEM_HEIGHT - 8,
+            Renderer_FillRect(x + 4, y + STRIP_ITEM_HEIGHT - 6,
                              STRIP_ITEM_WIDTH - 8, 4, PAL_BLACK);
             if (barW > 0) {
-                Renderer_FillRect(x + 4, y + STRIP_ITEM_HEIGHT - 8,
+                Renderer_FillRect(x + 4, y + STRIP_ITEM_HEIGHT - 6,
                                  barW, 4, PAL_LTGREEN);
             }
-            // Percentage text
-            char pStr[8];
-            snprintf(pStr, sizeof(pStr), "%d%%", progress);
-            Renderer_DrawText(pStr, textX, y + 20, PAL_LTGREEN, 0);
         }
-    } else if (!hasPrereqs) {
-        // Show lock indicator
-        Renderer_DrawText("---", textX + 8, y + 20, PAL_GREY, 0);
-    } else {
-        // Show cost
-        char cs[16];
-        snprintf(cs, sizeof(cs), "$%d", item->cost);
-        uint8_t costColor = canAfford ? PAL_YELLOW : PAL_RED;
-        Renderer_DrawText(cs, textX, y + 20, costColor, 0);
+    } else if (!hasPrereqs && !hasCameo) {
+        // Show lock indicator (only if no cameo)
+        Renderer_DrawText("---", x + 20, y + 20, PAL_GREY, 0);
     }
 }
 
@@ -1438,14 +1644,15 @@ void GameUI_RenderSelectionPanel(void) {
 //===========================================================================
 
 void GameUI_RenderHUD(void) {
-    // Credits display in sidebar area at top
-    DrawBeveledBox(SIDEBAR_X + 3, 1, SIDEBAR_WIDTH - 6, 14, PAL_BLACK, false);
+    // Credits display in top-left of game area
+    DrawBeveledBox(CREDITS_X - 2, CREDITS_Y - 2,
+                   CREDITS_WIDTH, CREDITS_HEIGHT, PAL_BLACK, false);
 
     char creditsText[32];
     snprintf(creditsText, sizeof(creditsText), "$%d", g_playerCredits);
-    Renderer_DrawText(creditsText, SIDEBAR_X + 8, 4, PAL_YELLOW, 0);
+    Renderer_DrawText(creditsText, CREDITS_X + 4, CREDITS_Y + 2, PAL_YELLOW, 0);
 
-    // UI-1: Mission timer display (if active)
+    // Mission timer display (if active) - next to credits
     if (g_missionTimer >= 0) {
         int totalSeconds = g_missionTimer / 15;  // 15 FPS
         int minutes = totalSeconds / 60;
@@ -1454,12 +1661,19 @@ void GameUI_RenderHUD(void) {
         char timerText[16];
         snprintf(timerText, sizeof(timerText), "%d:%02d", minutes, seconds);
 
-        // Draw timer in top-left of game area (above map)
-        DrawBeveledBox(4, 1, 48, 14, PAL_BLACK, false);
+        DrawBeveledBox(TIMER_X - 2, TIMER_Y - 2,
+                       TIMER_WIDTH, TIMER_HEIGHT, PAL_BLACK, false);
         // Flash red when under 1 minute
         int color = (minutes == 0 && (g_flashFrame & 8)) ? PAL_RED : PAL_WHITE;
-        Renderer_DrawText(timerText, 10, 4, color, 0);
+        Renderer_DrawText(timerText, TIMER_X + 4, TIMER_Y + 2, color, 0);
     }
+
+    // Options button in top-right of game area
+    DrawBeveledBox(OPTIONS_BTN_X - 2, OPTIONS_BTN_Y - 2,
+                   OPTIONS_BTN_WIDTH, OPTIONS_BTN_HEIGHT,
+                   g_optionsHover ? PAL_LTGREY : PAL_GREY, true);
+    Renderer_DrawText("OPTIONS", OPTIONS_BTN_X + 4, OPTIONS_BTN_Y + 2,
+                      PAL_WHITE, 0);
 }
 
 // Set mission timer (frames at 15 FPS, -1 to disable)

@@ -76,7 +76,9 @@ typedef enum {
     MENU_SCREEN_VIDEO,
     MENU_SCREEN_OPTIONS,
     MENU_SCREEN_CREDITS,
-    MENU_SCREEN_INGAME
+    MENU_SCREEN_INGAME,
+    MENU_SCREEN_VARIANT_SELECT,
+    MENU_SCREEN_SCORE
 } MenuScreen;
 
 // Campaign selection
@@ -305,6 +307,78 @@ BOOL Menu_IsVideoPlaying(void);
  * Stop current video playback
  */
 void Menu_StopVideo(void);
+
+//===========================================================================
+// Variant Selection (Mission Map Choice)
+//===========================================================================
+
+/**
+ * Callback for variant selection
+ * @param variant  0 = variant A, 1 = variant B
+ */
+typedef void (*VariantSelectCallback)(int variant);
+
+/**
+ * Set up variant selection screen
+ * @param missionName   Name of next mission
+ * @param descA         Description for variant A
+ * @param descB         Description for variant B
+ * @param callback      Called when variant is selected
+ */
+void Menu_SetVariantSelect(const char* missionName,
+                           const char* descA, const char* descB,
+                           VariantSelectCallback callback);
+
+/**
+ * Render the variant selection screen
+ */
+void Menu_RenderVariantSelect(void);
+
+/**
+ * Update the variant selection screen (handle input)
+ */
+void Menu_UpdateVariantSelect(void);
+
+//===========================================================================
+// Score Screen
+//===========================================================================
+
+/**
+ * Score data structure for display
+ */
+typedef struct {
+    int unitsLost;              // Player units destroyed
+    int enemyUnitsKilled;       // Enemy units destroyed
+    int buildingsLost;          // Player buildings destroyed
+    int enemyBuildingsKilled;   // Enemy buildings destroyed
+    int civiliansKilled;        // Civilian casualties
+    int oreHarvested;           // Credits worth of ore collected
+    int elapsedFrames;          // Mission duration in frames
+    int missionScore;           // Calculated mission score
+    int totalScore;             // Campaign cumulative score
+    BOOL isVictory;             // TRUE for win, FALSE for loss
+} ScoreScreenData;
+
+/**
+ * Callback when score screen is dismissed
+ */
+typedef void (*ScoreDismissCallback)(void);
+
+/**
+ * Set up score screen with data
+ */
+void Menu_SetScoreScreen(const ScoreScreenData* data,
+                         ScoreDismissCallback callback);
+
+/**
+ * Render the score screen
+ */
+void Menu_RenderScoreScreen(void);
+
+/**
+ * Update the score screen (handle input)
+ */
+void Menu_UpdateScoreScreen(void);
 
 #ifdef __cplusplus
 }
