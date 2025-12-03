@@ -104,7 +104,7 @@ make dmg    # Creates DMG image
 
 ### Legal Status
 
-- **Source Code:** GPL v3 - Released by EA, February 2025
+- **Source Code:** GPL v3 - Released by EA, May 2020
 - **Game Assets:** Freeware - Released by EA, August 2008
 
 ---
@@ -205,4 +205,4 @@ The original source is the design document. I'm interested in how well the tool 
 
 ## License
 
-GPL v3 - Original source released by Electronic Arts, February 2025.
+GPL v3 - Original source released by Electronic Arts, May 2020.
