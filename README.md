@@ -81,6 +81,13 @@ See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed task breakdown.
 ## Building
 
 ```bash
+# Clone with submodules
+git clone --recurse-submodules <repo-url>
+
+# Or if already cloned:
+git submodule update --init
+
+# Build
 cd macos
 make
 ./RedAlert.app/Contents/MacOS/RedAlert
@@ -129,9 +136,10 @@ CnC_Red_Alert/
 ├── COMPLETED.md           # Archived completed work (M0-M47)
 ├── archeology.md          # Original source analysis
 │
-├── original/              # Original Windows source (read-only reference)
-│   ├── CODE/             # Main game (~520 files)
-│   └── */research.md     # Per-directory analysis
+├── submodules/            # External reference repos
+│   ├── CnC_Remastered_Collection/  # EA's original source
+│   ├── OpenRA/                     # Reference implementation
+│   └── westwood-formats/           # File format docs
 │
 ├── macos/                 # macOS port
 │   ├── Makefile
@@ -149,6 +157,14 @@ CnC_Red_Alert/
 │
 └── assets/               # Game data (gitignored)
 ```
+
+### Submodules
+
+| Path | Repository | Purpose |
+|------|------------|---------|
+| `submodules/CnC_Remastered_Collection/` | [electronicarts/CnC_Remastered_Collection](https://github.com/electronicarts/CnC_Remastered_Collection) | Original Windows source |
+| `submodules/OpenRA/` | [OpenRA/OpenRA](https://github.com/OpenRA/OpenRA) | Reference implementation |
+| `submodules/westwood-formats/` | [jassoncasey/westwood-formats](https://github.com/jassoncasey/westwood-formats) | File format documentation |
 
 ---
 

@@ -1,9 +1,9 @@
-[submodule "original"]
-	path = original
+[submodule "submodules/CnC_Remastered_Collection"]
+	path = submodules/CnC_Remastered_Collection
 	url = https://github.com/electronicarts/CnC_Remastered_Collection.git
-[submodule "OpenRA"]
-	path = OpenRA
+[submodule "submodules/OpenRA"]
+	path = submodules/OpenRA
 	url = https://github.com/OpenRA/OpenRA.git
-[submodule "westwood-formats"]
-	path = westwood-formats
+[submodule "submodules/westwood-formats"]
+	path = submodules/westwood-formats
 	url = git@github.com:jassoncasey/westwood-formats.git
