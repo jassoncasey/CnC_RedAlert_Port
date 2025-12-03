@@ -55,26 +55,8 @@
 | **D** | Skirmish Mode (random maps vs AI) | Not Started |
 | **E** | Polish (voices, animations, aircraft) | Not Started |
 
-See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed task breakdown.
-
-### Known Issues
-
-| ID | Issue | Severity | Status |
-|----|-------|----------|--------|
-| BUG-01 | Music heavily distorted | High | **FIXED** |
-| BUG-02 | Video audio has static | High | **FIXED** |
-| BUG-03 | P for Pause | Medium | Investigate |
-| BUG-04 | Briefing garbled after video | Medium | Open |
-| BUG-05 | Fog re-blacks revealed terrain | Medium | Open |
-| BUG-07 | Map not centered on player units | Medium | **FIXED** |
-| BUG-08 | Some units don't respond to movement | High | **FIXED** |
-
-### Minor Simplifications
-
-| Area | Note |
-|------|------|
-| EV-2/EV-3 | Trigger fires once per event, not per-hit |
-| Mission spawn | No health/facing from INI (spawns at full health) |
+See [PORTING_PLAN.md](PORTING_PLAN.md) for detailed task breakdown and
+[ISSUES.md](ISSUES.md) for known issues.
 
 ---
 
@@ -132,8 +114,9 @@ make dmg    # Creates DMG image
 ```
 CnC_Red_Alert/
 ├── README.md              # This file
-├── PORTING_PLAN.md        # Active work queue
-├── COMPLETED.md           # Archived completed work (M0-M47)
+├── PORTING_PLAN.md        # Remaining work
+├── ISSUES.md              # Known issues
+├── ASSETS.md              # Asset file documentation
 ├── archeology.md          # Original source analysis
 │
 ├── submodules/            # External reference repos
@@ -143,19 +126,23 @@ CnC_Red_Alert/
 │
 ├── macos/                 # macOS port
 │   ├── Makefile
+│   ├── include/           # Header files
+│   ├── resources/         # App bundle resources
 │   └── src/
-│       ├── main.mm       # Entry point
-│       ├── platform/     # macOS abstractions
-│       ├── graphics/     # Metal renderer
-│       ├── audio/        # CoreAudio
-│       ├── input/        # Event handling
-│       ├── assets/       # MIX/SHP/PAL/AUD loaders
-│       ├── crypto/       # Blowfish for encrypted MIX
-│       ├── game/         # Game logic (~400 tests)
-│       ├── video/        # VQA playback
-│       └── ui/           # Menu and game UI
+│       ├── main.mm        # Entry point
+│       ├── assets/        # MIX/SHP/PAL/AUD loaders
+│       ├── audio/         # CoreAudio mixer
+│       ├── crypto/        # Blowfish for encrypted MIX
+│       ├── game/          # Game logic
+│       ├── graphics/      # Metal renderer
+│       ├── input/         # Event handling
+│       ├── platform/      # macOS abstractions
+│       ├── tests/         # Unit tests
+│       ├── tools/         # Development utilities
+│       ├── ui/            # Menu and game UI
+│       └── video/         # VQA playback
 │
-└── assets/               # Game data (gitignored)
+└── assets/                # Game data (gitignored)
 ```
 
 ### Submodules

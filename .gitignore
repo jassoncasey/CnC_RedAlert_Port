@@ -22,3 +22,7 @@ macos/*.dmg
 *.o
 *.a
 *.dylib
+
+# Working files (not part of this project)
+parts/
+SESSION_STATE.md
