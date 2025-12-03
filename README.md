@@ -114,10 +114,31 @@ make dmg    # Creates DMG image
 ```
 CnC_Red_Alert/
 ├── README.md              # This file
+├── CLAUDE.md              # Claude Code configuration
 ├── PORTING_PLAN.md        # Remaining work
 ├── ISSUES.md              # Known issues
 ├── ASSETS.md              # Asset file documentation
 ├── archeology.md          # Original source analysis
+│
+├── parts/                 # Claude Code standards
+│   ├── workflow.md        # Interrogative vs imperative modes
+│   ├── files.md           # Directory scope, tmp/ isolation
+│   ├── agent.md           # Response style, tool usage
+│   ├── code.md            # Language selection, function size
+│   ├── style.md           # 80-col lines, ASCII, tree format
+│   ├── architecture.md    # Minimalism, design questions
+│   ├── error-handling.md  # Fail fast, return types
+│   ├── security.md        # Secure defaults, memory safety
+│   ├── config.md          # Hierarchy, secrets, formats
+│   ├── concurrency.md     # Async first, lock-free
+│   ├── testing.md         # Coverage, table-driven tests
+│   ├── tooling.md         # Make, semver, dependencies
+│   └── unix.md            # Streams, exit codes, signals
+│
+├── .claude/
+│   └── commands/          # Slash commands
+│       ├── checkpoint.md  # /checkpoint - save session state
+│       └── resume.md      # /resume - restore from checkpoint
 │
 ├── submodules/            # External reference repos
 │   ├── CnC_Remastered_Collection/  # EA's original source
@@ -126,6 +147,7 @@ CnC_Red_Alert/
 │
 ├── macos/                 # macOS port
 │   ├── Makefile
+│   ├── data/              # Lookup tables
 │   ├── include/           # Header files
 │   ├── resources/         # App bundle resources
 │   └── src/
@@ -200,6 +222,49 @@ I'm testing:
 4. **Where does it struggle?** - What kinds of tasks need more human involvement?
 
 The original source is the design document. I'm interested in how well the tool can execute against an existing architecture without me micromanaging every decision.
+
+---
+
+## Claude Code Configuration
+
+This project includes configuration to shape Claude Code's behavior during
+development. The goal is deliberate, controlled AI assistance rather than
+autonomous code generation.
+
+### Behavioral Standards (`CLAUDE.md` + `parts/`)
+
+The `CLAUDE.md` file references 12 standards files in `parts/` that define:
+
+| Standard | Purpose |
+|----------|---------|
+| **workflow.md** | Two-mode operation: *interrogative* (discuss, explore) vs *imperative* (generate artifacts). Default is discussion mode. |
+| **files.md** | Claude-initiated files go to `tmp/`, not project root. User controls project structure. |
+| **agent.md** | Concise responses, proper tool selection, ask when uncertain. |
+| **code.md** | Prefer pure functions under 10 lines, clear naming. |
+| **style.md** | 80-column lines, ASCII, tree-format for hierarchies. |
+| **architecture.md** | Simplest solution first. Delete code over adding. |
+| **error-handling.md** | Fail fast, explicit return types over exceptions. |
+| **security.md** | Secure defaults, memory-safe languages preferred. |
+| **config.md** | Standard hierarchy, secrets in files only. |
+| **concurrency.md** | Async first, lock-free over locks. |
+| **testing.md** | Table-driven tests, behavior over implementation. |
+| **tooling.md** | Make, semver, minimal dependencies. |
+| **unix.md** | Proper streams, exit codes, signal handling. |
+
+**Key behavior:** Claude defaults to discussion mode. It will explain, analyze,
+and propose—but won't generate code or modify files until explicitly told
+"make it so" or given an imperative command like "add", "create", "implement".
+
+### Slash Commands (`.claude/commands/`)
+
+| Command | Purpose |
+|---------|---------|
+| `/checkpoint` | Save session state to `.claude/checkpoints/` with goal, narrative, current state, and next steps. Enables session continuity. |
+| `/resume` | List available checkpoints and restore context from a previous session. |
+
+These commands address Claude Code's session isolation—each conversation starts
+fresh. Checkpoints preserve context across sessions without relying on
+Claude's memory of previous work.
 
 ---
 
