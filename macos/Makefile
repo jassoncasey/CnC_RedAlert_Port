@@ -19,7 +19,7 @@ OBJCXXFLAGS = $(CXXFLAGS) -fobjc-arc
 INCLUDES = -I$(SRC_DIR) -Iinclude
 
 # Frameworks
-FRAMEWORKS = -framework Cocoa -framework Metal -framework MetalKit -framework QuartzCore -framework AudioToolbox -framework AVFoundation
+FRAMEWORKS = -framework Cocoa -framework Metal -framework MetalKit -framework QuartzCore -framework AudioToolbox -framework AVFoundation -framework UniformTypeIdentifiers
 
 # Linker flags
 LDFLAGS = $(ARCH) $(MIN_VERSION) $(FRAMEWORKS)
@@ -332,4 +332,25 @@ $(BUILD_DIR)/test_mix_decrypt: $(SRC_DIR)/tests/test_mix_decrypt.cpp $(MIX_DECRY
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
-.PHONY: all clean run dist dmg dist-full test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music test_mix_decrypt
+# Asset Viewer tool - for systematic visual inspection of all game assets
+# Minimal dependencies - only asset loading and rendering
+VIEWER_OBJS = $(BUILD_DIR)/graphics/metal/renderer.o \
+              $(BUILD_DIR)/assets/assetloader.o $(BUILD_DIR)/assets/mixfile.o \
+              $(BUILD_DIR)/assets/shpfile.o $(BUILD_DIR)/assets/palfile.o \
+              $(BUILD_DIR)/assets/audfile.o $(BUILD_DIR)/assets/tmpfile.o \
+              $(BUILD_DIR)/assets/lcw.o \
+              $(BUILD_DIR)/crypto/blowfish.o $(BUILD_DIR)/crypto/mixkey.o \
+              $(BUILD_DIR)/platform/file.o $(BUILD_DIR)/platform/assets.o \
+              $(BUILD_DIR)/platform/asset_paths.o \
+              $(BUILD_DIR)/audio/audio.o \
+              $(BUILD_DIR)/video/vqa.o
+
+asset_viewer: $(BUILD_DIR)/asset_viewer
+	@echo "Running Asset Viewer..."
+	@./$(BUILD_DIR)/asset_viewer
+
+$(BUILD_DIR)/asset_viewer: $(SRC_DIR)/tools/asset_viewer.mm $(VIEWER_OBJS)
+	@mkdir -p $(BUILD_DIR)/tools
+	$(OBJCXX) $(OBJCXXFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $^
+
+.PHONY: all clean run dist dmg dist-full asset_viewer test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music test_mix_decrypt

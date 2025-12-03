@@ -12,12 +12,29 @@
 // Stubs for functions we don't need in this test
 extern "C" void Map_Init() {}
 extern "C" void Map_GenerateDemo() {}
+extern "C" void Map_LoadFromMission(const uint8_t*, const uint8_t*,
+                                    const uint8_t*, const uint8_t*,
+                                    int, int, int, int) {}
+extern "C" void Map_CenterViewport(int, int) {}
+extern "C" void Map_RevealArea(int, int, int) {}
+extern "C" void Map_RevealAll() {}
 extern "C" void Units_Init() {}
 extern "C" void AI_Init() {}
+extern "C" void Assets_SetTheater(int) {}
 int Units_Spawn(UnitType, Team, int, int) { return -1; }
 int Buildings_Spawn(BuildingType, Team, int, int) { return -1; }
 int Units_CountByTeam(Team) { return 0; }
 Building* Buildings_Get(int) { return nullptr; }
+Unit* Units_Get(int) { return nullptr; }
+void Units_CommandMove(int, int, int) {}
+void Units_CommandGuard(int) {}
+void Units_CommandAttackMove(int, int, int) {}
+int Units_CommandAllHunt(Team) { return 0; }
+void Terrain_SetTheater(int) {}
+void EnableAIProduction(int) {}
+void EnableAIAutocreate(int) {}
+void Units_DestroyByTrigger(const char*) {}
+void Buildings_DestroyByTrigger(const char*) {}
 
 int main(int argc, char* argv[]) {
     const char* iniPath = "/tmp/ra_extract/SCG01EA.INI";

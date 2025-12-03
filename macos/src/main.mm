@@ -20,8 +20,31 @@
 #include "game/mission.h"
 #include "audio/audio.h"
 
-// Forward declaration for carryover system (avoid header conflicts)
+// Forward declarations for campaign system (avoid header conflicts)
 extern "C" void Campaign_Load_Carryover(void);
+
+// Campaign extern functions - avoid header conflicts with type redefinitions
+extern "C" {
+    bool Campaign_Is_Active(void);
+    bool Campaign_Has_Map_Choice(void);
+    void Campaign_Choose_Variant(int variant);  // 0=A, 1=B
+    void Campaign_Mission_Won(void);
+    int Campaign_Get_Current_Mission(void);
+    bool Campaign_Is_Complete(void);
+    int Campaign_Get_Type(void);  // 0=Allied, 1=Soviet
+    const char* Campaign_Get_Next_Mission_Name(void);
+    // Score functions
+    int Campaign_Get_Score_UnitsLost(void);
+    int Campaign_Get_Score_EnemyUnitsKilled(void);
+    int Campaign_Get_Score_BuildingsLost(void);
+    int Campaign_Get_Score_EnemyBuildingsKilled(void);
+    int Campaign_Get_Score_CiviliansKilled(void);
+    int Campaign_Get_Score_OreHarvested(void);
+    int Campaign_Get_Score_ElapsedTime(void);
+    int Campaign_Get_Score_MissionScore(void);
+    int Campaign_Get_Total_Score(void);
+    void Campaign_Reset_Score(void);
+}
 #include "video/music.h"
 #include "ui/menu.h"
 #include "ui/game_ui.h"
@@ -112,6 +135,13 @@ static int g_pendingDifficulty = 0;
 // Forward declarations for video chaining
 static void ShowBriefingScreen(void);
 static void OnMissionOutroComplete(void);
+static void OnVariantSelected(int variant);
+static bool TryLoadMission(MissionData* mission, const char* missionName);
+static void ShowScoreScreen(void);
+static void OnScoreDismissed(void);
+
+// Track if last mission result was victory (for variant selection)
+static bool g_wasVictory = false;
 
 // Actually start the mission after briefing
 static void OnBriefingConfirmed(void) {
@@ -149,16 +179,120 @@ static void OnIntroVideoComplete(void) {
     ShowBriefingScreen();
 }
 
-// Called after win/lose video completes (returns to menu)
+// Show the score screen with current mission stats
+static void ShowScoreScreen(void) {
+    NSLog(@"Showing score screen");
+
+    ScoreScreenData data;
+    data.unitsLost = Campaign_Get_Score_UnitsLost();
+    data.enemyUnitsKilled = Campaign_Get_Score_EnemyUnitsKilled();
+    data.buildingsLost = Campaign_Get_Score_BuildingsLost();
+    data.enemyBuildingsKilled = Campaign_Get_Score_EnemyBuildingsKilled();
+    data.civiliansKilled = Campaign_Get_Score_CiviliansKilled();
+    data.oreHarvested = Campaign_Get_Score_OreHarvested();
+    data.elapsedFrames = g_gameFrameCount;  // Use actual game frame count
+    data.missionScore = Campaign_Get_Score_MissionScore();
+    data.totalScore = Campaign_Get_Total_Score();
+    data.isVictory = g_wasVictory;
+
+    Menu_SetScoreScreen(&data, OnScoreDismissed);
+    Menu_SetCurrentScreen(MENU_SCREEN_SCORE);
+}
+
+// Called when score screen is dismissed - continue to variant or main menu
+static void OnScoreDismissed(void) {
+    NSLog(@"Score screen dismissed");
+
+    // Check if this was a victory with map choice
+    if (g_wasVictory && Campaign_Is_Active() && Campaign_Has_Map_Choice()) {
+        NSLog(@"Mission has map choice - showing variant selection");
+
+        // Get next mission name
+        const char* missionName = Campaign_Get_Next_Mission_Name();
+
+        // Show variant selection screen
+        Menu_SetVariantSelect(
+            missionName,
+            "Take the direct route. Expect heavy resistance but "
+            "a shorter path to victory.",
+            "Take the alternate route. Longer path but may "
+            "offer tactical advantages.",
+            OnVariantSelected);
+        Menu_SetCurrentScreen(MENU_SCREEN_VARIANT_SELECT);
+        return;
+    }
+
+    // If it was a victory without map choice, advance campaign
+    if (g_wasVictory && Campaign_Is_Active()) {
+        Campaign_Mission_Won();
+
+        if (Campaign_Is_Complete()) {
+            NSLog(@"Campaign complete!");
+            Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+            return;
+        }
+
+        // Load next mission
+        int nextMission = Campaign_Get_Current_Mission();
+        bool isSoviet = (Campaign_Get_Type() == 1);
+        char scenarioName[32];
+        snprintf(scenarioName, sizeof(scenarioName), "SC%c%02d%s",
+                 isSoviet ? 'U' : 'G', nextMission, "EA");
+
+        if (TryLoadMission(&g_currentMission, scenarioName)) {
+            ShowBriefingScreen();
+            return;
+        }
+    }
+
+    // Fallback: return to main menu
+    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+}
+
+// Called when variant is selected
+static void OnVariantSelected(int variant) {
+    NSLog(@"Variant selected: %d (%s)", variant, variant == 0 ? "A" : "B");
+
+    // Set variant choice and advance mission
+    Campaign_Choose_Variant(variant);
+    Campaign_Mission_Won();  // Advances to next mission with chosen variant
+
+    // Load next mission
+    int nextMission = Campaign_Get_Current_Mission();
+
+    if (Campaign_Is_Complete()) {
+        NSLog(@"Campaign complete!");
+        Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+        return;
+    }
+
+    // Build scenario name
+    bool isSoviet = (Campaign_Get_Type() == 1);
+    char scenarioName[32];
+    snprintf(scenarioName, sizeof(scenarioName), "SC%c%02d%s",
+             isSoviet ? 'U' : 'G', nextMission, "EA");
+
+    // Load the mission
+    if (TryLoadMission(&g_currentMission, scenarioName)) {
+        ShowBriefingScreen();
+    } else {
+        NSLog(@"Failed to load mission %s", scenarioName);
+        Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+    }
+}
+
+// Called after win/lose video completes - show score screen
 static void OnMissionOutroComplete(void) {
-    NSLog(@"Outro video complete, returning to menu");
+    NSLog(@"Outro video complete, showing score");
     g_inGameplay = false;
     g_missionResult = MISSION_ONGOING;
     AI_Shutdown();
     GameUI_Shutdown();
     Map_Shutdown();
     Units_Shutdown();
-    Menu_SetCurrentScreen(MENU_SCREEN_MAIN);
+
+    // Show score screen (it will handle variant selection or next mission)
+    ShowScoreScreen();
 }
 
 // Try to load mission from MIX archives or loose files
@@ -298,6 +432,12 @@ static bool UpdateMenuScreen(float /*deltaTime*/) {
             break;
         case MENU_SCREEN_VIDEO:
             Menu_UpdateVideo();
+            break;
+        case MENU_SCREEN_VARIANT_SELECT:
+            Menu_UpdateVariantSelect();
+            break;
+        case MENU_SCREEN_SCORE:
+            Menu_UpdateScoreScreen();
             break;
         default:
             break;
@@ -494,6 +634,9 @@ static void UpdateMissionState(void) {
 
 // Play outro video and return to menu
 static void PlayOutroVideoAndExit(void) {
+    // Track if this was a victory for variant selection
+    g_wasVictory = (g_missionResult == MISSION_VICTORY);
+
     // Select win or lose video based on result
     const char* video = nullptr;
     if (g_missionResult == MISSION_VICTORY && g_currentMission.winVideo[0]) {
@@ -653,9 +796,15 @@ static bool RenderMenuScreen(void) {
     if (screen == MENU_SCREEN_NONE) return false;
 
     switch (screen) {
-        case MENU_SCREEN_CREDITS:   RenderCredits();        return true;
-        case MENU_SCREEN_BRIEFING:  Menu_RenderBriefing();  return true;
-        case MENU_SCREEN_VIDEO:     Menu_RenderVideo();     return true;
+        case MENU_SCREEN_CREDITS:   RenderCredits();             return true;
+        case MENU_SCREEN_BRIEFING:  Menu_RenderBriefing();       return true;
+        case MENU_SCREEN_VIDEO:     Menu_RenderVideo();          return true;
+        case MENU_SCREEN_VARIANT_SELECT:
+            Menu_RenderVariantSelect();
+            return true;
+        case MENU_SCREEN_SCORE:
+            Menu_RenderScoreScreen();
+            return true;
         default: break;
     }
 
@@ -706,33 +855,60 @@ enum CursorType {
     CURSOR_ENTER  // For transports
 };
 
+// Helper: find enemy building at a cell position
+static Building* GetEnemyBuildingAtCell(int cellX, int cellY) {
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (!bld || !bld->active) continue;
+        if (bld->team != TEAM_ENEMY) continue;
+        // Check if cell is within building bounds
+        if (cellX >= bld->cellX && cellX < bld->cellX + bld->width &&
+            cellY >= bld->cellY && cellY < bld->cellY + bld->height) {
+            return bld;
+        }
+    }
+    return nullptr;
+}
+
 // Determine what cursor to show based on what's under it and selection
 static CursorType GetCursorType(int mx, int my) {
     // Check if we have units selected
     if (Units_GetSelectedCount() == 0) return CURSOR_NORMAL;
 
-    // Check what's under the cursor
+    // Get first selected unit for comparison
+    int selId = Units_GetFirstSelected();
+    Unit* sel = Units_Get(selId);
+    if (!sel) return CURSOR_NORMAL;
+
+    // Check for units under cursor first
     int targetId = Units_GetAtScreen(mx, my);
     Unit* target = Units_Get(targetId);
 
     if (target) {
-        // Get first selected unit for comparison
-        int selId = Units_GetFirstSelected();
-        Unit* sel = Units_Get(selId);
-        if (sel) {
-            // Enemy unit: attack cursor
-            if (target->team == TEAM_ENEMY) {
-                // Check if selected unit can attack
-                if (sel->attackDamage > 0) {
-                    return CURSOR_ATTACK;
-                }
+        // Enemy unit: attack cursor
+        if (target->team == TEAM_ENEMY) {
+            // Check if selected unit can attack
+            if (sel->attackDamage > 0) {
+                return CURSOR_ATTACK;
             }
-            // Friendly transport: enter cursor
-            else if (target->team == sel->team &&
-                     Units_IsTransport((UnitType)target->type) &&
-                     Units_IsLoadable((UnitType)sel->type)) {
-                return CURSOR_ENTER;
-            }
+        }
+        // Friendly transport: enter cursor
+        else if (target->team == sel->team &&
+                 Units_IsTransport((UnitType)target->type) &&
+                 Units_IsLoadable((UnitType)sel->type)) {
+            return CURSOR_ENTER;
+        }
+    }
+
+    // Check for enemy buildings under cursor
+    if (sel->attackDamage > 0) {
+        int worldX, worldY;
+        Map_ScreenToWorld(mx, my, &worldX, &worldY);
+        int cellX = worldX / CELL_SIZE;
+        int cellY = worldY / CELL_SIZE;
+        Building* enemyBld = GetEnemyBuildingAtCell(cellX, cellY);
+        if (enemyBld) {
+            return CURSOR_ATTACK;
         }
     }
 
@@ -777,29 +953,6 @@ static void RenderCursor(void) {
     // Standard crosshair
     Renderer_DrawLine(mx - 8, my, mx + 8, my, color);
     Renderer_DrawLine(mx, my - 8, mx, my + 8, color);
-}
-
-// Render top HUD bar
-static void RenderGameHUD(void) {
-    const FrameStats* stats = GameLoop_GetStats();
-    Renderer_FillRect(0, 0, 560, 16, 0);
-
-    char hudText[64];
-    snprintf(hudText, sizeof(hudText), "%s", g_currentMission.name);
-    Renderer_DrawText(hudText, 10, 3, 14, 0);
-
-    snprintf(hudText, sizeof(hudText), "P:%d E:%d",
-             Units_CountByTeam(TEAM_PLAYER), Units_CountByTeam(TEAM_ENEMY));
-    Renderer_DrawText(hudText, 200, 3, 10, 0);
-
-    int selected = Units_GetSelectedCount();
-    if (selected > 0) {
-        snprintf(hudText, sizeof(hudText), "SEL:%d", selected);
-        Renderer_DrawText(hudText, 300, 3, 15, 0);
-    }
-
-    snprintf(hudText, sizeof(hudText), "%.0f", stats->currentFPS);
-    Renderer_DrawText(hudText, 540, 3, 7, 0);
 }
 
 // Render pause overlay
@@ -856,7 +1009,7 @@ static void RenderGameplay(void) {
     GameUI_Render();
     RenderSelectionBox();
     RenderCursor();
-    RenderGameHUD();
+    // Note: GameUI_RenderHUD() is called inside GameUI_Render() for credits/timer
     RenderPauseOverlay();
     RenderResultOverlay();
     RenderControlsHelp();

@@ -84,6 +84,67 @@ static int g_radarSweepAngle = 0;      // Current sweep position (0-359)
 static bool g_optionsHover = false;    // Mouse over options button
 
 //===========================================================================
+// Building At Cell Helper
+//===========================================================================
+
+/**
+ * Find player building at a given cell position.
+ * Returns building ID or -1 if not found.
+ */
+static int GetPlayerBuildingAtCell(int cellX, int cellY) {
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (!bld || !bld->active) continue;
+        if (bld->team != TEAM_PLAYER) continue;
+
+        // Check if cell is within building bounds
+        if (cellX >= bld->cellX && cellX < bld->cellX + bld->width &&
+            cellY >= bld->cellY && cellY < bld->cellY + bld->height) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Get building cost for refund calculation (50% of build cost).
+ */
+static int GetBuildingRefund(int buildingId) {
+    Building* bld = Buildings_Get(buildingId);
+    if (!bld) return 0;
+
+    // Building costs - 50% refund
+    switch (bld->type) {
+        case BUILDING_POWER:        return 150;   // 300/2
+        case BUILDING_REFINERY:     return 1000;  // 2000/2
+        case BUILDING_BARRACKS:     return 250;   // 500/2
+        case BUILDING_FACTORY:      return 1000;  // 2000/2
+        case BUILDING_RADAR:        return 500;   // 1000/2
+        case BUILDING_CONSTRUCTION: return 2500;  // 5000/2 (conyard is valuable)
+        default:                    return 100;
+    }
+}
+
+/**
+ * Sell a player building.
+ */
+static bool SellBuilding(int buildingId) {
+    Building* bld = Buildings_Get(buildingId);
+    if (!bld || !bld->active) return false;
+    if (bld->team != TEAM_PLAYER) return false;
+
+    // Calculate refund
+    int refund = GetBuildingRefund(buildingId);
+    g_playerCredits += refund;
+
+    // Remove the building
+    Buildings_Remove(buildingId);
+
+    fprintf(stderr, "Sold building %d for %d credits\n", buildingId, refund);
+    return true;
+}
+
+//===========================================================================
 // Cameo Icon Cache
 //===========================================================================
 
@@ -106,36 +167,30 @@ static bool g_cameosInitialized = false;
 
 /**
  * Load a cameo SHP for a given type name.
- * Cameo files are named <TYPE>ICON.SHP in CONQUER.MIX.
+ * In Red Alert, sidebar cameos use the main sprite (first frame).
+ * Try: <TYPE>.SHP first, then fallback patterns for special cases.
  */
 static ShpFileHandle LoadCameoShp(const char* typeName) {
     if (!typeName || !typeName[0]) return nullptr;
 
-    // Build cameo filename: <TYPE>ICON.SHP
-    // Special handling: some types need different icon names
     char iconName[32];
 
-    // Most cameos are <TYPE>ICON.SHP but some are different:
-    // Buildings: POWIICON for POWR, PROCIICON for PROC, etc.
-    // Units: E1ICNH for E1 (infantry use ICNH suffix)
-    // Tanks: 1TNKICON for 1TNK, etc.
-
-    // Try standard pattern first: <TYPE>ICON.SHP
-    snprintf(iconName, sizeof(iconName), "%sICON.SHP", typeName);
-
+    // Try main sprite first: <TYPE>.SHP (most buildings/units)
+    snprintf(iconName, sizeof(iconName), "%s.SHP", typeName);
     ShpFileHandle shp = Assets_LoadSHP(iconName);
     if (shp) return shp;
 
-    // Try alternate pattern for infantry: <TYPE>ICNH.SHP
+    // Try ICON suffix: <TYPE>ICON.SHP (some cameo overrides)
+    snprintf(iconName, sizeof(iconName), "%sICON.SHP", typeName);
+    shp = Assets_LoadSHP(iconName);
+    if (shp) return shp;
+
+    // Try ICNH suffix: <TYPE>ICNH.SHP (infantry variants)
     snprintf(iconName, sizeof(iconName), "%sICNH.SHP", typeName);
     shp = Assets_LoadSHP(iconName);
     if (shp) return shp;
 
-    // Try with I suffix: <TYPE>I.SHP (some cameos)
-    snprintf(iconName, sizeof(iconName), "%sI.SHP", typeName);
-    shp = Assets_LoadSHP(iconName);
-
-    return shp;  // May be null
+    return nullptr;
 }
 
 /**
@@ -815,6 +870,29 @@ BOOL GameUI_HandleInput(int mouseX, int mouseY,
                         BOOL leftClick, BOOL rightClick) {
     // Update placement cursor position (always, for smooth tracking)
     GameUI_UpdatePlacement(mouseX, mouseY);
+
+    // Handle sell mode clicks in game area
+    if (g_sellMode && mouseX < SIDEBAR_X && leftClick) {
+        // Convert screen to world coordinates, then to cell
+        int worldX, worldY;
+        Map_ScreenToWorld(mouseX, mouseY, &worldX, &worldY);
+        int cellX, cellY;
+        Map_WorldToCell(worldX, worldY, &cellX, &cellY);
+
+        // Find player building at this cell
+        int buildingId = GetPlayerBuildingAtCell(cellX, cellY);
+        if (buildingId >= 0) {
+            SellBuilding(buildingId);
+            // Stay in sell mode for continuous selling
+        }
+        return TRUE;  // Consume the click
+    }
+
+    // Right-click exits sell mode
+    if (g_sellMode && rightClick) {
+        g_sellMode = false;
+        return TRUE;
+    }
 
     // Handle placement mode clicks in game area
     if (g_placementMode && mouseX < SIDEBAR_X) {

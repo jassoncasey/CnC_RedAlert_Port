@@ -1952,13 +1952,17 @@ void Units_Render(void) {
             Renderer_DrawCircle(screenX, screenY, halfSize + 2, 15);
         }
 
-        // Draw health bar
-        int hw = (def->size) * unit->health / unit->maxHealth;
+        // Draw health bar - position above the sprite
+        // Use sprite height estimate: infantry ~24px, vehicles ~36-48px
+        int spriteHalfHeight = def->isInfantry ? 12 : 18;
+        int barWidth = def->size + 4;  // Health bar width
+        int hw = barWidth * unit->health / unit->maxHealth;
         int halfHp = unit->maxHealth / 2;
         int quartHp = unit->maxHealth / 4;
         uint8_t hc = (unit->health > halfHp) ? 10 :
                      (unit->health > quartHp) ? 14 : 4;
-        int hx = screenX - halfSize, hy = screenY - halfSize - 4;
+        int hx = screenX - barWidth / 2;
+        int hy = screenY - spriteHalfHeight - 4;  // 4px above sprite top
         Renderer_FillRect(hx, hy, hw, 2, hc);
     }
 }

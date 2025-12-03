@@ -1,6 +1,6 @@
 # Game assets (downloaded/extracted separately)
 downloads/
-assets/
+/assets/
 
 # Build artifacts
 macos/build/
@@ -24,5 +24,9 @@ macos/*.dmg
 *.dylib
 
 # Working files (not part of this project)
-parts/
 SESSION_STATE.md
+tmp/
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
+.claude/checkpoints/

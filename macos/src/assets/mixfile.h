@@ -93,6 +93,26 @@ BOOL Mix_FileExistsByCRC(MixFileHandle mix, uint32_t crc);
 uint32_t Mix_ReadFileByCRC(MixFileHandle mix, uint32_t crc,
                            void* buffer, uint32_t bufSize);
 
+/**
+ * Get entry info by index (for enumeration)
+ * @param index  Entry index (0 to Mix_GetFileCount()-1)
+ * @param outCRC [out] CRC of the entry
+ * @param outSize [out] Size of the entry
+ * @return TRUE if valid index
+ */
+BOOL Mix_GetEntryByIndex(MixFileHandle mix, int index,
+                         uint32_t* outCRC, uint32_t* outSize);
+
+/**
+ * Allocate and read file by CRC
+ * Caller must free the returned pointer with free()
+ * @param crc     CRC of file to extract
+ * @param outSize [out] Size of the returned data
+ * @return Pointer to allocated data, or NULL on failure
+ */
+void* Mix_AllocReadFileByCRC(MixFileHandle mix, uint32_t crc,
+                             uint32_t* outSize);
+
 #ifdef __cplusplus
 }
 #endif

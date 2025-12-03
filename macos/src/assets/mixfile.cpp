@@ -549,3 +549,33 @@ void* Mix_AllocReadFile(MixFileHandle mix, const char* name,
     if (outSize) *outSize = entry->size;
     return buffer;
 }
+
+BOOL Mix_GetEntryByIndex(MixFileHandle mix, int index,
+                         uint32_t* outCRC, uint32_t* outSize) {
+    if (!mix || !mix->entries) return FALSE;
+    if (index < 0 || index >= mix->header.count) return FALSE;
+
+    if (outCRC) *outCRC = mix->entries[index].crc;
+    if (outSize) *outSize = mix->entries[index].size;
+    return TRUE;
+}
+
+void* Mix_AllocReadFileByCRC(MixFileHandle mix, uint32_t crc,
+                             uint32_t* outSize) {
+    if (!mix) return nullptr;
+
+    MixEntry* entry = FindEntry(mix, crc);
+    if (!entry) return nullptr;
+
+    void* buffer = malloc(entry->size);
+    if (!buffer) return nullptr;
+
+    uint32_t bytesRead = Mix_ReadFileByCRC(mix, crc, buffer, entry->size);
+    if (bytesRead != entry->size) {
+        free(buffer);
+        return nullptr;
+    }
+
+    if (outSize) *outSize = entry->size;
+    return buffer;
+}
