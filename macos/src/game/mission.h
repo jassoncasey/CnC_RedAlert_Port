@@ -292,6 +292,13 @@ void Mission_TriggerAttacked(const char* triggerName);
 void Mission_TriggerDestroyed(const char* triggerName);
 
 /**
+ * Notify trigger system that a civilian was evacuated
+ * Called when civilian reaches map edge/extraction point
+ * @param triggerName Name of trigger attached to the civilian
+ */
+void Mission_TriggerEvacuated(const char* triggerName);
+
+/**
  * Check if mission timer is active
  */
 bool Mission_IsTimerActive(void);

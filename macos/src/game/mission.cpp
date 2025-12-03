@@ -49,6 +49,7 @@ struct ParsedTrigger {
     // Event state flags (set by objects when events occur)
     bool wasAttacked;   // Object with this trigger was attacked
     bool wasDestroyed;  // Object with this trigger was destroyed
+    bool wasEvacuated;  // Civilian was evacuated
 };
 
 #define MAX_PARSED_TRIGGERS 80
@@ -131,6 +132,17 @@ void Mission_TriggerDestroyed(const char* triggerName) {
     int idx = FindTriggerByName(triggerName);
     if (idx >= 0) {
         g_parsedTriggers[idx].wasDestroyed = true;
+    }
+}
+
+/**
+ * Notify that a civilian with the given trigger was evacuated
+ * Called when civilian reaches map edge or extraction point
+ */
+void Mission_TriggerEvacuated(const char* triggerName) {
+    int idx = FindTriggerByName(triggerName);
+    if (idx >= 0) {
+        g_parsedTriggers[idx].wasEvacuated = true;
     }
 }
 
@@ -1547,8 +1559,8 @@ static void LogMissionData(const MissionData* mission) {
 // Initialize fog of war based on player unit/building positions
 // This must be called AFTER units/buildings are spawned, before first render
 static void InitializeFogOfWar(void) {
-    // Clear all visibility first
-    Map_ClearVisibility();
+    // At this point, all cells have flags=0 from Map_Create()
+    // We only need to reveal around player units/buildings
 
     // Reveal around player units
     for (int i = 0; i < MAX_UNITS; i++) {
@@ -1911,6 +1923,68 @@ static int CountBuildingsByHouse(int houseNum) {
     for (int i = 0; i < MAX_BUILDINGS; i++) {
         Building* bld = Buildings_Get(i);
         if (bld && bld->team == team) {
+            count++;
+        }
+    }
+    return count;
+}
+
+// Helper: Get player power production
+static int Units_GetPlayerPower(void) {
+    int power = 0;
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (bld && bld->team == TEAM_PLAYER) {
+            // Power plants produce power
+            if (bld->type == BUILDING_POWER) {
+                power += 100;  // Basic power plant
+            } else if (bld->type == BUILDING_ADV_POWER) {
+                power += 200;  // Advanced power plant
+            }
+        }
+    }
+    return power;
+}
+
+// Helper: Get player power drain
+static int Units_GetPlayerDrain(void) {
+    int drain = 0;
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (bld && bld->team == TEAM_PLAYER) {
+            // Each building drains some power
+            switch (bld->type) {
+                case BUILDING_POWER:
+                case BUILDING_ADV_POWER:
+                    drain += 0;  // Power plants don't drain
+                    break;
+                case BUILDING_REFINERY:
+                    drain += 40;
+                    break;
+                case BUILDING_FACTORY:
+                    drain += 30;
+                    break;
+                case BUILDING_RADAR:
+                    drain += 40;
+                    break;
+                case BUILDING_HELIPAD:
+                    drain += 20;
+                    break;
+                default:
+                    drain += 10;  // Base drain for other buildings
+                    break;
+            }
+        }
+    }
+    return drain;
+}
+
+// Helper: Count buildings of a specific type
+static int Buildings_CountByType(int buildingType) {
+    int count = 0;
+    for (int i = 0; i < MAX_BUILDINGS; i++) {
+        Building* bld = Buildings_Get(i);
+        if (bld && bld->type == buildingType) {
             count++;
         }
     }
@@ -2314,8 +2388,90 @@ static bool CheckTriggerEvent(ParsedTrigger* trig, int eventNum, int param1,
             }
             break;
 
+        case RA_EVENT_TIMER_EXP:  // Mission timer expired
+            // Trigger when countdown timer reaches zero
+            if (g_missionTimerActive && g_missionTimerValue <= 0) {
+                return true;
+            }
+            break;
+
+        case RA_EVENT_LOW_POWER:  // Low power
+            // Trigger when player power is below 100%
+            // param2 = house to check
+            {
+                int power = Units_GetPlayerPower();
+                int drain = Units_GetPlayerDrain();
+                if (drain > 0 && power < drain) {
+                    return true;
+                }
+            }
+            break;
+
+        case RA_EVENT_BUILDING_EXISTS:  // Specific building exists
+            // param1 = building type to check for
+            // Triggers when a building of the specified type exists
+            if (Buildings_CountByType(param1) > 0) {
+                return true;
+            }
+            break;
+
+        case RA_EVENT_CIVEVAC:  // Civilian evacuated
+            // Triggered via wasEvacuated flag
+            if (trig->wasEvacuated) {
+                return true;
+            }
+            break;
+
+        case RA_EVENT_ZONE_ENT:  // Zone entered (same as ENTERED with wp)
+            // param1 = waypoint number
+            if (mission && param1 >= 0 && param1 < MAX_MISSION_WAYPOINTS &&
+                mission->waypoints[param1].cell >= 0) {
+                int cellX = mission->waypoints[param1].cellX;
+                int cellY = mission->waypoints[param1].cellY;
+                if (IsPlayerUnitNearCell(cellX, cellY, 2)) {
+                    return true;
+                }
+            }
+            break;
+
+        case RA_EVENT_SPIED:  // Building spied upon
+            // Requires spy unit implementation - stub for now
+            // Would check if trig->wasSpied flag set
+            break;
+
+        case RA_EVENT_THIEVED:  // Thief stole vehicle
+            // Requires thief unit implementation - stub for now
+            break;
+
+        case RA_EVENT_OBJBUILT:  // Object built
+            // param1 = object type to check
+            // Requires build tracking - stub for now
+            break;
+
+        case RA_EVENT_LEAVES:  // Team leaves map
+            // Requires team tracking at map edges - stub for now
+            break;
+
+        case RA_EVENT_HORZ_CROSS:  // Crosses horizontal line
+            // param1 = Y coordinate of line
+            // Requires unit position tracking - stub for now
+            break;
+
+        case RA_EVENT_VERT_CROSS:  // Crosses vertical line
+            // param1 = X coordinate of line
+            // Requires unit position tracking - stub for now
+            break;
+
+        case RA_EVENT_FAKES_DESTR:  // Fake buildings destroyed
+            // Requires fake building tracking - stub for now
+            break;
+
+        case RA_EVENT_BRIDGE_DESTR:  // All bridges destroyed
+            // Requires bridge object tracking - stub for now
+            break;
+
         default:
-            // Unsupported event types - don't trigger
+            // Unknown event type - don't trigger
             break;
     }
 
@@ -2588,9 +2744,114 @@ static int ExecuteTriggerAction(ParsedTrigger* trig, int actionNum,
             Buildings_DestroyByTrigger(trig->name);
             break;
 
+        case RA_ACTION_WINLOSE:
+            // Win if object captured, lose if destroyed
+            // For now, treat as win (capture logic not implemented)
+            fprintf(stderr, "  TRIGGER: Win/Lose action (treating as win)\n");
+            return 1;
+
+        case RA_ACTION_REVEAL_ZONE:
+            // Reveal area around waypoint zone
+            // param1 = waypoint number
+            fprintf(stderr, "  TRIGGER: Reveal zone %d\n", param1);
+            if (mission && param1 >= 0 && param1 < MAX_MISSION_WAYPOINTS) {
+                int cellX = mission->waypoints[param1].cellX;
+                int cellY = mission->waypoints[param1].cellY;
+                Map_RevealArea(cellX * 24, cellY * 24, 5);
+            }
+            break;
+
+        case RA_ACTION_PLAY_SOUND:
+            // Play sound effect
+            // param1 = sound ID
+            fprintf(stderr, "  TRIGGER: Play sound %d\n", param1);
+            // Audio_PlaySound(param1); - would need audio integration
+            break;
+
+        case RA_ACTION_PLAY_MUSIC:
+            // Play music track
+            // param1 = music track ID
+            fprintf(stderr, "  TRIGGER: Play music %d\n", param1);
+            // Audio_PlayMusic(param1); - would need audio integration
+            break;
+
+        case RA_ACTION_PLAY_SPEECH:
+            // Play EVA speech
+            // param1 = speech ID
+            fprintf(stderr, "  TRIGGER: Play speech %d\n", param1);
+            // Audio_PlaySpeech(param1); - would need audio integration
+            break;
+
+        case RA_ACTION_ADD_TIMER:
+            // Add time to mission timer
+            // param1 = frames to add (or param2 * 60 for minutes)
+            fprintf(stderr, "  TRIGGER: Add time to timer: %d frames\n", param1);
+            if (g_missionTimerActive) {
+                g_missionTimerValue += param1;
+            }
+            break;
+
+        case RA_ACTION_SUB_TIMER:
+            // Subtract time from mission timer
+            // param1 = frames to subtract
+            fprintf(stderr, "  TRIGGER: Subtract time from timer: %d frames\n",
+                    param1);
+            if (g_missionTimerActive) {
+                g_missionTimerValue -= param1;
+                if (g_missionTimerValue < 0) g_missionTimerValue = 0;
+            }
+            break;
+
+        case RA_ACTION_SET_TIMER:
+            // Set and start timer
+            // param1 = frames (or param1 * 60 for minutes)
+            fprintf(stderr, "  TRIGGER: Set timer to %d frames\n", param1);
+            g_missionTimerActive = true;
+            g_missionTimerValue = param1;
+            break;
+
+        case RA_ACTION_BASE_BUILDING:
+            // Enable auto base building for AI
+            fprintf(stderr, "  TRIGGER: Enable AI base building\n");
+            // AI_EnableBaseBuilding(); - would need AI integration
+            break;
+
+        case RA_ACTION_GROW_SHROUD:
+            // Grow shroud one step (creep shadow)
+            fprintf(stderr, "  TRIGGER: Grow shroud one step\n");
+            // Map_GrowShroud(); - would need fog of war integration
+            break;
+
+        case RA_ACTION_1_SPECIAL:
+            // Grant one-time special weapon
+            // param1 = special weapon type
+            fprintf(stderr, "  TRIGGER: Grant one-time special %d\n", param1);
+            // Player_GrantSpecial(param1, false); - would need special weapon
+            break;
+
+        case RA_ACTION_FULL_SPECIAL:
+            // Grant repeating special weapon
+            // param1 = special weapon type
+            fprintf(stderr, "  TRIGGER: Grant full special %d\n", param1);
+            // Player_GrantSpecial(param1, true); - would need special weapon
+            break;
+
+        case RA_ACTION_PREF_TARGET:
+            // Set preferred attack target for AI
+            // param1 = target type (0=anything, 1=buildings, etc.)
+            fprintf(stderr, "  TRIGGER: Set preferred target %d\n", param1);
+            // AI_SetPreferredTarget(param1); - would need AI integration
+            break;
+
+        case RA_ACTION_LAUNCH_NUKES:
+            // Launch fake nuclear missiles
+            fprintf(stderr, "  TRIGGER: Launch fake nukes\n");
+            // FX_LaunchNukes(); - would need FX system
+            break;
+
         default:
             // Log unsupported actions for debugging
-            fprintf(stderr, "  TRIGGER: Unsupported action %d\n", actionNum);
+            fprintf(stderr, "  TRIGGER: Unknown action %d\n", actionNum);
             break;
     }
 
