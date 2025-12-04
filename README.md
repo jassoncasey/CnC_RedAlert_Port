@@ -82,6 +82,47 @@ make dist   # Creates signed zip
 make dmg    # Creates DMG image
 ```
 
+### Asset Viewer
+
+A visual inspection tool for exploring Westwood game assets. Useful for
+understanding file formats, verifying asset coverage, and debugging.
+
+**Features:**
+- Browse MIX archives recursively (MIX within MIX)
+- Preview sprites with animation playback
+- Play audio files (IMA ADPCM, uncompressed)
+- Play VQA video files with audio
+- Inspect palettes
+- View terrain templates
+- Filename database for CRC-to-name mapping
+
+**Building and Running:**
+
+```bash
+cd tools/asset-viewer
+make
+./build/asset-viewer
+```
+
+**Usage:**
+1. Launch the viewer
+2. Click "Select Directory" to choose your assets folder
+3. Browse the tree view to explore MIX files and their contents
+4. Select any asset to preview it (sprites animate, audio plays)
+5. Use Tab 2 for systematic asset review by type
+
+**Supported Formats:**
+
+| Format | Preview |
+|--------|---------|
+| MIX | Archive browser with recursive scanning |
+| SHP | Sprite preview with animation, frame-by-frame |
+| PAL | Color palette grid display |
+| AUD | Audio playback |
+| VQA | Video playback with audio |
+| TMP | Terrain tile preview |
+| INI | Text display |
+
 ---
 
 ## Game Assets
@@ -140,12 +181,23 @@ CnC_Red_Alert/
 │       ├── checkpoint.md  # /checkpoint - save session state
 │       └── resume.md      # /resume - restore from checkpoint
 │
+├── libs/                  # Shared libraries
+│   └── ra-media/          # Media library (renderer, audio, VQA)
+│       ├── Makefile
+│       ├── include/ra/    # Public headers
+│       └── src/           # Implementation
+│
+├── tools/                 # Development utilities
+│   └── asset-viewer/      # Visual asset inspection tool
+│       ├── Makefile
+│       └── asset_viewer.mm
+│
 ├── submodules/            # External reference repos
 │   ├── CnC_Remastered_Collection/  # EA's original source
 │   ├── OpenRA/                     # Reference implementation
-│   └── westwood-formats/           # File format docs
+│   └── westwood-formats/           # File formats & libwestwood
 │
-├── macos/                 # macOS port
+├── macos/                 # macOS game port
 │   ├── Makefile
 │   ├── data/              # Lookup tables
 │   ├── include/           # Header files
@@ -153,19 +205,31 @@ CnC_Red_Alert/
 │   └── src/
 │       ├── main.mm        # Entry point
 │       ├── assets/        # MIX/SHP/PAL/AUD loaders
-│       ├── audio/         # CoreAudio mixer
+│       ├── audio/         # Audio compatibility layer
 │       ├── crypto/        # Blowfish for encrypted MIX
 │       ├── game/          # Game logic
-│       ├── graphics/      # Metal renderer
+│       ├── graphics/      # Renderer compatibility layer
 │       ├── input/         # Event handling
 │       ├── platform/      # macOS abstractions
 │       ├── tests/         # Unit tests
-│       ├── tools/         # Development utilities
 │       ├── ui/            # Menu and game UI
-│       └── video/         # VQA playback
+│       └── video/         # VQA compatibility layer
 │
 └── assets/                # Game data (gitignored)
 ```
+
+### Shared Libraries
+
+| Library | Description |
+|---------|-------------|
+| **ra-media** | Platform-independent media layer: Metal renderer (640x400 palettized), CoreAudio mixer (16 channels), VQA video decoder. May be promoted to its own repo. |
+| **libwestwood** | Westwood file format decoders (MIX, SHP, PAL, AUD, VQA, TMP). From submodules/westwood-formats. |
+
+### Development Tools
+
+| Tool | Description |
+|------|-------------|
+| **asset-viewer** | Visual inspection tool for game assets. Browse MIX archives, preview sprites, play audio, verify asset coverage. |
 
 ### Submodules
 
@@ -173,7 +237,7 @@ CnC_Red_Alert/
 |------|------------|---------|
 | `submodules/CnC_Remastered_Collection/` | [electronicarts/CnC_Remastered_Collection](https://github.com/electronicarts/CnC_Remastered_Collection) | Original Windows source |
 | `submodules/OpenRA/` | [OpenRA/OpenRA](https://github.com/OpenRA/OpenRA) | Reference implementation |
-| `submodules/westwood-formats/` | [jassoncasey/westwood-formats](https://github.com/jassoncasey/westwood-formats) | File format documentation |
+| `submodules/westwood-formats/` | [jassoncasey/westwood-formats](https://github.com/jassoncasey/westwood-formats) | File formats, libwestwood library |
 
 ---
 

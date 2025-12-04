@@ -1,8 +1,12 @@
 /**
  * Red Alert macOS Port - LCW Compression Implementation
+ *
+ * Uses libwestwood for LCW decompression.
+ * Provides Base64 decode utility.
  */
 
 #include "lcw.h"
+#include <westwood/lcw.h>
 #include <cstring>
 
 // Base64 decode table
@@ -75,86 +79,13 @@ int Base64_Decode(const char* src, int srcLen, uint8_t* dst, int dstSize) {
 int LCW_Decompress(const uint8_t* src, uint8_t* dst, int srcSize, int dstSize) {
     if (!src || !dst || srcSize <= 0 || dstSize <= 0) return -1;
 
-    int srcIdx = 0;
-    int destIdx = 0;
+    std::span<const uint8_t> input(src, srcSize);
+    std::span<uint8_t> output(dst, dstSize);
 
-    while (srcIdx < srcSize) {
-        uint8_t cmd = src[srcIdx++];
-
-        if ((cmd & 0x80) == 0) {
-            // Case 2: Short copy from previous output (relative)
-            // 0CCCPPPP PPPPPPPP - Copy (CCC+3) bytes from (dest - PPP)
-            if (srcIdx >= srcSize) break;
-            uint8_t secondByte = src[srcIdx++];
-            int count = ((cmd & 0x70) >> 4) + 3;
-            int rpos = ((cmd & 0x0F) << 8) + secondByte;
-
-            if (destIdx + count > dstSize) break;
-
-            int srcPos = destIdx - rpos;
-            if (srcPos < 0) break;
-
-            for (int i = 0; i < count; i++) {
-                // Handle overlapping copies (RLE-like pattern)
-                if (destIdx - srcPos == 1)
-                    dst[destIdx + i] = dst[destIdx - 1];
-                else
-                    dst[destIdx + i] = dst[srcPos + i];
-            }
-            destIdx += count;
-        } else if ((cmd & 0x40) == 0) {
-            // Case 1: Literal copy from source
-            // 10CCCCCC - Copy C bytes literally from source
-            int count = cmd & 0x3F;
-            if (count == 0) break; // End marker
-
-            if (srcIdx + count > srcSize || destIdx + count > dstSize) break;
-            memcpy(&dst[destIdx], &src[srcIdx], count);
-            srcIdx += count;
-            destIdx += count;
-        } else {
-            // 11XXXXXX commands
-            int count3 = cmd & 0x3F;
-            if (count3 == 0x3E) {
-                // Case 4: RLE fill
-                // 11111110 CCCC CCCC VV - Fill CCCC bytes with value VV
-                if (srcIdx + 3 > srcSize) break;
-                int count = src[srcIdx] | (src[srcIdx + 1] << 8);
-                uint8_t value = src[srcIdx + 2];
-                srcIdx += 3;
-
-                if (destIdx + count > dstSize) count = dstSize - destIdx;
-                memset(&dst[destIdx], value, count);
-                destIdx += count;
-            } else if (count3 == 0x3F) {
-                // Case 5: Long copy from previous output (absolute)
-                // 11111111 CCCC CCCC PPPP PPPP - Copy CCCC from absolute pos
-                if (srcIdx + 4 > srcSize) break;
-                int count = src[srcIdx] | (src[srcIdx + 1] << 8);
-                int srcPos = src[srcIdx + 2] | (src[srcIdx + 3] << 8);
-                srcIdx += 4;
-
-                if (srcPos >= destIdx) break;
-                if (destIdx + count > dstSize) break;
-
-                for (int i = 0; i < count; i++)
-                    dst[destIdx++] = dst[srcPos++];
-            } else {
-                // Case 3: Short copy from previous output (absolute)
-                // 11CCCCCC PPPP PPPP - Copy (C+3) bytes from absolute pos
-                if (srcIdx + 2 > srcSize) break;
-                int count = count3 + 3;
-                int srcPos = src[srcIdx] | (src[srcIdx + 1] << 8);
-                srcIdx += 2;
-
-                if (srcPos >= destIdx) break;
-                if (destIdx + count > dstSize) break;
-
-                for (int i = 0; i < count; i++)
-                    dst[destIdx++] = dst[srcPos++];
-            }
-        }
+    auto result = wwd::lcw_decompress(input, output);
+    if (!result) {
+        return -1;
     }
 
-    return destIdx;
+    return static_cast<int>(*result);
 }

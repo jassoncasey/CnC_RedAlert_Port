@@ -1,5 +1,5 @@
 /**
- * Red Alert macOS Port - Audio Implementation
+ * wwd-media - Audio Implementation
  *
  * Uses AVFoundation/AudioToolbox for sound playback.
  * Supports mixing multiple simultaneous sounds via AudioUnit.
@@ -7,7 +7,7 @@
 
 #import <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
-#include "audio.h"
+#include "wwd/audio.h"
 #include <cstring>
 #include <cmath>
 #include <mutex>
@@ -18,33 +18,33 @@ static const UInt32 kOutputChannels = 2;
 
 // Sound channel state
 typedef struct {
-    const AudioSample* sample;  // Source sample (not owned)
-    uint32_t position;          // Current playback position in bytes
-    uint8_t volume;             // Channel volume (0-255)
-    int8_t pan;                 // Pan (-128 to 127)
-    BOOL loop;                  // Loop flag
-    BOOL playing;               // Is this channel active?
-    SoundHandle handle;         // Unique handle for this instance
+    const WwdAudioSample* sample;  // Source sample (not owned)
+    uint32_t position;            // Current playback position in bytes
+    uint8_t volume;               // Channel volume (0-255)
+    int8_t pan;                   // Pan (-128 to 127)
+    WwdBool loop;                  // Loop flag
+    WwdBool playing;               // Is this channel active?
+    WwdSoundHandle handle;         // Unique handle for this instance
 } AudioChannel;
 
 // Global state
 static AudioComponentInstance g_audioUnit = nullptr;
-static AudioChannel g_channels[AUDIO_MAX_CHANNELS];
+static AudioChannel g_channels[WWD_AUDIO_MAX_CHANNELS];
 static uint8_t g_masterVolume = 255;
 static uint8_t g_soundVolume = 255;  // Separate volume for sound effects
-static BOOL g_paused = FALSE;
-static BOOL g_initialized = FALSE;
-static SoundHandle g_nextHandle = 1;
+static WwdBool g_paused = WWD_FALSE;
+static WwdBool g_initialized = WWD_FALSE;
+static WwdSoundHandle g_nextHandle = 1;
 static std::mutex g_audioMutex;
 
 // Music streaming state
-static MusicStreamCallback g_musicCallback = nullptr;
+static WwdMusicStreamCallback g_musicCallback = nullptr;
 static void* g_musicUserdata = nullptr;
 static float g_musicVolume = 1.0f;
 static int16_t g_musicBuffer[4096];  // Temp buffer for music samples
 
 // Video audio streaming state
-static VideoAudioCallback g_videoCallback = nullptr;
+static WwdVideoAudioCallback g_videoCallback = nullptr;
 static void* g_videoUserdata = nullptr;
 static float g_videoVolume = 1.0f;
 static int g_videoSampleRate = 22050;
@@ -92,13 +92,13 @@ static OSStatus AudioRenderCallback(
     Float32 masterVol = (Float32)g_masterVolume / 255.0f;
     Float32 soundVol = (Float32)g_soundVolume / 255.0f;
 
-    for (int ch = 0; ch < AUDIO_MAX_CHANNELS; ch++) {
+    for (int ch = 0; ch < WWD_AUDIO_MAX_CHANNELS; ch++) {
         AudioChannel* channel = &g_channels[ch];
         if (!channel->playing || !channel->sample) {
             continue;
         }
 
-        const AudioSample* sample = channel->sample;
+        const WwdAudioSample* sample = channel->sample;
         Float32 chVol = (Float32)channel->volume / 255.0f;
         Float32 channelVol = chVol * masterVol * soundVol;
 
@@ -129,7 +129,7 @@ static OSStatus AudioRenderCallback(
                     srcSampleIdx = srcSampleIdx % maxIdx;
                     srcBytePos = srcSampleIdx * bytesPerSourceFrame;
                 } else {
-                    channel->playing = FALSE;
+                    channel->playing = WWD_FALSE;
                     break;
                 }
             }
@@ -174,7 +174,7 @@ static OSStatus AudioRenderCallback(
                     uint32_t maxPos = totalSamples * 256;
                     channel->position = channel->position % maxPos;
                 } else {
-                    channel->playing = FALSE;
+                    channel->playing = WWD_FALSE;
                 }
             }
         }
@@ -281,9 +281,9 @@ static OSStatus AudioRenderCallback(
     return noErr;
 }
 
-BOOL Audio_Init(void) {
+WwdBool Wwd_Audio_Init(void) {
     if (g_initialized) {
-        return TRUE;
+        return WWD_TRUE;
     }
 
     // Initialize channels
@@ -300,14 +300,14 @@ BOOL Audio_Init(void) {
 
     AudioComponent component = AudioComponentFindNext(nullptr, &desc);
     if (!component) {
-        NSLog(@"Audio: Failed to find audio component");
-        return FALSE;
+        NSLog(@"Ra_Audio: Failed to find audio component");
+        return WWD_FALSE;
     }
 
     OSStatus status = AudioComponentInstanceNew(component, &g_audioUnit);
     if (status != noErr) {
-        NSLog(@"Audio: Failed to create audio unit: %d", (int)status);
-        return FALSE;
+        NSLog(@"Ra_Audio: Failed to create audio unit: %d", (int)status);
+        return WWD_FALSE;
     }
 
     // Set up audio format (non-interleaved float)
@@ -331,10 +331,10 @@ BOOL Audio_Init(void) {
                                   &format,
                                   sizeof(format));
     if (status != noErr) {
-        NSLog(@"Audio: Failed to set stream format: %d", (int)status);
+        NSLog(@"Ra_Audio: Failed to set stream format: %d", (int)status);
         AudioComponentInstanceDispose(g_audioUnit);
         g_audioUnit = nullptr;
-        return FALSE;
+        return WWD_FALSE;
     }
 
     // Set render callback
@@ -350,37 +350,37 @@ BOOL Audio_Init(void) {
                                   &callback,
                                   sizeof(callback));
     if (status != noErr) {
-        NSLog(@"Audio: Failed to set render callback: %d", (int)status);
+        NSLog(@"Ra_Audio: Failed to set render callback: %d", (int)status);
         AudioComponentInstanceDispose(g_audioUnit);
         g_audioUnit = nullptr;
-        return FALSE;
+        return WWD_FALSE;
     }
 
     // Initialize and start
     status = AudioUnitInitialize(g_audioUnit);
     if (status != noErr) {
-        NSLog(@"Audio: Failed to initialize audio unit: %d", (int)status);
+        NSLog(@"Ra_Audio: Failed to initialize audio unit: %d", (int)status);
         AudioComponentInstanceDispose(g_audioUnit);
         g_audioUnit = nullptr;
-        return FALSE;
+        return WWD_FALSE;
     }
 
     status = AudioOutputUnitStart(g_audioUnit);
     if (status != noErr) {
-        NSLog(@"Audio: Failed to start audio unit: %d", (int)status);
+        NSLog(@"Ra_Audio: Failed to start audio unit: %d", (int)status);
         AudioUnitUninitialize(g_audioUnit);
         AudioComponentInstanceDispose(g_audioUnit);
         g_audioUnit = nullptr;
-        return FALSE;
+        return WWD_FALSE;
     }
 
-    g_initialized = TRUE;
-    NSLog(@"Audio: Initialized (%.0f Hz, %u ch)",
+    g_initialized = WWD_TRUE;
+    NSLog(@"Ra_Audio: Initialized (%.0f Hz, %u ch)",
           kOutputSampleRate, kOutputChannels);
-    return TRUE;
+    return WWD_TRUE;
 }
 
-void Audio_Shutdown(void) {
+void Wwd_Audio_Shutdown(void) {
     if (!g_initialized) {
         return;
     }
@@ -392,16 +392,16 @@ void Audio_Shutdown(void) {
         g_audioUnit = nullptr;
     }
 
-    g_initialized = FALSE;
-    NSLog(@"Audio: Shutdown");
+    g_initialized = WWD_FALSE;
+    NSLog(@"Ra_Audio: Shutdown");
 }
 
-void Audio_Update(void) {
+void Wwd_Audio_Update(void) {
     // Nothing needed - mixing happens in callback
 }
 
-SoundHandle Audio_Play(const AudioSample* sample, uint8_t volume,
-                       int8_t pan, BOOL loop) {
+WwdSoundHandle Wwd_Audio_Play(const WwdAudioSample* sample, uint8_t volume,
+                            int8_t pan, WwdBool loop) {
     if (!g_initialized || !sample || !sample->data) {
         return 0;
     }
@@ -409,14 +409,14 @@ SoundHandle Audio_Play(const AudioSample* sample, uint8_t volume,
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
     // Find free channel
-    for (int i = 0; i < AUDIO_MAX_CHANNELS; i++) {
+    for (int i = 0; i < WWD_AUDIO_MAX_CHANNELS; i++) {
         if (!g_channels[i].playing) {
             g_channels[i].sample = sample;
             g_channels[i].position = 0;
             g_channels[i].volume = volume;
             g_channels[i].pan = pan;
             g_channels[i].loop = loop;
-            g_channels[i].playing = TRUE;
+            g_channels[i].playing = WWD_TRUE;
             g_channels[i].handle = g_nextHandle++;
 
             if (g_nextHandle == 0) g_nextHandle = 1; // Skip 0
@@ -429,48 +429,48 @@ SoundHandle Audio_Play(const AudioSample* sample, uint8_t volume,
     return 0;
 }
 
-void Audio_Stop(SoundHandle handle) {
+void Wwd_Audio_Stop(WwdSoundHandle handle) {
     if (!handle) return;
 
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
-    for (int i = 0; i < AUDIO_MAX_CHANNELS; i++) {
+    for (int i = 0; i < WWD_AUDIO_MAX_CHANNELS; i++) {
         if (g_channels[i].handle == handle) {
-            g_channels[i].playing = FALSE;
+            g_channels[i].playing = WWD_FALSE;
             g_channels[i].handle = 0;
             return;
         }
     }
 }
 
-void Audio_StopAll(void) {
+void Wwd_Audio_StopAll(void) {
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
-    for (int i = 0; i < AUDIO_MAX_CHANNELS; i++) {
-        g_channels[i].playing = FALSE;
+    for (int i = 0; i < WWD_AUDIO_MAX_CHANNELS; i++) {
+        g_channels[i].playing = WWD_FALSE;
         g_channels[i].handle = 0;
     }
 }
 
-BOOL Audio_IsPlaying(SoundHandle handle) {
-    if (!handle) return FALSE;
+WwdBool Wwd_Audio_IsPlaying(WwdSoundHandle handle) {
+    if (!handle) return WWD_FALSE;
 
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
-    for (int i = 0; i < AUDIO_MAX_CHANNELS; i++) {
+    for (int i = 0; i < WWD_AUDIO_MAX_CHANNELS; i++) {
         if (g_channels[i].handle == handle && g_channels[i].playing) {
-            return TRUE;
+            return WWD_TRUE;
         }
     }
-    return FALSE;
+    return WWD_FALSE;
 }
 
-void Audio_SetVolume(SoundHandle handle, uint8_t volume) {
+void Wwd_Audio_SetVolume(WwdSoundHandle handle, uint8_t volume) {
     if (!handle) return;
 
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
-    for (int i = 0; i < AUDIO_MAX_CHANNELS; i++) {
+    for (int i = 0; i < WWD_AUDIO_MAX_CHANNELS; i++) {
         if (g_channels[i].handle == handle) {
             g_channels[i].volume = volume;
             return;
@@ -478,12 +478,12 @@ void Audio_SetVolume(SoundHandle handle, uint8_t volume) {
     }
 }
 
-void Audio_SetPan(SoundHandle handle, int8_t pan) {
+void Wwd_Audio_SetPan(WwdSoundHandle handle, int8_t pan) {
     if (!handle) return;
 
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
-    for (int i = 0; i < AUDIO_MAX_CHANNELS; i++) {
+    for (int i = 0; i < WWD_AUDIO_MAX_CHANNELS; i++) {
         if (g_channels[i].handle == handle) {
             g_channels[i].pan = pan;
             return;
@@ -491,35 +491,35 @@ void Audio_SetPan(SoundHandle handle, int8_t pan) {
     }
 }
 
-void Audio_SetMasterVolume(uint8_t volume) {
+void Wwd_Audio_SetMasterVolume(uint8_t volume) {
     g_masterVolume = volume;
 }
 
-uint8_t Audio_GetMasterVolume(void) {
+uint8_t Wwd_Audio_GetMasterVolume(void) {
     return g_masterVolume;
 }
 
-void Audio_SetSoundVolume(uint8_t volume) {
+void Wwd_Audio_SetSoundVolume(uint8_t volume) {
     g_soundVolume = volume;
 }
 
-uint8_t Audio_GetSoundVolume(void) {
+uint8_t Wwd_Audio_GetSoundVolume(void) {
     return g_soundVolume;
 }
 
-void Audio_Pause(BOOL pause) {
+void Wwd_Audio_Pause(WwdBool pause) {
     g_paused = pause;
 }
 
-BOOL Audio_IsPaused(void) {
+WwdBool Wwd_Audio_IsPaused(void) {
     return g_paused;
 }
 
-int Audio_GetPlayingCount(void) {
+int Wwd_Audio_GetPlayingCount(void) {
     std::lock_guard<std::mutex> lock(g_audioMutex);
 
     int count = 0;
-    for (int i = 0; i < AUDIO_MAX_CHANNELS; i++) {
+    for (int i = 0; i < WWD_AUDIO_MAX_CHANNELS; i++) {
         if (g_channels[i].playing) {
             count++;
         }
@@ -528,8 +528,8 @@ int Audio_GetPlayingCount(void) {
 }
 
 // Generate a simple sine wave test tone
-AudioSample* Audio_CreateTestTone(uint32_t frequency, uint32_t durationMs) {
-    AudioSample* sample = new AudioSample;
+WwdAudioSample* Wwd_Audio_CreateTestTone(uint32_t frequency, uint32_t durationMs) {
+    WwdAudioSample* sample = new WwdAudioSample;
 
     sample->sampleRate = 22050;
     sample->channels = 1;
@@ -563,7 +563,7 @@ AudioSample* Audio_CreateTestTone(uint32_t frequency, uint32_t durationMs) {
     return sample;
 }
 
-void Audio_FreeTestTone(AudioSample* sample) {
+void Wwd_Audio_FreeTestTone(WwdAudioSample* sample) {
     if (sample) {
         delete[] sample->data;
         delete sample;
@@ -574,19 +574,19 @@ void Audio_FreeTestTone(AudioSample* sample) {
 // Music Streaming
 //===========================================================================
 
-void Audio_SetMusicCallback(MusicStreamCallback callback, void* userdata) {
+void Wwd_Audio_SetMusicCallback(WwdMusicStreamCallback callback, void* userdata) {
     std::lock_guard<std::mutex> lock(g_audioMutex);
     g_musicCallback = callback;
     g_musicUserdata = userdata;
 }
 
-void Audio_SetMusicVolume(float volume) {
+void Wwd_Audio_SetMusicVolume(float volume) {
     if (volume < 0.0f) volume = 0.0f;
     if (volume > 1.0f) volume = 1.0f;
     g_musicVolume = volume;
 }
 
-float Audio_GetMusicVolume(void) {
+float Wwd_Audio_GetMusicVolume(void) {
     return g_musicVolume;
 }
 
@@ -594,8 +594,8 @@ float Audio_GetMusicVolume(void) {
 // Video Audio Streaming
 //===========================================================================
 
-void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata,
-                            int sampleRate) {
+void Wwd_Audio_SetVideoCallback(WwdVideoAudioCallback callback, void* userdata,
+                               int sampleRate) {
     std::lock_guard<std::mutex> lock(g_audioMutex);
     g_videoCallback = callback;
     g_videoUserdata = userdata;
@@ -604,12 +604,12 @@ void Audio_SetVideoCallback(VideoAudioCallback callback, void* userdata,
     g_videoUnderrunFade = 0;     // Reset fade state
 }
 
-void Audio_SetVideoVolume(float volume) {
+void Wwd_Audio_SetVideoVolume(float volume) {
     if (volume < 0.0f) volume = 0.0f;
     if (volume > 1.0f) volume = 1.0f;
     g_videoVolume = volume;
 }
 
-float Audio_GetVideoVolume(void) {
+float Wwd_Audio_GetVideoVolume(void) {
     return g_videoVolume;
 }

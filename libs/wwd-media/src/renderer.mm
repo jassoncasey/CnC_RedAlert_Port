@@ -1,5 +1,5 @@
 /**
- * Red Alert macOS Port - Metal Renderer Implementation
+ * wwd-media - Metal Renderer Implementation
  *
  * Software framebuffer rendered via Metal.
  */
@@ -8,13 +8,13 @@
 #import <MetalKit/MetalKit.h>
 #import <simd/simd.h>
 
-#include "renderer.h"
+#include "wwd/renderer.h"
 #include <cstring>
 #include <cstdlib>
 
 // Shorthand for framebuffer dimensions
-#define FBW FRAMEBUFFER_WIDTH
-#define FBH FRAMEBUFFER_HEIGHT
+#define FBW WWD_FRAMEBUFFER_WIDTH
+#define FBH WWD_FRAMEBUFFER_HEIGHT
 
 // Shader source for fullscreen quad
 static const char* shaderSource = R"(
@@ -67,20 +67,20 @@ static struct {
     uint8_t* framebuffer;       // 8-bit indexed framebuffer
     uint8_t* alphaBuffer;       // 8-bit alpha buffer (255=opaque, 0=black)
     uint32_t* rgbaBuffer;       // RGBA conversion buffer
-    Palette palette;            // Current palette
+    WwdPalette palette;          // Current palette
 
     bool initialized;
 } g_renderer = {};
 
-BOOL Renderer_Init(void* metalView) {
+WwdBool Wwd_Renderer_Init(void* metalView) {
     if (g_renderer.initialized) {
-        return TRUE;
+        return WWD_TRUE;
     }
 
     MTKView* view = (__bridge MTKView*)metalView;
     if (!view || !view.device) {
-        NSLog(@"Renderer_Init: Invalid Metal view");
-        return FALSE;
+        NSLog(@"Wwd_Renderer_Init: Invalid Metal view");
+        return WWD_FALSE;
     }
 
     g_renderer.view = view;
@@ -89,8 +89,8 @@ BOOL Renderer_Init(void* metalView) {
     // Create command queue
     g_renderer.commandQueue = [g_renderer.device newCommandQueue];
     if (!g_renderer.commandQueue) {
-        NSLog(@"Renderer_Init: Failed to create command queue");
-        return FALSE;
+        NSLog(@"Wwd_Renderer_Init: Failed to create command queue");
+        return WWD_FALSE;
     }
 
     // Compile shaders
@@ -100,8 +100,8 @@ BOOL Renderer_Init(void* metalView) {
                                                options:nil
                                                  error:&error];
     if (!library) {
-        NSLog(@"Renderer_Init: Failed to compile shaders: %@", error);
-        return FALSE;
+        NSLog(@"Wwd_Renderer_Init: Failed to compile shaders: %@", error);
+        return WWD_FALSE;
     }
 
     id<MTLFunction> vFunc = [library newFunctionWithName:@"vertexShader"];
@@ -116,8 +116,8 @@ BOOL Renderer_Init(void* metalView) {
     g_renderer.pipelineState =
         [dev newRenderPipelineStateWithDescriptor:desc error:&error];
     if (!g_renderer.pipelineState) {
-        NSLog(@"Renderer_Init: Failed to create pipeline state: %@", error);
-        return FALSE;
+        NSLog(@"Wwd_Renderer_Init: Failed to create pipeline state: %@", error);
+        return WWD_FALSE;
     }
 
     // Create framebuffer texture
@@ -130,8 +130,8 @@ BOOL Renderer_Init(void* metalView) {
 
     g_renderer.framebufferTexture = [dev newTextureWithDescriptor:texDesc];
     if (!g_renderer.framebufferTexture) {
-        NSLog(@"Renderer_Init: Failed to create framebuffer texture");
-        return FALSE;
+        NSLog(@"Wwd_Renderer_Init: Failed to create framebuffer texture");
+        return WWD_FALSE;
     }
 
     // Allocate CPU-side buffers
@@ -143,28 +143,32 @@ BOOL Renderer_Init(void* metalView) {
     bool alloc = g_renderer.framebuffer && g_renderer.alphaBuffer &&
                  g_renderer.rgbaBuffer;
     if (!alloc) {
-        NSLog(@"Renderer_Init: Failed to allocate framebuffer");
-        Renderer_Shutdown();
-        return FALSE;
+        NSLog(@"Wwd_Renderer_Init: Failed to allocate framebuffer");
+        Wwd_Renderer_Shutdown();
+        return WWD_FALSE;
     }
 
     // Initialize alpha buffer to fully opaque
     memset(g_renderer.alphaBuffer, 255, pixelCount);
 
-    // Initialize with default palette
-    StubAssets_CreatePalette(&g_renderer.palette);
+    // Initialize palette to grayscale (caller should set proper palette)
+    for (int i = 0; i < 256; i++) {
+        g_renderer.palette.colors[i][0] = i;
+        g_renderer.palette.colors[i][1] = i;
+        g_renderer.palette.colors[i][2] = i;
+    }
 
     // Enable continuous rendering
     view.paused = NO;
     view.enableSetNeedsDisplay = NO;
 
     g_renderer.initialized = true;
-    NSLog(@"Renderer initialized: %dx%d framebuffer", FBW, FBH);
+    NSLog(@"Ra_Renderer initialized: %dx%d framebuffer", FBW, FBH);
 
-    return TRUE;
+    return WWD_TRUE;
 }
 
-void Renderer_Shutdown(void) {
+void Wwd_Renderer_Shutdown(void) {
     if (g_renderer.framebuffer) {
         free(g_renderer.framebuffer);
         g_renderer.framebuffer = nullptr;
@@ -187,25 +191,25 @@ void Renderer_Shutdown(void) {
     g_renderer.initialized = false;
 }
 
-uint8_t* Renderer_GetFramebuffer(void) {
+uint8_t* Wwd_Renderer_GetFramebuffer(void) {
     return g_renderer.framebuffer;
 }
 
-int Renderer_GetWidth(void) {
+int Wwd_Renderer_GetWidth(void) {
     return FBW;
 }
 
-int Renderer_GetHeight(void) {
+int Wwd_Renderer_GetHeight(void) {
     return FBH;
 }
 
-void Renderer_SetPalette(const Palette* palette) {
+void Wwd_Renderer_SetPalette(const WwdPalette* palette) {
     if (palette) {
-        memcpy(&g_renderer.palette, palette, sizeof(Palette));
+        memcpy(&g_renderer.palette, palette, sizeof(WwdPalette));
     }
 }
 
-void Renderer_Present(void) {
+void Wwd_Renderer_Present(void) {
     if (!g_renderer.initialized || !g_renderer.view) {
         return;
     }
@@ -264,7 +268,7 @@ void Renderer_Present(void) {
     [cmdBuf commit];
 }
 
-void Renderer_Clear(uint8_t colorIndex) {
+void Wwd_Renderer_Clear(uint8_t colorIndex) {
     if (g_renderer.framebuffer) {
         memset(g_renderer.framebuffer, colorIndex, FBW * FBH);
     }
@@ -274,8 +278,8 @@ void Renderer_Clear(uint8_t colorIndex) {
     }
 }
 
-void Renderer_FillRect(int x, int y, int width, int height,
-                       uint8_t colorIndex) {
+void Wwd_Renderer_FillRect(int x, int y, int width, int height,
+                          uint8_t colorIndex) {
     if (!g_renderer.framebuffer) return;
 
     // Clip to framebuffer bounds
@@ -292,14 +296,14 @@ void Renderer_FillRect(int x, int y, int width, int height,
     }
 }
 
-void Renderer_PutPixel(int x, int y, uint8_t colorIndex) {
+void Wwd_Renderer_PutPixel(int x, int y, uint8_t colorIndex) {
     if (!g_renderer.framebuffer) return;
     if (x < 0 || x >= FBW || y < 0 || y >= FBH) return;
 
     g_renderer.framebuffer[y * FBW + x] = colorIndex;
 }
 
-uint8_t Renderer_GetPixel(int x, int y) {
+uint8_t Wwd_Renderer_GetPixel(int x, int y) {
     if (!g_renderer.framebuffer) return 0;
     if (x < 0 || x >= FBW || y < 0 || y >= FBH) return 0;
 
@@ -312,14 +316,14 @@ static int g_clipY = 0;
 static int g_clipWidth = FBW;
 static int g_clipHeight = FBH;
 
-void Renderer_SetClipRect(int x, int y, int width, int height) {
+void Wwd_Renderer_SetClipRect(int x, int y, int width, int height) {
     g_clipX = (x < 0) ? 0 : x;
     g_clipY = (y < 0) ? 0 : y;
     g_clipWidth = (x + width > FBW) ? FBW - g_clipX : width;
     g_clipHeight = (y + height > FBH) ? FBH - g_clipY : height;
 }
 
-void Renderer_ResetClip(void) {
+void Wwd_Renderer_ResetClip(void) {
     g_clipX = 0;
     g_clipY = 0;
     g_clipWidth = FBW;
@@ -334,7 +338,7 @@ static inline void ClippedPixel(int x, int y, uint8_t color) {
     }
 }
 
-void Renderer_HLine(int x1, int x2, int y, uint8_t colorIndex) {
+void Wwd_Renderer_HLine(int x1, int x2, int y, uint8_t colorIndex) {
     if (!g_renderer.framebuffer) return;
     if (y < g_clipY || y >= g_clipY + g_clipHeight) return;
 
@@ -349,7 +353,7 @@ void Renderer_HLine(int x1, int x2, int y, uint8_t colorIndex) {
     memset(dest, colorIndex, x2 - x1 + 1);
 }
 
-void Renderer_VLine(int x, int y1, int y2, uint8_t colorIndex) {
+void Wwd_Renderer_VLine(int x, int y1, int y2, uint8_t colorIndex) {
     if (!g_renderer.framebuffer) return;
     if (x < g_clipX || x >= g_clipX + g_clipWidth) return;
 
@@ -367,7 +371,7 @@ void Renderer_VLine(int x, int y1, int y2, uint8_t colorIndex) {
     }
 }
 
-void Renderer_DrawLine(int x1, int y1, int x2, int y2, uint8_t colorIndex) {
+void Wwd_Renderer_DrawLine(int x1, int y1, int x2, int y2, uint8_t colorIndex) {
     if (!g_renderer.framebuffer) return;
 
     // Bresenham's line algorithm
@@ -394,17 +398,17 @@ void Renderer_DrawLine(int x1, int y1, int x2, int y2, uint8_t colorIndex) {
     }
 }
 
-void Renderer_DrawRect(int x, int y, int width, int height,
-                       uint8_t colorIndex) {
+void Wwd_Renderer_DrawRect(int x, int y, int width, int height,
+                          uint8_t colorIndex) {
     if (width <= 0 || height <= 0) return;
 
-    Renderer_HLine(x, x + width - 1, y, colorIndex);                 // Top
-    Renderer_HLine(x, x + width - 1, y + height - 1, colorIndex);    // Bottom
-    Renderer_VLine(x, y, y + height - 1, colorIndex);                // Left
-    Renderer_VLine(x + width - 1, y, y + height - 1, colorIndex);    // Right
+    Wwd_Renderer_HLine(x, x + width - 1, y, colorIndex);                 // Top
+    Wwd_Renderer_HLine(x, x + width - 1, y + height - 1, colorIndex);    // Bottom
+    Wwd_Renderer_VLine(x, y, y + height - 1, colorIndex);                // Left
+    Wwd_Renderer_VLine(x + width - 1, y, y + height - 1, colorIndex);    // Right
 }
 
-void Renderer_DrawCircle(int cx, int cy, int radius, uint8_t colorIndex) {
+void Wwd_Renderer_DrawCircle(int cx, int cy, int radius, uint8_t colorIndex) {
     if (!g_renderer.framebuffer || radius <= 0) return;
 
     // Midpoint circle algorithm
@@ -433,7 +437,7 @@ void Renderer_DrawCircle(int cx, int cy, int radius, uint8_t colorIndex) {
     }
 }
 
-void Renderer_FillCircle(int cx, int cy, int radius, uint8_t colorIndex) {
+void Wwd_Renderer_FillCircle(int cx, int cy, int radius, uint8_t colorIndex) {
     if (!g_renderer.framebuffer || radius <= 0) return;
 
     // Filled circle using horizontal lines
@@ -442,10 +446,10 @@ void Renderer_FillCircle(int cx, int cy, int radius, uint8_t colorIndex) {
     int err = 0;
 
     while (x >= y) {
-        Renderer_HLine(cx - x, cx + x, cy + y, colorIndex);
-        Renderer_HLine(cx - x, cx + x, cy - y, colorIndex);
-        Renderer_HLine(cx - y, cx + y, cy + x, colorIndex);
-        Renderer_HLine(cx - y, cx + y, cy - x, colorIndex);
+        Wwd_Renderer_HLine(cx - x, cx + x, cy + y, colorIndex);
+        Wwd_Renderer_HLine(cx - x, cx + x, cy - y, colorIndex);
+        Wwd_Renderer_HLine(cx - y, cx + y, cy + x, colorIndex);
+        Wwd_Renderer_HLine(cx - y, cx + y, cy - x, colorIndex);
 
         y++;
         if (err <= 0) {
@@ -458,8 +462,8 @@ void Renderer_FillCircle(int cx, int cy, int radius, uint8_t colorIndex) {
     }
 }
 
-void Renderer_Blit(const uint8_t* srcData, int srcWidth, int srcHeight,
-                   int destX, int destY, BOOL trans) {
+void Wwd_Renderer_Blit(const uint8_t* srcData, int srcWidth, int srcHeight,
+                      int destX, int destY, WwdBool trans) {
     if (!g_renderer.framebuffer || !srcData) return;
 
     for (int sy = 0; sy < srcHeight; sy++) {
@@ -478,9 +482,9 @@ void Renderer_Blit(const uint8_t* srcData, int srcWidth, int srcHeight,
     }
 }
 
-void Renderer_BlitRegion(const uint8_t* srcData, int srcWidth, int srcHeight,
-                         int srcX, int srcY, int regionWidth, int regionHeight,
-                         int destX, int destY, BOOL trans) {
+void Wwd_Renderer_BlitRegion(const uint8_t* srcData, int srcWidth, int srcHeight,
+                            int srcX, int srcY, int regionWidth, int regionHeight,
+                            int destX, int destY, WwdBool trans) {
     if (!g_renderer.framebuffer || !srcData) return;
 
     for (int ry = 0; ry < regionHeight; ry++) {
@@ -505,9 +509,9 @@ void Renderer_BlitRegion(const uint8_t* srcData, int srcWidth, int srcHeight,
     }
 }
 
-void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
-                        int destX, int destY, int destWidth, int destHeight,
-                        BOOL trans) {
+void Wwd_Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
+                           int destX, int destY, int destWidth, int destHeight,
+                           WwdBool trans) {
     if (!g_renderer.framebuffer || !srcData) return;
     if (destWidth <= 0 || destHeight <= 0) return;
 
@@ -526,10 +530,10 @@ void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
             int screenX = destX + dx;
             if (screenX < g_clipX || screenX >= g_clipX + g_clipWidth) continue;
 
-            int srcX = (dx * xRatio) >> 16;
-            if (srcX >= srcWidth) srcX = srcWidth - 1;
+            int srcXp = (dx * xRatio) >> 16;
+            if (srcXp >= srcWidth) srcXp = srcWidth - 1;
 
-            uint8_t pixel = srcData[srcY * srcWidth + srcX];
+            uint8_t pixel = srcData[srcY * srcWidth + srcXp];
             if (trans && pixel == 0) continue;
 
             g_renderer.framebuffer[screenY * FBW + screenX] = pixel;
@@ -537,7 +541,8 @@ void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
     }
 }
 
-void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap) {
+void Wwd_Renderer_Remap(int x, int y, int width, int height,
+                       const uint8_t* remap) {
     if (!g_renderer.framebuffer || !remap) return;
 
     // Clip
@@ -557,7 +562,7 @@ void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap) {
     }
 }
 
-void Renderer_DimRect(int x, int y, int width, int height, int amount) {
+void Wwd_Renderer_DimRect(int x, int y, int width, int height, int amount) {
     if (!g_renderer.framebuffer || amount <= 0) return;
 
     // Clip
@@ -568,16 +573,6 @@ void Renderer_DimRect(int x, int y, int width, int height, int amount) {
     if (x2 > g_clipX + g_clipWidth) x2 = g_clipX + g_clipWidth;
     if (y2 > g_clipY + g_clipHeight) y2 = g_clipY + g_clipHeight;
 
-    // Dim by reading the current palette RGB, darkening, and finding nearest
-    // For performance, we blend toward black by modifying
-    // the RGB values directly in the RGBA conversion
-    // But since we're palette-based, we'll darken by shifting palette indices
-    // toward darker entries in the same color family
-
-    // Simple approach: For each pixel, if amount=1, shift down by ~16 indices
-    // if amount=2, shift more. This works because Westwood palettes typically
-    // have darker shades at lower indices within color ranges.
-
     int shift = (amount == 1) ? 8 : 16;
 
     for (int py = y1; py < y2; py++) {
@@ -586,7 +581,6 @@ void Renderer_DimRect(int x, int y, int width, int height, int amount) {
             uint8_t idx = *row;
             // Skip pure black (0) and very dark colors
             if (idx > 4) {
-                // Shift toward darker palette entry, but keep minimum of 1
                 int newIdx = idx - shift;
                 if (newIdx < 1) newIdx = 1;
                 *row = (uint8_t)newIdx;
@@ -596,7 +590,7 @@ void Renderer_DimRect(int x, int y, int width, int height, int amount) {
     }
 }
 
-void Renderer_SetAlpha(int x, int y, int width, int height, uint8_t alpha) {
+void Wwd_Renderer_SetAlpha(int x, int y, int width, int height, uint8_t alpha) {
     if (!g_renderer.alphaBuffer) return;
 
     // Clip to framebuffer bounds
@@ -616,21 +610,18 @@ void Renderer_SetAlpha(int x, int y, int width, int height, uint8_t alpha) {
     }
 }
 
-void Renderer_ClearAlpha(void) {
+void Wwd_Renderer_ClearAlpha(void) {
     if (g_renderer.alphaBuffer) {
         memset(g_renderer.alphaBuffer, 255, FBW * FBH);
     }
 }
 
-uint8_t* Renderer_GetAlphaBuffer(void) {
+uint8_t* Wwd_Renderer_GetAlphaBuffer(void) {
     return g_renderer.alphaBuffer;
 }
 
 // Simple 8x8 bitmap font for basic text rendering
-// Each character is 8 bytes, one byte per row
 static const uint8_t g_font8x8[128][8] = {
-    // Only define printable ASCII (32-126)
-    // Space (32)
     [' '] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
     ['!'] = {0x18,0x18,0x18,0x18,0x00,0x00,0x18,0x00},
     ['"'] = {0x6C,0x6C,0x24,0x00,0x00,0x00,0x00,0x00},
@@ -684,8 +675,8 @@ static const uint8_t g_font8x8[128][8] = {
     ['/'] = {0x06,0x0C,0x18,0x30,0x60,0xC0,0x80,0x00},
 };
 
-int Renderer_DrawText(const char* text, int x, int y,
-                      uint8_t fgColor, uint8_t bgColor) {
+int Wwd_Renderer_DrawText(const char* text, int x, int y,
+                         uint8_t fgColor, uint8_t bgColor) {
     if (!g_renderer.framebuffer || !text) return 0;
 
     int startX = x;
@@ -720,23 +711,23 @@ int Renderer_DrawText(const char* text, int x, int y,
     return x - startX;
 }
 
-void Renderer_BlitSprite(const uint8_t* pixels, int width, int height,
-                         int destX, int destY, int offsetX, int offsetY,
-                         BOOL trans) {
+void Wwd_Renderer_BlitSprite(const uint8_t* pixels, int width, int height,
+                            int destX, int destY, int offsetX, int offsetY,
+                            WwdBool trans) {
     // Apply offset (hotspot adjustment)
     int dx = destX - offsetX;
     int dy = destY - offsetY;
-    Renderer_Blit(pixels, width, height, dx, dy, trans);
+    Wwd_Renderer_Blit(pixels, width, height, dx, dy, trans);
 }
 
-void Renderer_BlitRemapped(const uint8_t* srcData, int srcWidth, int srcHeight,
-                           int destX, int destY, BOOL trans,
-                           const uint8_t* remap) {
+void Wwd_Renderer_BlitRemapped(const uint8_t* srcData, int srcWidth,
+                              int srcHeight, int destX, int destY,
+                              WwdBool trans, const uint8_t* remap) {
     if (!g_renderer.framebuffer || !srcData) return;
 
     // If no remap table, fall back to normal blit
     if (!remap) {
-        Renderer_Blit(srcData, srcWidth, srcHeight, destX, destY, trans);
+        Wwd_Renderer_Blit(srcData, srcWidth, srcHeight, destX, destY, trans);
         return;
     }
 
@@ -757,39 +748,11 @@ void Renderer_BlitRemapped(const uint8_t* srcData, int srcWidth, int srcHeight,
     }
 }
 
-void Renderer_BlitSpriteRemapped(const uint8_t* pixels, int width, int height,
-                                 int destX, int destY,
-                                 int offsetX, int offsetY,
-                                 BOOL trans, const uint8_t* remap) {
+void Wwd_Renderer_BlitSpriteRemapped(const uint8_t* pixels, int width,
+                                    int height, int destX, int destY,
+                                    int offsetX, int offsetY,
+                                    WwdBool trans, const uint8_t* remap) {
     int dx = destX - offsetX;
     int dy = destY - offsetY;
-    Renderer_BlitRemapped(pixels, width, height, dx, dy, trans, remap);
-}
-
-// Forward declaration for palette loading
-extern "C" {
-    BOOL Assets_LoadPalette(const char* name, uint8_t* palette);
-}
-
-BOOL Renderer_LoadPalette(const char* name) {
-    uint8_t rawPalette[768];
-
-    if (!Assets_LoadPalette(name, rawPalette)) {
-        return FALSE;
-    }
-
-    // Expand 6-bit VGA palette to 8-bit and set
-    Palette palette;
-    for (int i = 0; i < 256; i++) {
-        uint8_t r = rawPalette[i * 3 + 0] & 0x3F;
-        uint8_t g = rawPalette[i * 3 + 1] & 0x3F;
-        uint8_t b = rawPalette[i * 3 + 2] & 0x3F;
-        // Expand 6-bit to 8-bit: (value << 2) | (value >> 4)
-        palette.colors[i][0] = (r << 2) | (r >> 4);
-        palette.colors[i][1] = (g << 2) | (g >> 4);
-        palette.colors[i][2] = (b << 2) | (b >> 4);
-    }
-
-    Renderer_SetPalette(&palette);
-    return TRUE;
+    Wwd_Renderer_BlitRemapped(pixels, width, height, dx, dy, trans, remap);
 }

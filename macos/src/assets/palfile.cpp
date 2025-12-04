@@ -1,41 +1,33 @@
 /**
  * Red Alert macOS Port - PAL Palette File Reader Implementation
  *
- * PAL file format:
- *   768 bytes total (256 colors * 3 bytes per color)
- *   Each color is R, G, B in 6-bit format (0-63)
- *   Must be scaled to 8-bit (0-255) for display
+ * Uses libwestwood's PalReader for loading.
+ * Provides additional utility functions for palette manipulation.
  */
 
 #include "palfile.h"
+#include <westwood/pal.h>
 #include <cstdio>
 #include <cstring>
-
-// Scale 6-bit color (0-63) to 8-bit (0-255)
-static inline uint8_t Scale6to8(uint8_t c6) {
-    // Multiply by 4 and add high bits to low bits for accurate scaling
-    // 63 * 4 = 252, but we want 255, so: (c6 << 2) | (c6 >> 4)
-    return (c6 << 2) | (c6 >> 4);
-}
 
 BOOL Pal_Load(const void* data, uint32_t dataSize, Palette* pal) {
     if (!data || !pal) {
         return FALSE;
     }
 
-    // PAL files are exactly 768 bytes (256 * 3)
-    if (dataSize < 768) {
+    std::span<const uint8_t> span(static_cast<const uint8_t*>(data), dataSize);
+    auto result = wwd::PalReader::open(span);
+    if (!result) {
         return FALSE;
     }
 
-    const uint8_t* bytes = (const uint8_t*)data;
-
+    auto& reader = *result;
     for (int i = 0; i < 256; i++) {
-        // PAL stores 6-bit values (0-63), scale to 8-bit
-        pal->colors[i][0] = Scale6to8(bytes[i * 3 + 0]);  // R
-        pal->colors[i][1] = Scale6to8(bytes[i * 3 + 1]);  // G
-        pal->colors[i][2] = Scale6to8(bytes[i * 3 + 2]);  // B
-        // A (index 0 is transparent)
+        auto c = reader->color_8bit(i);
+        pal->colors[i][0] = c.r;
+        pal->colors[i][1] = c.g;
+        pal->colors[i][2] = c.b;
+        // Index 0 is typically transparent
         pal->colors[i][3] = (i == 0) ? 0 : 255;
     }
 
@@ -47,20 +39,22 @@ BOOL Pal_LoadFile(const char* filename, Palette* pal) {
         return FALSE;
     }
 
-    FILE* f = fopen(filename, "rb");
-    if (!f) {
+    auto result = wwd::PalReader::open(filename);
+    if (!result) {
         return FALSE;
     }
 
-    uint8_t data[768];
-    size_t bytesRead = fread(data, 1, 768, f);
-    fclose(f);
-
-    if (bytesRead != 768) {
-        return FALSE;
+    auto& reader = *result;
+    for (int i = 0; i < 256; i++) {
+        auto c = reader->color_8bit(i);
+        pal->colors[i][0] = c.r;
+        pal->colors[i][1] = c.g;
+        pal->colors[i][2] = c.b;
+        // Index 0 is typically transparent
+        pal->colors[i][3] = (i == 0) ? 0 : 255;
     }
 
-    return Pal_Load(data, 768, pal);
+    return TRUE;
 }
 
 void Pal_InitGrayscale(Palette* pal) {

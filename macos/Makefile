@@ -11,12 +11,21 @@ BUILD_DIR = build
 APP_NAME = RedAlert
 APP_BUNDLE = $(APP_NAME).app
 
+# wwd-media library
+WWD_MEDIA_DIR = ../libs/wwd-media
+WWD_MEDIA_LIB = $(WWD_MEDIA_DIR)/build/libwwd-media.a
+
+# libwestwood library (from westwood-formats submodule)
+LIBWESTWOOD_DIR = ../submodules/westwood-formats/impl
+LIBWESTWOOD_INCLUDE = $(LIBWESTWOOD_DIR)/libwestwood/include
+LIBWESTWOOD_LIB = $(LIBWESTWOOD_DIR)/build/libwestwood.a
+
 # Compiler flags
 ARCH = -arch arm64
 MIN_VERSION = -mmacosx-version-min=14.0
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2 $(ARCH) $(MIN_VERSION)
+CXXFLAGS = -std=c++23 -Wall -Wextra -O2 $(ARCH) $(MIN_VERSION)
 OBJCXXFLAGS = $(CXXFLAGS) -fobjc-arc
-INCLUDES = -I$(SRC_DIR) -Iinclude
+INCLUDES = -I$(SRC_DIR) -Iinclude -I$(WWD_MEDIA_DIR)/include -I$(LIBWESTWOOD_INCLUDE)
 
 # Frameworks
 FRAMEWORKS = -framework Cocoa -framework Metal -framework MetalKit -framework QuartzCore -framework AudioToolbox -framework AVFoundation -framework UniformTypeIdentifiers
@@ -25,10 +34,10 @@ FRAMEWORKS = -framework Cocoa -framework Metal -framework MetalKit -framework Qu
 LDFLAGS = $(ARCH) $(MIN_VERSION) $(FRAMEWORKS)
 
 # Sources (add as we go)
-OBJCXX_SOURCES = $(SRC_DIR)/main.mm $(SRC_DIR)/graphics/metal/renderer.mm $(SRC_DIR)/input/input.mm $(SRC_DIR)/audio/audio.mm
+# Note: renderer.mm, audio.mm, vqa.cpp moved to wwd-media library
+OBJCXX_SOURCES = $(SRC_DIR)/main.mm $(SRC_DIR)/input/input.mm
 CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_DIR)/platform/assets.cpp $(SRC_DIR)/platform/asset_paths.cpp \
               $(SRC_DIR)/game/gameloop.cpp $(SRC_DIR)/ui/menu.cpp \
-              $(SRC_DIR)/crypto/blowfish.cpp $(SRC_DIR)/crypto/mixkey.cpp \
               $(SRC_DIR)/assets/mixfile.cpp $(SRC_DIR)/assets/shpfile.cpp $(SRC_DIR)/assets/palfile.cpp $(SRC_DIR)/assets/audfile.cpp $(SRC_DIR)/assets/tmpfile.cpp $(SRC_DIR)/assets/lcw.cpp $(SRC_DIR)/assets/assetloader.cpp \
               $(SRC_DIR)/game/map.cpp $(SRC_DIR)/game/units.cpp $(SRC_DIR)/game/sprites.cpp $(SRC_DIR)/game/sounds.cpp $(SRC_DIR)/game/terrain.cpp \
               $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp \
@@ -43,8 +52,9 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/radar.cpp $(SRC_DIR)/game/saveload.cpp \
               $(SRC_DIR)/game/anim.cpp $(SRC_DIR)/game/campaign.cpp \
               $(SRC_DIR)/game/ai.cpp $(SRC_DIR)/game/mission.cpp \
-              $(SRC_DIR)/video/vqa.cpp $(SRC_DIR)/video/music.cpp \
-              $(SRC_DIR)/ui/game_ui.cpp
+              $(SRC_DIR)/video/music.cpp \
+              $(SRC_DIR)/ui/game_ui.cpp \
+              $(SRC_DIR)/graphics/metal/game_renderer.cpp
 
 # Objects
 OBJCXX_OBJECTS = $(patsubst $(SRC_DIR)/%.mm,$(BUILD_DIR)/%.o,$(OBJCXX_SOURCES))
@@ -63,10 +73,18 @@ $(APP_BUNDLE): $(BUILD_DIR)/$(APP_NAME) resources/Info.plist resources/AppIcon.i
 	@cp resources/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/
 	@echo "Built $(APP_BUNDLE)"
 
+# Build wwd-media library first
+$(WWD_MEDIA_LIB):
+	$(MAKE) -C $(WWD_MEDIA_DIR)
+
+# Build libwestwood (uses cmake)
+$(LIBWESTWOOD_LIB):
+	cd $(LIBWESTWOOD_DIR) && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
+
 # Link
-$(BUILD_DIR)/$(APP_NAME): $(OBJECTS)
+$(BUILD_DIR)/$(APP_NAME): $(OBJECTS) $(WWD_MEDIA_LIB) $(LIBWESTWOOD_LIB)
 	@mkdir -p $(BUILD_DIR)
-	$(CXX) $(LDFLAGS) -o $@ $^
+	$(CXX) $(LDFLAGS) -o $@ $(OBJECTS) $(WWD_MEDIA_LIB) $(LIBWESTWOOD_LIB)
 
 # Compile Objective-C++
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.mm
@@ -81,6 +99,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 # Clean
 clean:
 	rm -rf $(BUILD_DIR) $(APP_BUNDLE) $(APP_NAME).zip $(APP_NAME).dmg
+	$(MAKE) -C $(WWD_MEDIA_DIR) clean
 
 # Run
 run: $(APP_BUNDLE)
@@ -308,9 +327,9 @@ test_vqa: $(BUILD_DIR)/test_vqa
 	@echo "Running VQA video tests..."
 	@./$(BUILD_DIR)/test_vqa
 
-$(BUILD_DIR)/test_vqa: $(SRC_DIR)/tests/test_vqa.cpp $(BUILD_DIR)/video/vqa.o
+$(BUILD_DIR)/test_vqa: $(SRC_DIR)/tests/test_vqa.cpp $(WWD_MEDIA_LIB)
 	@mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(SRC_DIR)/tests/test_vqa.cpp $(WWD_MEDIA_LIB)
 
 # Test music system
 test_music: $(BUILD_DIR)/test_music
@@ -333,24 +352,20 @@ $(BUILD_DIR)/test_mix_decrypt: $(SRC_DIR)/tests/test_mix_decrypt.cpp $(MIX_DECRY
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 
 # Asset Viewer tool - for systematic visual inspection of all game assets
-# Minimal dependencies - only asset loading and rendering
-VIEWER_OBJS = $(BUILD_DIR)/graphics/metal/renderer.o \
-              $(BUILD_DIR)/assets/assetloader.o $(BUILD_DIR)/assets/mixfile.o \
+# Note: renderer.mm, audio.mm, vqa.cpp now come from wwd-media library
+VIEWER_OBJS = $(BUILD_DIR)/assets/assetloader.o $(BUILD_DIR)/assets/mixfile.o \
               $(BUILD_DIR)/assets/shpfile.o $(BUILD_DIR)/assets/palfile.o \
               $(BUILD_DIR)/assets/audfile.o $(BUILD_DIR)/assets/tmpfile.o \
-              $(BUILD_DIR)/assets/lcw.o \
-              $(BUILD_DIR)/crypto/blowfish.o $(BUILD_DIR)/crypto/mixkey.o \
               $(BUILD_DIR)/platform/file.o $(BUILD_DIR)/platform/assets.o \
               $(BUILD_DIR)/platform/asset_paths.o \
-              $(BUILD_DIR)/audio/audio.o \
-              $(BUILD_DIR)/video/vqa.o
+              $(BUILD_DIR)/graphics/metal/game_renderer.o
 
 asset_viewer: $(BUILD_DIR)/asset_viewer
 	@echo "Running Asset Viewer..."
 	@./$(BUILD_DIR)/asset_viewer
 
-$(BUILD_DIR)/asset_viewer: $(SRC_DIR)/tools/asset_viewer.mm $(VIEWER_OBJS)
+$(BUILD_DIR)/asset_viewer: $(SRC_DIR)/tools/asset_viewer.mm $(VIEWER_OBJS) $(WWD_MEDIA_LIB) $(LIBWESTWOOD_LIB)
 	@mkdir -p $(BUILD_DIR)/tools
-	$(OBJCXX) $(OBJCXXFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $^
+	$(OBJCXX) $(OBJCXXFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $(SRC_DIR)/tools/asset_viewer.mm $(VIEWER_OBJS) $(WWD_MEDIA_LIB) $(LIBWESTWOOD_LIB)
 
 .PHONY: all clean run dist dmg dist-full asset_viewer test_assets test_ini test_rules test_objects test_map test_entities test_combat test_ai test_scenario test_sidebar test_radar test_saveload test_anim test_campaign test_vqa test_music test_mix_decrypt

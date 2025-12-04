@@ -1,7 +1,7 @@
 /**
  * Red Alert macOS Port - Metal Renderer
  *
- * Renders an 8-bit paletted framebuffer to screen via Metal.
+ * Compatibility header - forwards to ra-media library.
  */
 
 #ifndef GRAPHICS_METAL_RENDERER_H
@@ -9,226 +9,175 @@
 
 #include "compat/windows.h"
 #include "compat/assets.h"
-#include <cstdint>
+#include <wwd/renderer.h>
 
-// Framebuffer dimensions (original Red Alert was 640x400 in high-res mode)
-#define FRAMEBUFFER_WIDTH  640
-#define FRAMEBUFFER_HEIGHT 400
+// Framebuffer dimensions aliases
+#define FRAMEBUFFER_WIDTH  WWD_FRAMEBUFFER_WIDTH
+#define FRAMEBUFFER_HEIGHT WWD_FRAMEBUFFER_HEIGHT
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * Initialize the Metal renderer
- * Must be called after the window/view is created.
- *
- * @param metalView  Pointer to MTKView (as void* for C compatibility)
- * @return TRUE on success
- */
-BOOL Renderer_Init(void* metalView);
+// Function aliases - map game API to ra-media API
+static inline BOOL Renderer_Init(void* metalView) {
+    return Wwd_Renderer_Init(metalView);
+}
 
-/**
- * Shutdown the renderer
- */
-void Renderer_Shutdown(void);
+static inline void Renderer_Shutdown(void) {
+    Wwd_Renderer_Shutdown();
+}
 
-/**
- * Get pointer to the 8-bit framebuffer
- * Pixels are palette indices (0-255).
- */
-uint8_t* Renderer_GetFramebuffer(void);
+static inline uint8_t* Renderer_GetFramebuffer(void) {
+    return Wwd_Renderer_GetFramebuffer();
+}
 
-/**
- * Get framebuffer width
- */
-int Renderer_GetWidth(void);
+static inline int Renderer_GetWidth(void) {
+    return Wwd_Renderer_GetWidth();
+}
 
-/**
- * Get framebuffer height
- */
-int Renderer_GetHeight(void);
+static inline int Renderer_GetHeight(void) {
+    return Wwd_Renderer_GetHeight();
+}
 
-/**
- * Set the current palette for rendering
- */
-void Renderer_SetPalette(const Palette* palette);
+static inline void Renderer_SetPalette(const Palette* palette) {
+    Wwd_Renderer_SetPalette((const WwdPalette*)palette);
+}
 
-/**
- * Present the framebuffer to screen
- * Converts 8-bit indexed to RGBA using current palette,
- * uploads to GPU, and renders.
- */
-void Renderer_Present(void);
+static inline void Renderer_Present(void) {
+    Wwd_Renderer_Present();
+}
 
-/**
- * Clear the framebuffer to a specific palette index
- */
-void Renderer_Clear(uint8_t colorIndex);
+static inline void Renderer_Clear(uint8_t colorIndex) {
+    Wwd_Renderer_Clear(colorIndex);
+}
 
-/**
- * Draw a filled rectangle (in palette indices)
- */
-void Renderer_FillRect(int x, int y, int width, int height, uint8_t colorIndex);
+static inline void Renderer_FillRect(int x, int y, int width, int height,
+                                     uint8_t colorIndex) {
+    Wwd_Renderer_FillRect(x, y, width, height, colorIndex);
+}
 
-/**
- * Put a single pixel
- */
-void Renderer_PutPixel(int x, int y, uint8_t colorIndex);
+static inline void Renderer_PutPixel(int x, int y, uint8_t colorIndex) {
+    Wwd_Renderer_PutPixel(x, y, colorIndex);
+}
 
-/**
- * Get a single pixel
- */
-uint8_t Renderer_GetPixel(int x, int y);
+static inline uint8_t Renderer_GetPixel(int x, int y) {
+    return Wwd_Renderer_GetPixel(x, y);
+}
 
-/**
- * Draw a line (Bresenham's algorithm)
- */
-void Renderer_DrawLine(int x1, int y1, int x2, int y2, uint8_t colorIndex);
+static inline void Renderer_DrawLine(int x1, int y1, int x2, int y2,
+                                     uint8_t colorIndex) {
+    Wwd_Renderer_DrawLine(x1, y1, x2, y2, colorIndex);
+}
 
-/**
- * Draw a rectangle outline
- */
-void Renderer_DrawRect(int x, int y, int width, int height, uint8_t colorIndex);
+static inline void Renderer_DrawRect(int x, int y, int width, int height,
+                                     uint8_t colorIndex) {
+    Wwd_Renderer_DrawRect(x, y, width, height, colorIndex);
+}
 
-/**
- * Draw a horizontal line (optimized)
- */
-void Renderer_HLine(int x1, int x2, int y, uint8_t colorIndex);
+static inline void Renderer_HLine(int x1, int x2, int y, uint8_t colorIndex) {
+    Wwd_Renderer_HLine(x1, x2, y, colorIndex);
+}
 
-/**
- * Draw a vertical line (optimized)
- */
-void Renderer_VLine(int x, int y1, int y2, uint8_t colorIndex);
+static inline void Renderer_VLine(int x, int y1, int y2, uint8_t colorIndex) {
+    Wwd_Renderer_VLine(x, y1, y2, colorIndex);
+}
 
-/**
- * Draw a circle outline
- */
-void Renderer_DrawCircle(int cx, int cy, int radius, uint8_t colorIndex);
+static inline void Renderer_DrawCircle(int cx, int cy, int radius,
+                                       uint8_t colorIndex) {
+    Wwd_Renderer_DrawCircle(cx, cy, radius, colorIndex);
+}
 
-/**
- * Draw a filled circle
- */
-void Renderer_FillCircle(int cx, int cy, int radius, uint8_t colorIndex);
+static inline void Renderer_FillCircle(int cx, int cy, int radius,
+                                       uint8_t colorIndex) {
+    Wwd_Renderer_FillCircle(cx, cy, radius, colorIndex);
+}
 
-/**
- * Blit a sprite (with optional transparency)
- * Transparency: palette index 0 is transparent if trans=TRUE
- *
- * @param srcData   Source sprite data (palette indices)
- * @param srcWidth  Source width
- * @param srcHeight Source height
- * @param destX     Destination X
- * @param destY     Destination Y
- * @param trans     If TRUE, color index 0 is transparent
- */
-void Renderer_Blit(const uint8_t* srcData, int srcWidth, int srcHeight,
-                   int destX, int destY, BOOL trans);
+static inline void Renderer_Blit(const uint8_t* srcData, int srcWidth,
+                                 int srcHeight, int destX, int destY,
+                                 BOOL trans) {
+    Wwd_Renderer_Blit(srcData, srcWidth, srcHeight, destX, destY, trans);
+}
 
-/**
- * Blit a portion of a sprite
- */
-void Renderer_BlitRegion(const uint8_t* srcData, int srcWidth, int srcHeight,
-                         int srcX, int srcY, int regionWidth, int regionHeight,
-                         int destX, int destY, BOOL trans);
+static inline void Renderer_BlitRegion(const uint8_t* srcData, int srcWidth,
+                                       int srcHeight, int srcX, int srcY,
+                                       int regionWidth, int regionHeight,
+                                       int destX, int destY, BOOL trans) {
+    Wwd_Renderer_BlitRegion(srcData, srcWidth, srcHeight, srcX, srcY,
+                           regionWidth, regionHeight, destX, destY, trans);
+}
 
-/**
- * Scale and blit a sprite
- */
-void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth, int srcHeight,
-                        int destX, int destY, int destWidth, int destHeight,
-                        BOOL trans);
+static inline void Renderer_ScaleBlit(const uint8_t* srcData, int srcWidth,
+                                      int srcHeight, int destX, int destY,
+                                      int destWidth, int destHeight,
+                                      BOOL trans) {
+    Wwd_Renderer_ScaleBlit(srcData, srcWidth, srcHeight, destX, destY,
+                          destWidth, destHeight, trans);
+}
 
-/**
- * Apply a color remap to a region
- * @param remap  256-byte remap table
- */
-void Renderer_Remap(int x, int y, int width, int height, const uint8_t* remap);
+static inline void Renderer_Remap(int x, int y, int width, int height,
+                                  const uint8_t* remap) {
+    Wwd_Renderer_Remap(x, y, width, height, remap);
+}
 
-/**
- * Dim a rectangular region (fog of war effect)
- * Darkens existing pixels by shifting to darker palette entries.
- * @param amount  Dimming amount (0=none, 1=slight, 2=heavy)
- * @deprecated Use Renderer_SetAlpha() for better visual quality
- */
-void Renderer_DimRect(int x, int y, int width, int height, int amount);
+static inline void Renderer_DimRect(int x, int y, int width, int height,
+                                    int amount) {
+    Wwd_Renderer_DimRect(x, y, width, height, amount);
+}
 
-/**
- * Set alpha (transparency) for a rectangular region.
- * Used for fog of war: 255=fully visible, 0=fully dark/hidden.
- * The alpha blends the rendered color toward black.
- * @param alpha  Alpha value (0=black, 128=50% dim, 255=fully visible)
- */
-void Renderer_SetAlpha(int x, int y, int width, int height, uint8_t alpha);
+static inline void Renderer_SetAlpha(int x, int y, int width, int height,
+                                     uint8_t alpha) {
+    Wwd_Renderer_SetAlpha(x, y, width, height, alpha);
+}
 
-/**
- * Clear alpha buffer to fully opaque (255).
- */
-void Renderer_ClearAlpha(void);
+static inline void Renderer_ClearAlpha(void) {
+    Wwd_Renderer_ClearAlpha();
+}
 
-/**
- * Get pointer to the alpha buffer.
- * Same dimensions as framebuffer.
- */
-uint8_t* Renderer_GetAlphaBuffer(void);
+static inline uint8_t* Renderer_GetAlphaBuffer(void) {
+    return Wwd_Renderer_GetAlphaBuffer();
+}
 
-/**
- * Draw text (simple bitmap font)
- * Returns width of rendered text in pixels.
- * Note: This is a stub - real font rendering requires font data.
- */
-int Renderer_DrawText(const char* text, int x, int y,
-                      uint8_t fgColor, uint8_t bgColor);
+static inline int Renderer_DrawText(const char* text, int x, int y,
+                                    uint8_t fgColor, uint8_t bgColor) {
+    return Wwd_Renderer_DrawText(text, x, y, fgColor, bgColor);
+}
 
-/**
- * Set clipping rectangle
- */
-void Renderer_SetClipRect(int x, int y, int width, int height);
+static inline void Renderer_SetClipRect(int x, int y, int width, int height) {
+    Wwd_Renderer_SetClipRect(x, y, width, height);
+}
 
-/**
- * Reset clipping to full screen
- */
-void Renderer_ResetClip(void);
+static inline void Renderer_ResetClip(void) {
+    Wwd_Renderer_ResetClip();
+}
 
-/**
- * Blit an SHP frame directly (convenience wrapper)
- * @param pixels     8-bit indexed pixel data
- * @param width      Frame width
- * @param height     Frame height
- * @param destX      Destination X
- * @param destY      Destination Y
- * @param offsetX    Sprite hotspot offset X (subtracted from destX)
- * @param offsetY    Sprite hotspot offset Y (subtracted from destY)
- * @param trans      If TRUE, color index 0 is transparent
- */
-void Renderer_BlitSprite(const uint8_t* pixels, int width, int height,
-                         int destX, int destY, int offsetX, int offsetY,
-                         BOOL trans);
+static inline void Renderer_BlitSprite(const uint8_t* pixels, int width,
+                                       int height, int destX, int destY,
+                                       int offsetX, int offsetY, BOOL trans) {
+    Wwd_Renderer_BlitSprite(pixels, width, height, destX, destY,
+                           offsetX, offsetY, trans);
+}
 
-/**
- * Blit with color remapping (for team colors)
- * @param srcData    8-bit indexed pixel data
- * @param srcWidth   Source width
- * @param srcHeight  Source height
- * @param destX      Destination X
- * @param destY      Destination Y
- * @param trans      If TRUE, color index 0 is transparent
- * @param remap      256-byte remap table (NULL = no remapping)
- */
-void Renderer_BlitRemapped(const uint8_t* srcData, int srcWidth, int srcHeight,
-                           int destX, int destY, BOOL trans,
-                           const uint8_t* remap);
+static inline void Renderer_BlitRemapped(const uint8_t* srcData, int srcWidth,
+                                         int srcHeight, int destX, int destY,
+                                         BOOL trans, const uint8_t* remap) {
+    Wwd_Renderer_BlitRemapped(srcData, srcWidth, srcHeight, destX, destY,
+                             trans, remap);
+}
 
-/**
- * Blit sprite with remapping (convenience wrapper with hotspot)
- */
-void Renderer_BlitSpriteRemapped(const uint8_t* pixels, int width, int height,
-                                 int destX, int destY,
-                                 int offsetX, int offsetY,
-                                 BOOL trans, const uint8_t* remap);
+static inline void Renderer_BlitSpriteRemapped(const uint8_t* pixels,
+                                               int width, int height,
+                                               int destX, int destY,
+                                               int offsetX, int offsetY,
+                                               BOOL trans,
+                                               const uint8_t* remap) {
+    Wwd_Renderer_BlitSpriteRemapped(pixels, width, height, destX, destY,
+                                   offsetX, offsetY, trans, remap);
+}
 
 /**
  * Load a game palette from AssetLoader and set it as current
+ * Note: This is game-specific and remains in the game layer.
  * @param name  Palette filename (e.g., "SNOW.PAL", "TEMPERAT.PAL")
  * @return TRUE on success
  */

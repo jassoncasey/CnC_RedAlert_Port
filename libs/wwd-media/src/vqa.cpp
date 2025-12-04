@@ -1,11 +1,11 @@
 /**
- * Red Alert macOS Port - VQA Video Player Implementation
+ * wwd-media - VQA Video Player Implementation
  *
  * Implements Westwood's VQA (Vector Quantized Animation) decoder.
  * Based on original WINVQ source code analysis.
  */
 
-#include "vqa.h"
+#include "wwd/vqa.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -15,7 +15,7 @@
 // Byte Swapping (IFF uses big-endian)
 //===========================================================================
 
-uint32_t VQAPlayer::SwapBE32(uint32_t val) {
+uint32_t WwdVqaPlayer::SwapBE32(uint32_t val) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     return ((val & 0xFF000000) >> 24) |
            ((val & 0x00FF0000) >> 8) |
@@ -26,7 +26,7 @@ uint32_t VQAPlayer::SwapBE32(uint32_t val) {
 #endif
 }
 
-uint16_t VQAPlayer::SwapBE16(uint16_t val) {
+uint16_t WwdVqaPlayer::SwapBE16(uint16_t val) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     return (val >> 8) | (val << 8);
 #else
@@ -38,7 +38,7 @@ uint16_t VQAPlayer::SwapBE16(uint16_t val) {
 // LCW Decompression (Format80) - Based on OpenRA implementation
 //===========================================================================
 
-int VQAPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst,
+int WwdVqaPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst,
                              int srcSize, int dstSize) {
     const uint8_t* srcEnd = src + srcSize;
     int destIndex = 0;
@@ -125,7 +125,7 @@ int VQAPlayer::DecompressLCW(const uint8_t* src, uint8_t* dst,
 // RLE Decompression for Vector Pointers
 //===========================================================================
 
-int VQAPlayer::DecompressRLE(const uint8_t* src, uint8_t* dst,
+int WwdVqaPlayer::DecompressRLE(const uint8_t* src, uint8_t* dst,
                              int srcSize, int dstSize) {
     const uint8_t* srcEnd = src + srcSize;
     uint8_t* dstStart = dst;
@@ -161,12 +161,12 @@ int VQAPlayer::DecompressRLE(const uint8_t* src, uint8_t* dst,
 // VQAPlayer Constructor/Destructor
 //===========================================================================
 
-VQAPlayer::VQAPlayer()
+WwdVqaPlayer::WwdVqaPlayer()
     : data_(nullptr)
     , dataSize_(0)
     , ownsData_(false)
     , frameOffsets_(nullptr)
-    , state_(VQAState::STOPPED)
+    , state_(WwdVqaState::STOPPED)
     , currentFrame_(-1)
     , timeAccumulator_(0)
     , frameBuffer_(nullptr)
@@ -195,7 +195,7 @@ VQAPlayer::VQAPlayer()
     memset(palette_, 0, sizeof(palette_));
 }
 
-VQAPlayer::~VQAPlayer() {
+WwdVqaPlayer::~WwdVqaPlayer() {
     Unload();
 }
 
@@ -203,7 +203,7 @@ VQAPlayer::~VQAPlayer() {
 // File Operations
 //===========================================================================
 
-bool VQAPlayer::Load(const char* filename) {
+bool WwdVqaPlayer::Load(const char* filename) {
     Unload();
 
     FILE* f = fopen(filename, "rb");
@@ -241,10 +241,10 @@ bool VQAPlayer::Load(const char* filename) {
     return true;
 }
 
-bool VQAPlayer::Load(const void* data, uint32_t size) {
+bool WwdVqaPlayer::Load(const void* data, uint32_t size) {
     Unload();
 
-    if (!data || size < sizeof(IFFChunk) * 2 + sizeof(VQAHeader)) {
+    if (!data || size < sizeof(IFFChunk) * 2 + sizeof(WwdVqaHeader)) {
         return false;
     }
 
@@ -260,7 +260,7 @@ bool VQAPlayer::Load(const void* data, uint32_t size) {
     return true;
 }
 
-void VQAPlayer::Unload() {
+void WwdVqaPlayer::Unload() {
     if (ownsData_ && data_) {
         delete[] data_;
     }
@@ -302,7 +302,7 @@ void VQAPlayer::Unload() {
     memset(&header_, 0, sizeof(header_));
     memset(palette_, 0, sizeof(palette_));
 
-    state_ = VQAState::STOPPED;
+    state_ = WwdVqaState::STOPPED;
     currentFrame_ = -1;
     timeAccumulator_ = 0;
 }
@@ -311,7 +311,7 @@ void VQAPlayer::Unload() {
 // Header Parsing
 //===========================================================================
 
-bool VQAPlayer::ParseHeader() {
+bool WwdVqaPlayer::ParseHeader() {
     if (!data_ || dataSize_ < 12) {
         printf("VQA: ParseHeader - invalid data or size (%u)\n", dataSize_);
         return false;
@@ -357,9 +357,9 @@ bool VQAPlayer::ParseHeader() {
 
         if (ptr + chunkSize > end) break;
 
-        if (chunkId == VQA_ID_VQHD && chunkSize >= sizeof(VQAHeader)) {
+        if (chunkId == VQA_ID_VQHD && chunkSize >= sizeof(WwdVqaHeader)) {
             // Copy header (little-endian in file, matching x86)
-            memcpy(&header_, ptr, sizeof(VQAHeader));
+            memcpy(&header_, ptr, sizeof(WwdVqaHeader));
             foundHeader = true;
         } else if (chunkId == VQA_ID_FINF) {
             // Parse frame index
@@ -437,7 +437,7 @@ bool VQAPlayer::ParseHeader() {
     return true;
 }
 
-bool VQAPlayer::ParseFrameIndex() {
+bool WwdVqaPlayer::ParseFrameIndex() {
     // FINF contains 32-bit offsets for each frame
     // Already positioned at FINF data
 
@@ -457,7 +457,7 @@ bool VQAPlayer::ParseFrameIndex() {
 // Pre-decode All Audio
 //===========================================================================
 
-void VQAPlayer::PreDecodeAllAudio() {
+void WwdVqaPlayer::PreDecodeAllAudio() {
     if (!data_ || !fullAudioBuffer_) return;
 
     // IMA ADPCM step table
@@ -549,43 +549,43 @@ void VQAPlayer::PreDecodeAllAudio() {
 // Playback Control
 //===========================================================================
 
-void VQAPlayer::Play() {
+void WwdVqaPlayer::Play() {
     if (!IsLoaded()) return;
 
-    if (state_ == VQAState::STOPPED || state_ == VQAState::FINISHED) {
+    if (state_ == WwdVqaState::STOPPED || state_ == WwdVqaState::FINISHED) {
         currentFrame_ = -1;
         timeAccumulator_ = 0;
         fullAudioPos_ = 0;  // Reset audio position
     }
 
-    state_ = VQAState::PLAYING;
+    state_ = WwdVqaState::PLAYING;
 }
 
-void VQAPlayer::Pause() {
-    if (state_ == VQAState::PLAYING) {
-        state_ = VQAState::PAUSED;
+void WwdVqaPlayer::Pause() {
+    if (state_ == WwdVqaState::PLAYING) {
+        state_ = WwdVqaState::PAUSED;
     }
 }
 
-void VQAPlayer::Stop() {
-    state_ = VQAState::STOPPED;
+void WwdVqaPlayer::Stop() {
+    state_ = WwdVqaState::STOPPED;
     currentFrame_ = -1;
     timeAccumulator_ = 0;
     fullAudioPos_ = 0;  // Reset audio position
     memset(frameBuffer_, 0, frameBufferSize_);
 }
 
-bool VQAPlayer::NextFrame() {
+bool WwdVqaPlayer::NextFrame() {
     if (!IsLoaded()) return false;
 
     int nextFrame = currentFrame_ + 1;
     if (nextFrame >= header_.frames) {
-        state_ = VQAState::FINISHED;
+        state_ = WwdVqaState::FINISHED;
         return false;
     }
 
     if (!DecodeFrame(nextFrame)) {
-        state_ = VQAState::ERROR;
+        state_ = WwdVqaState::ERROR;
         return false;
     }
 
@@ -593,7 +593,7 @@ bool VQAPlayer::NextFrame() {
     return true;
 }
 
-bool VQAPlayer::SeekFrame(int frame) {
+bool WwdVqaPlayer::SeekFrame(int frame) {
     if (!IsLoaded() || frame < 0 || frame >= header_.frames) {
         return false;
     }
@@ -612,8 +612,8 @@ bool VQAPlayer::SeekFrame(int frame) {
     return true;
 }
 
-bool VQAPlayer::Update(int elapsedMs) {
-    if (state_ != VQAState::PLAYING) {
+bool WwdVqaPlayer::Update(int elapsedMs) {
+    if (state_ != WwdVqaState::PLAYING) {
         return false;
     }
 
@@ -636,7 +636,7 @@ bool VQAPlayer::Update(int elapsedMs) {
 // Frame Decoding
 //===========================================================================
 
-bool VQAPlayer::DecodeFrame(int frameNum) {
+bool WwdVqaPlayer::DecodeFrame(int frameNum) {
     if (!data_ || frameNum < 0 || frameNum >= header_.frames) {
         return false;
     }
@@ -752,7 +752,7 @@ bool VQAPlayer::DecodeFrame(int frameNum) {
     return false;
 }
 
-bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size,
+bool WwdVqaPlayer::DecodeCodebook(const uint8_t* data, uint32_t size,
                                bool compressed, bool partial) {
     if (!data || size == 0) return false;
 
@@ -797,7 +797,7 @@ bool VQAPlayer::DecodeCodebook(const uint8_t* data, uint32_t size,
     return true;
 }
 
-void VQAPlayer::ApplyAccumulatedCodebook() {
+void WwdVqaPlayer::ApplyAccumulatedCodebook() {
     // Apply accumulated CBP chunks if we have collected enough parts
     // groupSize tells how many CBP chunks make a complete codebook
 
@@ -829,7 +829,7 @@ void VQAPlayer::ApplyAccumulatedCodebook() {
     }
 }
 
-bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size,
+bool WwdVqaPlayer::DecodePointers(const uint8_t* data, uint32_t size,
                                uint32_t chunkId) {
     if (!data || size == 0) return false;
 
@@ -870,7 +870,7 @@ bool VQAPlayer::DecodePointers(const uint8_t* data, uint32_t size,
     return true;
 }
 
-bool VQAPlayer::DecodePalette(const uint8_t* data, uint32_t size,
+bool WwdVqaPlayer::DecodePalette(const uint8_t* data, uint32_t size,
                               bool compressed) {
     if (!data || size == 0) return false;
 
@@ -905,7 +905,7 @@ bool VQAPlayer::DecodePalette(const uint8_t* data, uint32_t size,
     return true;
 }
 
-bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size,
+bool WwdVqaPlayer::DecodeAudio(const uint8_t* data, uint32_t size,
                             uint32_t chunkId) {
     if (!data || size == 0 || !audioBuffer_) return false;
 
@@ -984,7 +984,7 @@ bool VQAPlayer::DecodeAudio(const uint8_t* data, uint32_t size,
 // Vector Quantization Decoder (4x2 blocks)
 //===========================================================================
 
-void VQAPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
+void WwdVqaPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
     if (!frameBuffer_ || !codebook_ || !pointers) return;
 
     int blockWidth = header_.blockWidth > 0 ? header_.blockWidth : 4;
@@ -1045,7 +1045,7 @@ void VQAPlayer::UnVQ_4x2(const uint8_t* pointers, int pointerCount) {
 // Audio Access
 //===========================================================================
 
-int VQAPlayer::GetAudioSamples(int16_t* buffer, int maxSamples) {
+int WwdVqaPlayer::GetAudioSamples(int16_t* buffer, int maxSamples) {
     if (!buffer || maxSamples <= 0) {
         return 0;
     }
@@ -1078,13 +1078,13 @@ int VQAPlayer::GetAudioSamples(int16_t* buffer, int maxSamples) {
 //===========================================================================
 
 bool VQA_Play(const char* filename) {
-    VQAPlayer player;
+    WwdVqaPlayer player;
     if (!player.Load(filename)) {
         return false;
     }
 
     player.Play();
-    while (player.GetState() == VQAState::PLAYING) {
+    while (player.GetState() == WwdVqaState::PLAYING) {
         if (!player.NextFrame()) {
             break;
         }
@@ -1098,13 +1098,13 @@ bool VQA_PlayWithCallback(const char* filename, VQAFrameCallback callback,
                           void* userData) {
     if (!callback) return false;
 
-    VQAPlayer player;
+    WwdVqaPlayer player;
     if (!player.Load(filename)) {
         return false;
     }
 
     player.Play();
-    while (player.GetState() == VQAState::PLAYING) {
+    while (player.GetState() == WwdVqaState::PLAYING) {
         if (!player.NextFrame()) {
             break;
         }

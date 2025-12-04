@@ -24,12 +24,16 @@
 #include <set>
 #include <algorithm>
 
-#include "assets/mixfile.h"
-#include "assets/shpfile.h"
-#include "assets/audfile.h"
-#include "audio/audio.h"
-#include "graphics/metal/renderer.h"
-#include "video/vqa.h"
+// Westwood format compatibility layer (wraps libwestwood)
+#include "wwd_compat.h"
+
+// wwd-media library
+#include <wwd/audio.h>
+#include <wwd/renderer.h>
+#include <wwd/vqa.h>
+
+// ra-data library (asset categorization)
+#include <ra/category.h>
 
 // Forward declarations
 @class AssetViewerDelegate;
@@ -168,7 +172,7 @@ static FileTreeNode* g_rootNode = nil;
 static std::vector<FileTreeNode*> g_allAssets;  // Flat list for review tab
 static int g_currentAssetIndex = 0;
 static ShpFileHandle g_currentSHP = nullptr;
-static Palette g_palette;
+static WwdPalette g_palette;
 static bool g_paletteLoaded = false;
 static int g_currentFrame = 0;
 static bool g_animating = true;
@@ -183,8 +187,8 @@ enum PreviewBackground { BG_BLACK = 0, BG_GRAY = 1, BG_CHECKER = 2 };
 static PreviewBackground g_previewBg = BG_CHECKER;
 
 // Audio playback state
-static AudData* g_currentAUD = nullptr;
-static SoundHandle g_playingSound = 0;
+static AudFileHandle g_currentAUD = nullptr;
+static WwdSoundHandle g_playingSound = 0;
 static bool g_audioInitialized = false;
 static NSButton* g_playButton = nil;
 static NSButton* g_stopButton = nil;
@@ -196,7 +200,7 @@ static int g_zoomLevel = 1;
 static NSTextField* g_zoomLabel = nil;
 
 // VQA video playback state
-static VQAPlayer* g_currentVQA = nullptr;
+static WwdVqaPlayer* g_currentVQA = nullptr;
 static bool g_vqaPlaying = false;
 static NSTextField* g_videoInfoLabel = nil;
 static NSTimer* g_vqaTimer = nil;
@@ -204,10 +208,10 @@ static NSTimer* g_vqaTimer = nil;
 // VQA audio buffer (must persist during playback)
 static int16_t* g_vqaAudioBuffer = nullptr;
 static int g_vqaAudioBufferSize = 0;
-static AudioSample g_vqaAudioSample;
+static WwdAudioSample g_vqaWwdAudioSample;
 
-// AUD audio sample (must persist during playback - Audio_Play stores pointer)
-static AudioSample g_audAudioSample;
+// AUD audio sample (must persist during playback - Wwd_Audio_Play stores pointer)
+static WwdAudioSample g_audWwdAudioSample;
 
 // ISO mounting - track mounted volumes to unmount on exit
 static std::vector<std::string> g_mountedVolumes;
@@ -262,21 +266,20 @@ static NSString* mountISO(NSString* isoPath) {
     return nil;
 }
 
-// Unmount all mounted ISOs
+// Unmount all mounted ISOs (fire and forget - don't wait)
 static void unmountAllISOs() {
     for (const auto& volumePath : g_mountedVolumes) {
         NSTask* task = [[NSTask alloc] init];
         task.launchPath = @"/usr/bin/hdiutil";
-        task.arguments = @[@"detach",
+        task.arguments = @[@"detach", @"-quiet",
                           [NSString stringWithUTF8String:volumePath.c_str()]];
-        task.standardOutput = [NSPipe pipe];
-        task.standardError = [NSPipe pipe];
+        task.standardOutput = [NSFileHandle fileHandleWithNullDevice];
+        task.standardError = [NSFileHandle fileHandleWithNullDevice];
 
         NSError* error = nil;
         [task launchAndReturnError:&error];
         if (!error) {
-            [task waitUntilExit];
-            NSLog(@"Unmounted: %s", volumePath.c_str());
+            NSLog(@"Unmounting: %s", volumePath.c_str());
         }
     }
     g_mountedVolumes.clear();
@@ -710,11 +713,9 @@ static CategoryOutlineDelegate* g_categoryDelegate = nil;
 @class CapabilityOutlineDelegate;
 static CapabilityOutlineDelegate* g_capabilityDelegate = nil;
 
-// Asset categories for file organization (for file browser and asset test)
-struct AssetCategory {
-    const char* name;
-    const char* description;
-    std::vector<std::string> patterns;  // Patterns to match asset names
+// Asset categories for file organization (uses ra-data library)
+struct ViewerCategory {
+    ra::AssetCategory category;
     std::vector<FileTreeNode*> assets;
 };
 
@@ -723,106 +724,34 @@ static int g_currentCategory = 0;
 static int g_currentCategoryAsset = 0;
 static NSOutlineView* g_categoryOutline = nil;
 
-// Predefined asset categories with matching patterns
-static std::vector<AssetCategory> g_categories = {
-    // === UNITS ===
-    {"Infantry", "Infantry unit sprites (E1-E7, civilians, dogs, etc.)",
-     {"E1", "E2", "E3", "E4", "E5", "E6", "E7", "SPY", "THF", "MEDI", "MECH",
-      "SHOK", "DOG", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9",
-      "C10", "EINSTEIN", "DELPHI", "CHAN"}, {}},
-    {"Vehicles", "Vehicle unit sprites (tanks, APCs, MCVs)",
-     {"1TNK", "2TNK", "3TNK", "4TNK", "FTNK", "STNK", "MTNK", "HTNK", "LTNK",
-      "APC", "MCV", "HARV", "ARTY", "V2RL", "MRLS", "JEEP", "TRUK", "MGG",
-      "MRJ", "MNLY", "CTNK", "TTNK", "QTNK", "DTRK"}, {}},
-    {"Aircraft", "Aircraft sprites (helicopters, planes)",
-     {"HELI", "HIND", "TRAN", "BADR", "MIG", "YAK", "SPY", "U2"}, {}},
-    {"Ships", "Naval vessel sprites",
-     {"SS", "DD", "CA", "LST", "PT", "CARR", "SUB", "MSUB"}, {}},
+// Categories populated from ra::AssetCategory enum
+static std::vector<ViewerCategory> g_categories;
 
-    // === BUILDINGS ===
-    {"Power", "Power generation buildings",
-     {"POWR", "APWR", "NPWR", "NUK2"}, {}},
-    {"Production", "Unit production buildings (factories, barracks)",
-     {"PBOX", "HBOX", "TENT", "BARR", "WEAP", "WEAF", "AFLD", "FACT",
-      "SYRD", "SPEN", "STEK"}, {}},
-    {"Defense", "Defensive structures (turrets, walls, fences)",
-     {"GUN", "AGUN", "FTUR", "TSLA", "SAM", "DOME", "GAP", "PBOX", "HBOX",
-      "SBAG", "CYCL", "BRIK", "BARB", "WOOD", "FENC"}, {}},
-    {"Support", "Support buildings (radar, tech, silos)",
-     {"DOME", "HPAD", "FIX", "ATEK", "STEK", "SILO", "PROC", "MISS",
-      "BIO", "EYE", "HOSP", "IRON"}, {}},
-    {"Base", "Base structures (construction yards, special)",
-     {"FACT", "SYRD", "MSLO", "IRON", "PDOX", "TMPL", "WEAP"}, {}},
-
-    // === TERRAIN ===
-    {"Terrain - Temperate", "Temperate theater terrain tiles",
-     {"TEMP", "BRIDGE", "SHORE", "WATER", "CLEAR"}, {}},
-    {"Terrain - Snow", "Snow theater terrain tiles",
-     {"SNOW", "ICE"}, {}},
-    {"Terrain - Interior", "Interior/dungeon terrain tiles",
-     {"INTERIOR", "FLOOR", "WALL"}, {}},
-    {"Trees", "Tree and vegetation sprites",
-     {"T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10",
-      "T11", "T12", "T13", "T14", "T15", "T16", "T17", "TC01", "TC02", "TC03",
-      "TC04", "TC05"}, {}},
-    {"Smudges", "Craters, scorch marks, bibs",
-     {"CR1", "CR2", "CR3", "CR4", "CR5", "CR6", "SC1", "SC2", "SC3", "SC4",
-      "SC5", "SC6", "BIB1", "BIB2", "BIB3"}, {}},
-    {"Overlays", "Ore, gems, walls, fences",
-     {"GOLD", "GEM", "ORE", "BARB", "SBAG", "CYCL", "BRIK", "WOOD", "FENC",
-      "V12", "V13", "V14", "V15", "V16", "V17", "V18"}, {}},
-
-    // === EFFECTS ===
-    {"Explosions", "Explosion and impact effects",
-     {"VEH-HIT", "ART-EXP", "NAPALM", "FIRE", "BURN", "PIFF", "PIFFPIFF",
-      "FBALL", "FB1", "FB2", "BOMBLET", "BOMB", "SMOKE", "SMOK"}, {}},
-    {"Projectiles", "Weapon projectiles",
-     {"BOMB", "LASER", "DRAGON", "MISSILE", "MLRS", "BULLET", "PSCRL",
-      "SONIC", "ATOMSFX"}, {}},
-    {"Animations", "Miscellaneous animations",
-     {"FLAG", "CRATE", "WOOD", "ELECT", "SPUTDOOR", "SELECT", "MOVEFLSH",
-      "YOURWIN", "YOURLOSE", "CHRONSFX", "IONSFX", "ATOMSFX"}, {}},
-
-    // === UI ===
-    {"Sidebar Icons", "Build menu icons",
-     {"ICON", "CAMEO"}, {}},
-    {"Cursors", "Mouse cursor sprites",
-     {"MOUSE", "CURS"}, {}},
-    {"Interface", "Interface elements",
-     {"HISCORE", "TITLE", "MSLOGO", "CHOOSE", "DIALOG", "TAB"}, {}},
-
-    // === AUDIO ===
-    {"Music", "Background music tracks",
-     {"BIGF", "CRUS", "FAC1", "FAC2", "HELL", "RUN1", "SMSH", "TREN",
-      "WORK", "AWAIT", "DENSE", "MAP", "FOGGER", "MUD", "RADIO2", "ROLL",
-      "SNAKE", "TERMINAT", "TWIN", "VECTOR", "VOLKOV", "2ND_HAND"}, {}},
-    {"Sound Effects", "Game sound effects",
-     {"GIRLOKAY", "GIRLYEAH", "GIRLBOMR", "MANOKAY", "MANYEAH", "MANYELL",
-      "APTS", "BLDG", "CONSTRU", "CRUMBLE", "EXPLOD", "MGUN", "RIFLE"}, {}},
-    {"Voice", "EVA and unit voices",
-     {"SPEECH", "CASHTURN", "CHROCHR1", "FREEFALL", "IRONCHG1", "BLDGING",
-      "SOVBUILD", "CANCLD", "ABLDGIN1", "ONHOLD", "PRIMRY", "READY"}, {}},
-
-    // === VIDEO ===
-    {"Cutscenes", "FMV cutscene videos",
-     {"ALLY1", "ALLY2", "ALLY3", "ALLY4", "ALLY5", "ALLY6", "ALLY7", "ALLY8",
-      "ALLY9", "ALLY10", "ALLEND", "SOV1", "SOV2", "SOV3", "SOV4", "SOV5",
-      "SOV6", "SOV7", "SOV8", "SOV9", "SOV10", "SOVEND", "INTRO", "PROLOG",
-      "ANTEND", "ANTS", "BMAP"}, {}},
-    {"Menus", "Menu background videos",
-     {"TITLE", "MAIN", "CHOOSE", "WINSOV", "LOSESOV", "WINALL", "LOSEALL"}, {}},
-
-    // === CONFIG ===
-    {"Rules", "Game rules configuration",
-     {"RULES", "AFTRMATH"}, {}},
-    {"Missions", "Mission INI files",
-     {"SCG", "SCU", "MCV", "MISSION"}, {}},
-    {"Art", "Art/sprite definitions",
-     {"ART", "CONQUER"}, {}},
-
-    // === CATCH-ALL ===
-    {"Other - Uncategorized", "Assets not matching any category", {}, {}},
-};
+// Initialize categories from ra-data
+static void initCategories() {
+    g_categories.clear();
+    // Add all categories from ra::AssetCategory enum
+    g_categories.push_back({ra::AssetCategory::Infantry, {}});
+    g_categories.push_back({ra::AssetCategory::Vehicle, {}});
+    g_categories.push_back({ra::AssetCategory::Aircraft, {}});
+    g_categories.push_back({ra::AssetCategory::Vessel, {}});
+    g_categories.push_back({ra::AssetCategory::Building, {}});
+    g_categories.push_back({ra::AssetCategory::Defense, {}});
+    g_categories.push_back({ra::AssetCategory::Terrain, {}});
+    g_categories.push_back({ra::AssetCategory::Overlay, {}});
+    g_categories.push_back({ra::AssetCategory::Smudge, {}});
+    g_categories.push_back({ra::AssetCategory::Animation, {}});
+    g_categories.push_back({ra::AssetCategory::Projectile, {}});
+    g_categories.push_back({ra::AssetCategory::Cameo, {}});
+    g_categories.push_back({ra::AssetCategory::Cursor, {}});
+    g_categories.push_back({ra::AssetCategory::Interface, {}});
+    g_categories.push_back({ra::AssetCategory::Music, {}});
+    g_categories.push_back({ra::AssetCategory::SoundEffect, {}});
+    g_categories.push_back({ra::AssetCategory::Voice, {}});
+    g_categories.push_back({ra::AssetCategory::Cutscene, {}});
+    g_categories.push_back({ra::AssetCategory::Rules, {}});
+    g_categories.push_back({ra::AssetCategory::Unknown, {}});  // Catch-all
+}
 
 // UI references
 static NSOutlineView* g_outlineView = nil;
@@ -834,6 +763,7 @@ static NSTextField* g_reviewNameLabel = nil;
 static NSTextField* g_reviewInfoLabel = nil;
 static NSTextField* g_reviewStatusLabel = nil;
 static NSTextField* g_progressLabel = nil;
+static NSString* g_loadError = nil;  // Error message for failed asset loads
 static NSButton* g_goodButton = nil;
 static NSButton* g_badButton = nil;
 
@@ -1068,7 +998,7 @@ static void loadDefaultPalette() {
         g_palette.colors[i][2] = i;
     }
     g_paletteLoaded = true;
-    Renderer_SetPalette(&g_palette);
+    Wwd_Renderer_SetPalette(&g_palette);
 
     // Try to find TEMPERAT.PAL in the assets
     for (FileTreeNode* node : g_allAssets) {
@@ -1090,7 +1020,7 @@ static void loadDefaultPalette() {
                             g_palette.colors[i][2] = palData[i * 3 + 2] << 2;
                         }
                         free(data);
-                        Renderer_SetPalette(&g_palette);
+                        Wwd_Renderer_SetPalette(&g_palette);
                         NSLog(@"Loaded palette: %@", node.name);
                         return;
                     }
@@ -1106,7 +1036,7 @@ static void loadDefaultPalette() {
                                 g_palette.colors[i][1] = palData[i*3+1] << 2;
                                 g_palette.colors[i][2] = palData[i*3+2] << 2;
                             }
-                            Renderer_SetPalette(&g_palette);
+                            Wwd_Renderer_SetPalette(&g_palette);
                         }
                         fclose(f);
                         NSLog(@"Loaded palette: %@", node.name);
@@ -1118,8 +1048,13 @@ static void loadDefaultPalette() {
     }
 }
 
-// Categorize all discovered assets into predefined categories
+// Categorize all discovered assets using ra-data library
 static void categorizeAssets() {
+    // Initialize categories if not done
+    if (g_categories.empty()) {
+        initCategories();
+    }
+
     // Clear existing categorizations
     for (auto& cat : g_categories) {
         cat.assets.clear();
@@ -1130,43 +1065,22 @@ static void categorizeAssets() {
 
     for (FileTreeNode* node : g_allAssets) {
         std::string name = [node.name UTF8String];
-        // Convert to uppercase for matching
+        // Convert to uppercase for deduplication
         std::string upperName = name;
         for (char& c : upperName) c = toupper(c);
 
-        // Remove extension for pattern matching
-        size_t dotPos = upperName.rfind('.');
-        std::string baseName = (dotPos != std::string::npos)
-            ? upperName.substr(0, dotPos) : upperName;
+        // Use ra-data library to categorize
+        ra::AssetCategory cat = ra::categorize(name);
 
-        bool matched = false;
-
-        // Try to match against each category's patterns
-        for (size_t catIdx = 0; catIdx < g_categories.size() - 1; catIdx++) {
-            auto& cat = g_categories[catIdx];
-
-            for (const auto& pattern : cat.patterns) {
-                // Check if name starts with pattern or contains it
-                if (baseName.find(pattern) != std::string::npos ||
-                    baseName.rfind(pattern, 0) == 0) {
-                    // Only add if we haven't seen this asset name in this category
-                    if (seenNames[catIdx].find(upperName) == seenNames[catIdx].end()) {
-                        cat.assets.push_back(node);
-                        seenNames[catIdx].insert(upperName);
-                    }
-                    matched = true;
-                    break;
+        // Find matching category in our list
+        for (size_t catIdx = 0; catIdx < g_categories.size(); catIdx++) {
+            if (g_categories[catIdx].category == cat) {
+                // Only add if we haven't seen this asset name in this category
+                if (seenNames[catIdx].find(upperName) == seenNames[catIdx].end()) {
+                    g_categories[catIdx].assets.push_back(node);
+                    seenNames[catIdx].insert(upperName);
                 }
-            }
-            if (matched) break;
-        }
-
-        // If not matched, add to "Other - Uncategorized" (also deduplicate)
-        if (!matched) {
-            size_t lastIdx = g_categories.size() - 1;
-            if (seenNames[lastIdx].find(upperName) == seenNames[lastIdx].end()) {
-                g_categories.back().assets.push_back(node);
-                seenNames[lastIdx].insert(upperName);
+                break;
             }
         }
     }
@@ -1177,7 +1091,8 @@ static void categorizeAssets() {
     // Log category counts
     for (const auto& cat : g_categories) {
         if (!cat.assets.empty()) {
-            NSLog(@"  %s: %zu assets", cat.name, cat.assets.size());
+            NSLog(@"  %s: %zu assets",
+                  ra::category_name(cat.category), cat.assets.size());
         }
     }
 }
@@ -1186,7 +1101,7 @@ static void categorizeAssets() {
 // Stop any playing audio
 static void stopAudio() {
     if (g_playingSound) {
-        Audio_Stop(g_playingSound);
+        Wwd_Audio_Stop(g_playingSound);
         g_playingSound = 0;
     }
 }
@@ -1212,7 +1127,7 @@ static void loadAUD(FileTreeNode* node) {
 
     // Initialize audio system if needed
     if (!g_audioInitialized) {
-        if (Audio_Init()) {
+        if (Wwd_Audio_Init()) {
             g_audioInitialized = true;
             NSLog(@"Audio system initialized");
         } else {
@@ -1234,20 +1149,19 @@ static void loadAUD(FileTreeNode* node) {
     }
 
     if (g_currentAUD) {
-        float duration = (float)g_currentAUD->sampleCount /
-                        (float)g_currentAUD->sampleRate;
+        uint32_t sampleCount = Aud_GetSampleCount(g_currentAUD);
+        uint32_t sampleRate = Aud_GetSampleRate(g_currentAUD);
+        int channels = Aud_GetChannels(g_currentAUD);
+        float duration = (float)sampleCount / (float)sampleRate;
         NSLog(@"Loaded AUD: %@ (%u samples, %u Hz, %d ch, %.2f sec)",
-              node.name, g_currentAUD->sampleCount, g_currentAUD->sampleRate,
-              g_currentAUD->channels, duration);
+              node.name, sampleCount, sampleRate, channels, duration);
 
         // Update audio info label
         if (g_audioInfoLabel) {
-            float duration = (float)g_currentAUD->sampleCount /
-                           (float)g_currentAUD->sampleRate;
             [g_audioInfoLabel setStringValue:
                 [NSString stringWithFormat:
                     @"Audio: %u Hz, %d ch, %.1f sec",
-                    g_currentAUD->sampleRate, g_currentAUD->channels, duration]];
+                    sampleRate, channels, duration]];
         }
 
         // Enable play/stop buttons
@@ -1278,23 +1192,28 @@ static void playCurrentAUD() {
 
     stopAudio();
 
-    // Fill global AudioSample (must persist - Audio_Play stores pointer)
-    g_audAudioSample.data = (uint8_t*)g_currentAUD->samples;
-    g_audAudioSample.dataSize = g_currentAUD->sampleCount * g_currentAUD->channels * sizeof(int16_t);
-    g_audAudioSample.sampleRate = g_currentAUD->sampleRate;
-    g_audAudioSample.channels = g_currentAUD->channels;
-    g_audAudioSample.bitsPerSample = 16;
+    // Get AUD properties via accessor functions
+    const int16_t* samples = Aud_GetSamples(g_currentAUD);
+    uint32_t sampleCount = Aud_GetSampleCount(g_currentAUD);
+    uint32_t sampleRate = Aud_GetSampleRate(g_currentAUD);
+    int channels = Aud_GetChannels(g_currentAUD);
 
-    float duration = (float)g_currentAUD->sampleCount / (float)g_currentAUD->sampleRate;
+    // Fill global WwdAudioSample (must persist - Wwd_Audio_Play stores pointer)
+    g_audWwdAudioSample.data = (uint8_t*)samples;
+    g_audWwdAudioSample.dataSize = sampleCount * channels * sizeof(int16_t);
+    g_audWwdAudioSample.sampleRate = sampleRate;
+    g_audWwdAudioSample.channels = channels;
+    g_audWwdAudioSample.bitsPerSample = 16;
+
+    float duration = (float)sampleCount / (float)sampleRate;
     NSLog(@"Playing AUD: %u samples, %u Hz, %d ch, %u bytes, %.2f sec",
-          g_currentAUD->sampleCount, g_currentAUD->sampleRate,
-          g_currentAUD->channels, g_audAudioSample.dataSize, duration);
+          sampleCount, sampleRate, channels, g_audWwdAudioSample.dataSize, duration);
 
-    g_playingSound = Audio_Play(&g_audAudioSample, 255, 0, FALSE);
+    g_playingSound = Wwd_Audio_Play(&g_audWwdAudioSample, 255, 0, FALSE);
     if (g_playingSound) {
-        NSLog(@"Audio_Play returned handle: %u", g_playingSound);
+        NSLog(@"Wwd_Audio_Play returned handle: %u", g_playingSound);
     } else {
-        NSLog(@"Audio_Play FAILED - returned 0");
+        NSLog(@"Wwd_Audio_Play FAILED - returned 0");
     }
 }
 
@@ -1336,7 +1255,7 @@ static void loadVQA(FileTreeNode* node) {
     }
 
     // Create new player
-    g_currentVQA = new VQAPlayer();
+    g_currentVQA = new WwdVqaPlayer();
 
     bool loaded = false;
     if (node.mixChain.count > 0) {
@@ -1408,7 +1327,7 @@ static void playCurrentVQA() {
 
     // Initialize audio system if needed
     if (!g_audioInitialized) {
-        if (Audio_Init()) {
+        if (Wwd_Audio_Init()) {
             g_audioInitialized = true;
             NSLog(@"Audio system initialized for VQA playback");
         }
@@ -1442,18 +1361,18 @@ static void playCurrentVQA() {
         g_vqaAudioBuffer = (int16_t*)malloc(estimatedSamples * sizeof(int16_t));
         if (g_vqaAudioBuffer) {
             int totalSamples = g_currentVQA->GetAudioSamples(g_vqaAudioBuffer,
-                                                              estimatedSamples);
+                                                            estimatedSamples);
             if (totalSamples > 0) {
                 g_vqaAudioBufferSize = totalSamples;
 
                 // Set up audio sample (must persist for playback)
-                g_vqaAudioSample.data = (uint8_t*)g_vqaAudioBuffer;
-                g_vqaAudioSample.dataSize = totalSamples * sizeof(int16_t);
-                g_vqaAudioSample.sampleRate = sampleRate;
-                g_vqaAudioSample.channels = channels;
-                g_vqaAudioSample.bitsPerSample = 16;
+                g_vqaWwdAudioSample.data = (uint8_t*)g_vqaAudioBuffer;
+                g_vqaWwdAudioSample.dataSize = totalSamples * sizeof(int16_t);
+                g_vqaWwdAudioSample.sampleRate = sampleRate;
+                g_vqaWwdAudioSample.channels = channels;
+                g_vqaWwdAudioSample.bitsPerSample = 16;
 
-                g_playingSound = Audio_Play(&g_vqaAudioSample, 255, 0, FALSE);
+                g_playingSound = Wwd_Audio_Play(&g_vqaWwdAudioSample, 255, 0, FALSE);
                 if (g_playingSound) {
                     NSLog(@"Playing VQA audio: %d samples at %d Hz",
                           totalSamples, sampleRate);
@@ -1486,7 +1405,7 @@ static void loadCategoryAsset() {
 
     // Restore default palette after VQA playback (VQA modifies palette)
     if (g_paletteLoaded) {
-        Renderer_SetPalette(&g_palette);
+        Wwd_Renderer_SetPalette(&g_palette);
     }
 
     if (g_currentCategory >= (int)g_categories.size()) return;
@@ -1504,7 +1423,8 @@ static void loadCategoryAsset() {
     if (g_reviewInfoLabel) {
         NSString* info = [NSString stringWithFormat:
             @"Category: %s\nType: %s\nSize: %u bytes\nPath: %@",
-            cat.name, getTypeName(node.assetType), node.size, node.fullPath];
+            ra::category_name(cat.category), getTypeName(node.assetType),
+            node.size, node.fullPath];
         [g_reviewInfoLabel setStringValue:info];
     }
 
@@ -1552,6 +1472,9 @@ static void loadCategoryAsset() {
         if (g_stopButton) [g_stopButton setEnabled:NO];
     }
 
+    // Clear previous error
+    g_loadError = nil;
+
     // Load based on asset type
     if (node.assetType == ViewerAssetType::ShpSprite) {
         // Load the SHP
@@ -1569,11 +1492,23 @@ static void loadCategoryAsset() {
         if (g_currentSHP) {
             NSLog(@"Loaded SHP: %@ (%d frames)", node.name,
                   Shp_GetFrameCount(g_currentSHP));
+        } else {
+            g_loadError = @"Failed to load SHP: Invalid format or corrupt data";
+            NSLog(@"Failed to load SHP: %@", node.name);
         }
     } else if (node.assetType == ViewerAssetType::AudAudio) {
         loadAUD(node);
     } else if (node.assetType == ViewerAssetType::VqaVideo) {
         loadVQA(node);
+    }
+
+    // Update info label with error if load failed
+    if (g_loadError && g_reviewInfoLabel) {
+        NSString* info = [NSString stringWithFormat:
+            @"Category: %s\nType: %s\nSize: %u bytes\nPath: %@\n\nERROR: %@",
+            ra::category_name(cat.category), getTypeName(node.assetType),
+            node.size, node.fullPath, g_loadError];
+        [g_reviewInfoLabel setStringValue:info];
     }
 }
 
@@ -1598,7 +1533,7 @@ static void loadCurrentAsset() {
 
     // Restore default palette after VQA playback
     if (g_paletteLoaded) {
-        Renderer_SetPalette(&g_palette);
+        Wwd_Renderer_SetPalette(&g_palette);
     }
 
     g_currentFrame = 0;
@@ -1694,7 +1629,7 @@ static void drawCheckerboard() {
     uint8_t dark = 64;    // Dark gray palette index
 
     // Get framebuffer
-    uint8_t* fb = Renderer_GetFramebuffer();
+    uint8_t* fb = Wwd_Renderer_GetFramebuffer();
     if (!fb) return;
 
     for (int y = 0; y < 400; y++) {
@@ -1708,7 +1643,7 @@ static void drawCheckerboard() {
 
 // Draw speaker silhouette for AUD files
 static void drawSpeakerIcon() {
-    uint8_t* fb = Renderer_GetFramebuffer();
+    uint8_t* fb = Wwd_Renderer_GetFramebuffer();
     if (!fb) return;
 
     // Center of display area
@@ -1772,10 +1707,10 @@ static void updatePreview() {
     // Draw background based on mode
     switch (g_previewBg) {
         case BG_BLACK:
-            Renderer_Clear(0);
+            Wwd_Renderer_Clear(0);
             break;
         case BG_GRAY:
-            Renderer_Clear(96);  // Medium gray
+            Wwd_Renderer_Clear(96);  // Medium gray
             break;
         case BG_CHECKER:
             drawCheckerboard();
@@ -1797,10 +1732,10 @@ static void updatePreview() {
 
                 if (g_zoomLevel == 1) {
                     // 1x: Use standard blit
-                    Renderer_Blit(sf->pixels, sf->width, sf->height, x, y, TRUE);
+                    Wwd_Renderer_Blit(sf->pixels, sf->width, sf->height, x, y, TRUE);
                 } else {
                     // Zoomed: manual pixel scaling via framebuffer
-                    uint8_t* fb = Renderer_GetFramebuffer();
+                    uint8_t* fb = Wwd_Renderer_GetFramebuffer();
                     if (fb) {
                         for (int dy = 0; dy < scaledH; dy++) {
                             int srcY = dy / g_zoomLevel;
@@ -1830,13 +1765,13 @@ static void updatePreview() {
 
             // Update renderer palette from VQA palette if it changed
             if (g_currentVQA->PaletteChanged()) {
-                Palette pal;
+                WwdPalette pal;
                 for (int i = 0; i < 256; i++) {
                     pal.colors[i][0] = vqaPal[i * 3 + 0];  // R
                     pal.colors[i][1] = vqaPal[i * 3 + 1];  // G
                     pal.colors[i][2] = vqaPal[i * 3 + 2];  // B
                 }
-                Renderer_SetPalette(&pal);
+                Wwd_Renderer_SetPalette(&pal);
             }
 
             int scaledW = w * g_zoomLevel;
@@ -1847,10 +1782,10 @@ static void updatePreview() {
             int y = (400 - scaledH) / 2;
 
             if (g_zoomLevel == 1) {
-                Renderer_Blit(vqaFrame, w, h, x, y, FALSE);
+                Wwd_Renderer_Blit(vqaFrame, w, h, x, y, FALSE);
             } else {
                 // Zoomed: manual pixel scaling
-                uint8_t* fb = Renderer_GetFramebuffer();
+                uint8_t* fb = Wwd_Renderer_GetFramebuffer();
                 if (fb) {
                     for (int dy = 0; dy < scaledH; dy++) {
                         int srcY = dy / g_zoomLevel;
@@ -1871,7 +1806,7 @@ static void updatePreview() {
         drawSpeakerIcon();
     }
 
-    Renderer_Present();
+    Wwd_Renderer_Present();
 }
 
 // Animation timer callback
@@ -1953,7 +1888,7 @@ static void animationTick() {
             auto& cat = g_categories[catIdx];
             if ([ident isEqualToString:@"name"]) {
                 return [NSString stringWithFormat:@"%s (%zu)",
-                        cat.name, cat.assets.size()];
+                        ra::category_name(cat.category), cat.assets.size()];
             } else if ([ident isEqualToString:@"type"]) {
                 return @"Category";
             } else if ([ident isEqualToString:@"status"]) {
@@ -2009,11 +1944,11 @@ static void animationTick() {
             if (g_reviewInfoLabel) {
                 [g_reviewInfoLabel setStringValue:
                     [NSString stringWithFormat:@"%s\n\n%zu assets",
-                     cat.description, cat.assets.size()]];
+                     ra::category_name(cat.category), cat.assets.size()]];
             }
             if (g_reviewNameLabel) {
                 [g_reviewNameLabel setStringValue:
-                    [NSString stringWithUTF8String:cat.name]];
+                    [NSString stringWithUTF8String:ra::category_name(cat.category)]];
             }
         }
 
@@ -2372,7 +2307,7 @@ static std::vector<size_t> getCapabilitiesInCategory(const std::string& cat) {
 
 - (void)drawInMTKView:(MTKView*)view {
     (void)view;
-    Renderer_Present();
+    Wwd_Renderer_Present();
 }
 
 @end
@@ -2392,6 +2327,8 @@ static std::vector<size_t> getCapabilitiesInCategory(const std::string& cat) {
     NSArray* dbPaths = @[
         @"data/filenames.dat",
         @"../data/filenames.dat",
+        @"../../macos/data/filenames.dat",  // From tools/asset-viewer/build/
+        @"../macos/data/filenames.dat",     // From tools/asset-viewer/
         [[NSBundle mainBundle] pathForResource:@"filenames" ofType:@"dat"]
             ?: @""
     ];
@@ -2458,13 +2395,13 @@ static std::vector<size_t> getCapabilitiesInCategory(const std::string& cat) {
     if (g_metalView) {
         _previewDelegate = [[PreviewViewDelegate alloc] init];
         g_metalView.delegate = _previewDelegate;
-        Renderer_Init((__bridge void*)g_metalView);
+        Wwd_Renderer_Init((__bridge void*)g_metalView);
     }
 
     // Start animation timer (~15 FPS for VQA compatibility)
     g_animTimer = [NSTimer scheduledTimerWithTimeInterval:0.067
                                                   repeats:YES
-                                                    block:^(NSTimer* t) {
+                                                    block:^(NSTimer*) {
         animationTick();
     }];
 
@@ -3547,7 +3484,7 @@ static std::vector<size_t> getCapabilitiesInCategory(const std::string& cat) {
         Shp_Free(g_currentSHP);
         g_currentSHP = nullptr;
     }
-    Renderer_Shutdown();
+    Wwd_Renderer_Shutdown();
 
     // Unmount any ISOs we mounted
     unmountAllISOs();
@@ -3555,7 +3492,7 @@ static std::vector<size_t> getCapabilitiesInCategory(const std::string& cat) {
 
 @end
 
-int main(int argc, const char* argv[]) {
+int main(int, const char**) {
     @autoreleasepool {
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
