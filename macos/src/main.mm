@@ -48,6 +48,7 @@ extern "C" {
 #include "video/music.h"
 #include "ui/menu.h"
 #include "ui/game_ui.h"
+#include "ui/cursor.h"
 #include "compat/assets.h"
 #include "assets/assetloader.h"
 #include "assets/shpfile.h"
@@ -847,114 +848,6 @@ static void RenderSelectionBox(void) {
     }
 }
 
-// Cursor types
-enum CursorType {
-    CURSOR_NORMAL,
-    CURSOR_ATTACK,
-    CURSOR_MOVE,
-    CURSOR_ENTER  // For transports
-};
-
-// Helper: find enemy building at a cell position
-static Building* GetEnemyBuildingAtCell(int cellX, int cellY) {
-    for (int i = 0; i < MAX_BUILDINGS; i++) {
-        Building* bld = Buildings_Get(i);
-        if (!bld || !bld->active) continue;
-        if (bld->team != TEAM_ENEMY) continue;
-        // Check if cell is within building bounds
-        if (cellX >= bld->cellX && cellX < bld->cellX + bld->width &&
-            cellY >= bld->cellY && cellY < bld->cellY + bld->height) {
-            return bld;
-        }
-    }
-    return nullptr;
-}
-
-// Determine what cursor to show based on what's under it and selection
-static CursorType GetCursorType(int mx, int my) {
-    // Check if we have units selected
-    if (Units_GetSelectedCount() == 0) return CURSOR_NORMAL;
-
-    // Get first selected unit for comparison
-    int selId = Units_GetFirstSelected();
-    Unit* sel = Units_Get(selId);
-    if (!sel) return CURSOR_NORMAL;
-
-    // Check for units under cursor first
-    int targetId = Units_GetAtScreen(mx, my);
-    Unit* target = Units_Get(targetId);
-
-    if (target) {
-        // Enemy unit: attack cursor
-        if (target->team == TEAM_ENEMY) {
-            // Check if selected unit can attack
-            if (sel->attackDamage > 0) {
-                return CURSOR_ATTACK;
-            }
-        }
-        // Friendly transport: enter cursor
-        else if (target->team == sel->team &&
-                 Units_IsTransport((UnitType)target->type) &&
-                 Units_IsLoadable((UnitType)sel->type)) {
-            return CURSOR_ENTER;
-        }
-    }
-
-    // Check for enemy buildings under cursor
-    if (sel->attackDamage > 0) {
-        int worldX, worldY;
-        Map_ScreenToWorld(mx, my, &worldX, &worldY);
-        int cellX = worldX / CELL_SIZE;
-        int cellY = worldY / CELL_SIZE;
-        Building* enemyBld = GetEnemyBuildingAtCell(cellX, cellY);
-        if (enemyBld) {
-            return CURSOR_ATTACK;
-        }
-    }
-
-    return CURSOR_MOVE;  // Default move cursor when units selected
-}
-
-// Render mouse cursor based on context
-static void RenderCursor(void) {
-    int mx = Input_GetMouseX(), my = Input_GetMouseY();
-
-    CursorType ctype = GetCursorType(mx, my);
-    uint8_t color = 15;  // White default
-
-    switch (ctype) {
-        case CURSOR_ATTACK:
-            // Red attack crosshair with X shape
-            color = 4;  // Red
-            Renderer_DrawLine(mx - 6, my - 6, mx + 6, my + 6, color);
-            Renderer_DrawLine(mx - 6, my + 6, mx + 6, my - 6, color);
-            Renderer_DrawLine(mx - 8, my, mx + 8, my, color);
-            Renderer_DrawLine(mx, my - 8, mx, my + 8, color);
-            return;
-
-        case CURSOR_ENTER:
-            // Green cursor for entering transport
-            color = 10;  // Green
-            Renderer_DrawRect(mx - 6, my - 6, 12, 12, color);
-            Renderer_DrawLine(mx - 3, my, mx + 3, my, color);
-            Renderer_DrawLine(mx, my - 3, mx, my + 3, color);
-            return;
-
-        case CURSOR_MOVE:
-            // Yellow move cursor
-            color = 14;  // Yellow
-            break;
-
-        default:
-            color = 15;  // White
-            break;
-    }
-
-    // Standard crosshair
-    Renderer_DrawLine(mx - 8, my, mx + 8, my, color);
-    Renderer_DrawLine(mx, my - 8, mx, my + 8, color);
-}
-
 // Render pause overlay
 static void RenderPauseOverlay(void) {
     if (!GameLoop_IsPaused()) return;
@@ -1001,14 +894,15 @@ static void RenderControlsHelp(void) {
 // Render gameplay mode
 static void RenderGameplay(void) {
     Renderer_Clear(0);
-    Renderer_SetClipRect(0, 16, 560, 368);
+    Renderer_SetClipRect(0, 16, GAME_VIEW_WIDTH, 368);
     Map_Render();
     Units_Render();
     Renderer_ResetClip();
 
     GameUI_Render();
     RenderSelectionBox();
-    RenderCursor();
+    Cursor_Update();
+    Cursor_Render();
     // Note: GameUI_RenderHUD() is called inside GameUI_Render() for credits/timer
     RenderPauseOverlay();
     RenderResultOverlay();
@@ -1374,6 +1268,10 @@ void GameRender(void) {
             NSLog(@"Sprite system initialized");
             g_assetsLoaded = true;
         }
+        // Initialize cursor system
+        if (Cursor_Init()) {
+            NSLog(@"Cursor system initialized");
+        }
         // Initialize sound system (loads all game sound effects)
         if (Sounds_Init()) {
             NSLog(@"Sound system initialized");
@@ -1459,9 +1357,10 @@ void GameRender(void) {
         }
     }
 
-    // Shutdown sprite, sound, and terrain systems
+    // Shutdown sprite, cursor, sound, and terrain systems
     Terrain_Shutdown();
     Sounds_Shutdown();
+    Cursor_Shutdown();
     Sprites_Shutdown();
     g_assetsLoaded = false;
 

@@ -10,6 +10,7 @@
 #include <westwood/shp.h>
 #include <westwood/aud.h>
 #include <westwood/pal.h>
+#include <westwood/tmp.h>
 
 #include <cstring>
 #include <cstdlib>
@@ -285,4 +286,88 @@ void Pal_Free(PalFileHandle pal) {
 const uint8_t* Pal_GetColors(PalFileHandle pal) {
     if (!pal) return nullptr;
     return pal->colors;
+}
+
+//===========================================================================
+// TMP File Implementation
+//===========================================================================
+
+struct TmpFile {
+    std::unique_ptr<wwd::TmpReader> reader;
+    std::vector<std::vector<uint8_t>> decodedTiles;
+    std::vector<TmpTile> tiles;
+};
+
+static TmpFileHandle Tmp_LoadInternal(std::unique_ptr<wwd::TmpReader> reader) {
+    if (!reader) return nullptr;
+
+    auto* tmp = new TmpFile();
+    tmp->reader = std::move(reader);
+
+    // Pre-decode all tiles
+    const auto& info = tmp->reader->info();
+    size_t count = info.tile_count;
+    tmp->decodedTiles.resize(count);
+    tmp->tiles.resize(count);
+
+    uint16_t w = info.tile_width;
+    uint16_t h = info.tile_height;
+
+    for (size_t i = 0; i < count; i++) {
+        auto result = tmp->reader->decode_tile(i);
+        if (!result.empty()) {
+            tmp->decodedTiles[i] = std::move(result);
+            tmp->tiles[i].pixels = tmp->decodedTiles[i].data();
+            tmp->tiles[i].width = w;
+            tmp->tiles[i].height = h;
+        } else {
+            tmp->tiles[i].pixels = nullptr;
+            tmp->tiles[i].width = 0;
+            tmp->tiles[i].height = 0;
+        }
+    }
+
+    return tmp;
+}
+
+TmpFileHandle Tmp_LoadFile(const char* path) {
+    auto result = wwd::TmpReader::open(path);
+    if (!result) return nullptr;
+    return Tmp_LoadInternal(std::move(*result));
+}
+
+TmpFileHandle Tmp_Load(const void* data, uint32_t size) {
+    std::span<const uint8_t> span(static_cast<const uint8_t*>(data), size);
+    auto result = wwd::TmpReader::open(span);
+    if (!result) return nullptr;
+    return Tmp_LoadInternal(std::move(*result));
+}
+
+void Tmp_Free(TmpFileHandle tmp) {
+    delete tmp;
+}
+
+int Tmp_GetTileCount(TmpFileHandle tmp) {
+    if (!tmp) return 0;
+    return static_cast<int>(tmp->tiles.size());
+}
+
+const TmpTile* Tmp_GetTile(TmpFileHandle tmp, int index) {
+    if (!tmp) return nullptr;
+    if (index < 0 || index >= static_cast<int>(tmp->tiles.size())) {
+        return nullptr;
+    }
+    // Return nullptr for empty tiles
+    if (!tmp->tiles[index].pixels) return nullptr;
+    return &tmp->tiles[index];
+}
+
+uint16_t Tmp_GetTileWidth(TmpFileHandle tmp) {
+    if (!tmp || !tmp->reader) return 0;
+    return tmp->reader->info().tile_width;
+}
+
+uint16_t Tmp_GetTileHeight(TmpFileHandle tmp) {
+    if (!tmp || !tmp->reader) return 0;
+    return tmp->reader->info().tile_height;
 }

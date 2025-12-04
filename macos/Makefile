@@ -53,7 +53,7 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/anim.cpp $(SRC_DIR)/game/campaign.cpp \
               $(SRC_DIR)/game/ai.cpp $(SRC_DIR)/game/mission.cpp \
               $(SRC_DIR)/video/music.cpp \
-              $(SRC_DIR)/ui/game_ui.cpp \
+              $(SRC_DIR)/ui/game_ui.cpp $(SRC_DIR)/ui/cursor.cpp \
               $(SRC_DIR)/graphics/metal/game_renderer.cpp
 
 # Objects

@@ -105,6 +105,38 @@ uint32_t Aud_GetSampleRate(AudFileHandle aud);
 int Aud_GetChannels(AudFileHandle aud);
 
 //===========================================================================
+// TMP File API (Terrain Templates)
+//===========================================================================
+
+typedef struct TmpFile* TmpFileHandle;
+
+// Terrain tile info
+typedef struct {
+    uint8_t* pixels;    // width * height pixels (8-bit indexed)
+    uint16_t width;
+    uint16_t height;
+} TmpTile;
+
+// Load TMP from file
+TmpFileHandle Tmp_LoadFile(const char* path);
+
+// Load TMP from memory
+TmpFileHandle Tmp_Load(const void* data, uint32_t size);
+
+// Free TMP
+void Tmp_Free(TmpFileHandle tmp);
+
+// Get tile count
+int Tmp_GetTileCount(TmpFileHandle tmp);
+
+// Get tile by index (returns nullptr for empty tiles)
+const TmpTile* Tmp_GetTile(TmpFileHandle tmp, int index);
+
+// Get tile dimensions
+uint16_t Tmp_GetTileWidth(TmpFileHandle tmp);
+uint16_t Tmp_GetTileHeight(TmpFileHandle tmp);
+
+//===========================================================================
 // PAL File API
 //===========================================================================
 

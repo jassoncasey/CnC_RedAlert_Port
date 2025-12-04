@@ -289,9 +289,9 @@ static ShpFileHandle LoadSHPFromFile(const char* name) {
 ShpFileHandle Assets_LoadSHP(const char* name) {
     if (!name) return nullptr;
 
-    // Try MIX archives: CONQUER.MIX, HIRES.MIX, then top-level
+    // Try MIX archives: CONQUER.MIX, LOCAL.MIX (icons), HIRES.MIX, top-level
     MixFileHandle searchOrder[] = {
-        g_conquerMix, g_hiresMix, g_mainMix, g_redalertMix, nullptr
+        g_conquerMix, g_localMix, g_hiresMix, g_mainMix, g_redalertMix, nullptr
     };
 
     for (int i = 0; searchOrder[i]; i++) {

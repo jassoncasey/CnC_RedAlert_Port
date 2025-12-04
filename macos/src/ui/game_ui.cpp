@@ -167,29 +167,34 @@ static bool g_cameosInitialized = false;
 
 /**
  * Load a cameo SHP for a given type name.
- * In Red Alert, sidebar cameos use the main sprite (first frame).
- * Try: <TYPE>.SHP first, then fallback patterns for special cases.
+ * In Red Alert, sidebar cameos have dedicated icon sprites sized for the UI.
+ * Try: <TYPE>ICON.SHP first (proper cameo), then fallback to main sprite.
  */
 static ShpFileHandle LoadCameoShp(const char* typeName) {
     if (!typeName || !typeName[0]) return nullptr;
 
     char iconName[32];
 
-    // Try main sprite first: <TYPE>.SHP (most buildings/units)
-    snprintf(iconName, sizeof(iconName), "%s.SHP", typeName);
-    ShpFileHandle shp = Assets_LoadSHP(iconName);
-    if (shp) return shp;
-
-    // Try ICON suffix: <TYPE>ICON.SHP (some cameo overrides)
+    // Try ICON suffix first: <TYPE>ICON.SHP (proper cameo icons in LOCAL.MIX)
     snprintf(iconName, sizeof(iconName), "%sICON.SHP", typeName);
-    shp = Assets_LoadSHP(iconName);
-    if (shp) return shp;
+    ShpFileHandle shp = Assets_LoadSHP(iconName);
+    if (shp) {
+        return shp;
+    }
 
     // Try ICNH suffix: <TYPE>ICNH.SHP (infantry variants)
     snprintf(iconName, sizeof(iconName), "%sICNH.SHP", typeName);
     shp = Assets_LoadSHP(iconName);
-    if (shp) return shp;
+    if (shp) {
+        return shp;
+    }
 
+    // Fallback to main sprite: <TYPE>.SHP (less ideal - not sized for cameos)
+    snprintf(iconName, sizeof(iconName), "%s.SHP", typeName);
+    shp = Assets_LoadSHP(iconName);
+    if (shp) {
+        return shp;
+    }
     return nullptr;
 }
 
@@ -1404,9 +1409,9 @@ static void DrawCameoButton(int x, int y, const BuildItemDef* item,
                                x, y, STRIP_ITEM_WIDTH, STRIP_ITEM_HEIGHT, TRUE);
             hasCameo = true;
 
-            // Dim if not available
+            // Dim unavailable items using alpha transparency
             if (!available) {
-                Renderer_DimRect(x, y, STRIP_ITEM_WIDTH, STRIP_ITEM_HEIGHT, 2);
+                Renderer_SetAlpha(x, y, STRIP_ITEM_WIDTH, STRIP_ITEM_HEIGHT, 128);
             }
         }
     }

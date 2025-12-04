@@ -54,8 +54,9 @@ enum OverlayTypeRA {
     OVERLAY_RA_NONE = 255
 };
 // Viewport dimensions (game view area, excluding sidebar)
-static constexpr int GAME_VIEW_WIDTH = 560;   // w/o sidebar
-static constexpr int GAME_VIEW_HEIGHT = 368;  // w/o HUD
+// Sidebar starts at x=480 (240*2), so game view is 480 pixels wide
+static constexpr int GAME_VIEW_WIDTH = 480;   // excludes sidebar
+static constexpr int GAME_VIEW_HEIGHT = 368;  // excludes HUD
 
 static Viewport g_viewport = {0, 0, GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT};
 

@@ -777,13 +777,17 @@ int Units_GetAtScreen(int screenX, int screenY) {
     int worldX, worldY;
     Map_ScreenToWorld(screenX, screenY, &worldX, &worldY);
 
-    // Check units (prefer smaller/infantry first)
+    // Check units - use reasonable hit box sizes
+    // Infantry sprites are ~24 pixels, vehicles ~32-48 pixels
     for (int i = 0; i < MAX_UNITS; i++) {
         Unit* unit = &g_units[i];
         if (!unit->active) continue;
 
         const UnitTypeDef* def = &g_unitTypes[unit->type];
-        int halfSize = def->size / 2;
+        // Use minimum hit box of 12 for infantry, 16 for vehicles
+        // This matches visual sprite size better than the tiny def->size
+        int minHitBox = def->isInfantry ? 12 : 16;
+        int halfSize = (def->size > minHitBox) ? def->size / 2 : minHitBox / 2;
 
         int ux = unit->worldX, uy = unit->worldY;
         if (worldX >= ux - halfSize && worldX <= ux + halfSize &&

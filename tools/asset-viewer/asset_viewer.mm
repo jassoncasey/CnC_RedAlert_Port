@@ -23,6 +23,7 @@
 #include <map>
 #include <set>
 #include <algorithm>
+#include <cmath>
 
 // Westwood format compatibility layer (wraps libwestwood)
 #include "wwd_compat.h"
@@ -172,6 +173,8 @@ static FileTreeNode* g_rootNode = nil;
 static std::vector<FileTreeNode*> g_allAssets;  // Flat list for review tab
 static int g_currentAssetIndex = 0;
 static ShpFileHandle g_currentSHP = nullptr;
+static TmpFileHandle g_currentTMP = nullptr;
+static int g_currentTile = 0;
 static WwdPalette g_palette;
 static bool g_paletteLoaded = false;
 static int g_currentFrame = 0;
@@ -1394,6 +1397,10 @@ static void loadCategoryAsset() {
         Aud_Free(g_currentAUD);
         g_currentAUD = nullptr;
     }
+    if (g_currentTMP) {
+        Tmp_Free(g_currentTMP);
+        g_currentTMP = nullptr;
+    }
     stopVQA();    // Stop any playing video
     if (g_currentVQA) {
         delete g_currentVQA;
@@ -1402,6 +1409,7 @@ static void loadCategoryAsset() {
     stopAudio();  // Stop any playing audio
     freeVqaAudioBuffer();  // Free VQA audio buffer
     g_currentFrame = 0;
+    g_currentTile = 0;
 
     // Restore default palette after VQA playback (VQA modifies palette)
     if (g_paletteLoaded) {
@@ -1500,6 +1508,28 @@ static void loadCategoryAsset() {
         loadAUD(node);
     } else if (node.assetType == ViewerAssetType::VqaVideo) {
         loadVQA(node);
+    } else if (node.assetType == ViewerAssetType::TmpTemplate) {
+        // Load the TMP
+        if (node.mixChain.count > 0) {
+            uint32_t size;
+            void* data = extractFromMixChain(node, &size);
+            if (data) {
+                g_currentTMP = Tmp_Load(data, size);
+                free(data);
+            }
+        } else {
+            g_currentTMP = Tmp_LoadFile([node.fullPath UTF8String]);
+        }
+
+        if (g_currentTMP) {
+            NSLog(@"Loaded TMP: %@ (%d tiles, %dx%d)", node.name,
+                  Tmp_GetTileCount(g_currentTMP),
+                  Tmp_GetTileWidth(g_currentTMP),
+                  Tmp_GetTileHeight(g_currentTMP));
+        } else {
+            g_loadError = @"Failed to load TMP: Invalid format or corrupt data";
+            NSLog(@"Failed to load TMP: %@", node.name);
+        }
     }
 
     // Update info label with error if load failed
@@ -1523,6 +1553,10 @@ static void loadCurrentAsset() {
         Aud_Free(g_currentAUD);
         g_currentAUD = nullptr;
     }
+    if (g_currentTMP) {
+        Tmp_Free(g_currentTMP);
+        g_currentTMP = nullptr;
+    }
     stopVQA();    // Stop any playing video
     if (g_currentVQA) {
         delete g_currentVQA;
@@ -1537,6 +1571,7 @@ static void loadCurrentAsset() {
     }
 
     g_currentFrame = 0;
+    g_currentTile = 0;
 
     if (g_allAssets.empty() || g_currentAssetIndex >= (int)g_allAssets.size())
         return;
@@ -1619,6 +1654,25 @@ static void loadCurrentAsset() {
         loadAUD(node);
     } else if (node.assetType == ViewerAssetType::VqaVideo) {
         loadVQA(node);
+    } else if (node.assetType == ViewerAssetType::TmpTemplate) {
+        // Load the TMP
+        if (node.mixChain.count > 0) {
+            uint32_t size;
+            void* data = extractFromMixChain(node, &size);
+            if (data) {
+                g_currentTMP = Tmp_Load(data, size);
+                free(data);
+            }
+        } else {
+            g_currentTMP = Tmp_LoadFile([node.fullPath UTF8String]);
+        }
+
+        if (g_currentTMP) {
+            NSLog(@"Loaded TMP: %@ (%d tiles, %dx%d)", node.name,
+                  Tmp_GetTileCount(g_currentTMP),
+                  Tmp_GetTileWidth(g_currentTMP),
+                  Tmp_GetTileHeight(g_currentTMP));
+        }
     }
 }
 
@@ -1804,6 +1858,82 @@ static void updatePreview() {
     } else if (g_currentAUD) {
         // Draw speaker icon for AUD files
         drawSpeakerIcon();
+    } else if (g_currentTMP && g_paletteLoaded) {
+        // Render TMP terrain template - show all tiles in grid
+        int tileCount = Tmp_GetTileCount(g_currentTMP);
+        uint16_t tileW = Tmp_GetTileWidth(g_currentTMP);
+        uint16_t tileH = Tmp_GetTileHeight(g_currentTMP);
+
+        if (tileCount > 0 && tileW > 0 && tileH > 0) {
+            // Calculate grid layout
+            int cols = (int)sqrt((double)tileCount);
+            if (cols < 1) cols = 1;
+            int rows = (tileCount + cols - 1) / cols;
+
+            int gridW = cols * tileW * g_zoomLevel;
+            int gridH = rows * tileH * g_zoomLevel;
+
+            // Center grid in preview area
+            int startX = (640 - gridW) / 2;
+            int startY = (400 - gridH) / 2;
+
+            uint8_t* fb = Wwd_Renderer_GetFramebuffer();
+            if (fb) {
+                for (int i = 0; i < tileCount; i++) {
+                    const TmpTile* tile = Tmp_GetTile(g_currentTMP, i);
+                    if (!tile || !tile->pixels) continue;
+
+                    int col = i % cols;
+                    int row = i / cols;
+
+                    int baseX = startX + col * tileW * g_zoomLevel;
+                    int baseY = startY + row * tileH * g_zoomLevel;
+
+                    // Draw tile with zoom
+                    for (int dy = 0; dy < (int)tileH * g_zoomLevel; dy++) {
+                        int srcY = dy / g_zoomLevel;
+                        int dstY = baseY + dy;
+                        if (dstY < 0 || dstY >= 400) continue;
+
+                        for (int dx = 0; dx < (int)tileW * g_zoomLevel; dx++) {
+                            int srcX = dx / g_zoomLevel;
+                            int dstX = baseX + dx;
+                            if (dstX < 0 || dstX >= 640) continue;
+
+                            uint8_t pixel = tile->pixels[srcY * tileW + srcX];
+                            fb[dstY * 640 + dstX] = pixel;
+                        }
+                    }
+
+                    // Highlight current tile with border
+                    if (i == g_currentTile) {
+                        uint8_t borderColor = 255;  // White
+                        // Top and bottom borders
+                        for (int dx = 0; dx < (int)tileW * g_zoomLevel; dx++) {
+                            int x = baseX + dx;
+                            if (x >= 0 && x < 640) {
+                                if (baseY >= 0 && baseY < 400)
+                                    fb[baseY * 640 + x] = borderColor;
+                                int bottomY = baseY + tileH * g_zoomLevel - 1;
+                                if (bottomY >= 0 && bottomY < 400)
+                                    fb[bottomY * 640 + x] = borderColor;
+                            }
+                        }
+                        // Left and right borders
+                        for (int dy = 0; dy < (int)tileH * g_zoomLevel; dy++) {
+                            int y = baseY + dy;
+                            if (y >= 0 && y < 400) {
+                                if (baseX >= 0 && baseX < 640)
+                                    fb[y * 640 + baseX] = borderColor;
+                                int rightX = baseX + tileW * g_zoomLevel - 1;
+                                if (rightX >= 0 && rightX < 640)
+                                    fb[y * 640 + rightX] = borderColor;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Wwd_Renderer_Present();
@@ -1814,6 +1944,15 @@ static void animationTick() {
     if (g_animating && g_currentSHP) {
         g_currentFrame++;
         updatePreview();
+    }
+
+    // TMP tile cycling - advance highlighted tile if animating
+    if (g_animating && g_currentTMP) {
+        int tileCount = Tmp_GetTileCount(g_currentTMP);
+        if (tileCount > 0) {
+            g_currentTile = (g_currentTile + 1) % tileCount;
+            updatePreview();
+        }
     }
 
     // VQA playback - advance frame if playing
@@ -2261,14 +2400,19 @@ static std::vector<size_t> getCapabilitiesInCategory(const std::string& cat) {
         [g_assetInfoLabel setStringValue:info];
     }
 
-    // Also load the asset for preview (SHP, AUD, VQA, etc.)
+    // Also load the asset for preview (SHP, AUD, VQA, TMP, etc.)
     stopAudio();
     stopVQA();
     if (g_currentSHP) {
         Shp_Free(g_currentSHP);
         g_currentSHP = nullptr;
     }
+    if (g_currentTMP) {
+        Tmp_Free(g_currentTMP);
+        g_currentTMP = nullptr;
+    }
     g_currentFrame = 0;
+    g_currentTile = 0;
 
     if (node.assetType == ViewerAssetType::ShpSprite) {
         if (node.mixChain.count > 0) {
@@ -2289,6 +2433,22 @@ static std::vector<size_t> getCapabilitiesInCategory(const std::string& cat) {
         loadAUD(node);
     } else if (node.assetType == ViewerAssetType::VqaVideo) {
         loadVQA(node);
+    } else if (node.assetType == ViewerAssetType::TmpTemplate) {
+        if (node.mixChain.count > 0) {
+            uint32_t size;
+            void* data = extractFromMixChain(node, &size);
+            if (data) {
+                g_currentTMP = Tmp_Load(data, size);
+                free(data);
+            }
+        } else {
+            g_currentTMP = Tmp_LoadFile([node.fullPath UTF8String]);
+        }
+        if (g_currentTMP) {
+            NSLog(@"File browser loaded TMP: %@ (%d tiles, %dx%d)",
+                  node.name, Tmp_GetTileCount(g_currentTMP),
+                  Tmp_GetTileWidth(g_currentTMP), Tmp_GetTileHeight(g_currentTMP));
+        }
     }
 
     updatePreview();
