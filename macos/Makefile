@@ -40,7 +40,7 @@ CPP_SOURCES = $(SRC_DIR)/platform/file.cpp $(SRC_DIR)/platform/timing.cpp $(SRC_
               $(SRC_DIR)/game/gameloop.cpp $(SRC_DIR)/ui/menu.cpp \
               $(SRC_DIR)/assets/mixfile.cpp $(SRC_DIR)/assets/shpfile.cpp $(SRC_DIR)/assets/palfile.cpp $(SRC_DIR)/assets/audfile.cpp $(SRC_DIR)/assets/tmpfile.cpp $(SRC_DIR)/assets/lcw.cpp $(SRC_DIR)/assets/assetloader.cpp \
               $(SRC_DIR)/game/map.cpp $(SRC_DIR)/game/units.cpp $(SRC_DIR)/game/sprites.cpp $(SRC_DIR)/game/sounds.cpp $(SRC_DIR)/game/terrain.cpp \
-              $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp \
+              $(SRC_DIR)/game/infantry_types.cpp $(SRC_DIR)/game/unit_types.cpp $(SRC_DIR)/game/weapon_types.cpp $(SRC_DIR)/game/voice_types.cpp \
               $(SRC_DIR)/game/building_types.cpp $(SRC_DIR)/game/aircraft_types.cpp \
               $(SRC_DIR)/game/ini.cpp $(SRC_DIR)/game/rules.cpp \
               $(SRC_DIR)/game/object.cpp $(SRC_DIR)/game/cell.cpp $(SRC_DIR)/game/mapclass.cpp $(SRC_DIR)/game/pathfind.cpp \
@@ -180,7 +180,10 @@ test_rules: $(BUILD_DIR)/test_rules
 	@echo "Running RULES.INI test..."
 	@cd $(BUILD_DIR) && ./test_rules
 
-$(BUILD_DIR)/test_rules: $(SRC_DIR)/tests/test_rules.cpp $(BUILD_DIR)/game/ini.o $(BUILD_DIR)/game/rules.o
+$(BUILD_DIR)/test_rules: $(SRC_DIR)/tests/test_rules.cpp $(BUILD_DIR)/game/ini.o \
+	$(BUILD_DIR)/game/rules.o $(BUILD_DIR)/game/infantry_types.o \
+	$(BUILD_DIR)/game/unit_types.o $(BUILD_DIR)/game/building_types.o \
+	$(BUILD_DIR)/game/weapon_types.o
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^
 

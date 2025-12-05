@@ -78,6 +78,67 @@ void Sounds_PlayAt(SoundEffect sfx, int worldX, int worldY, uint8_t volume);
  */
 int Sounds_GetLoadedCount(void);
 
+//===========================================================================
+// Voice System - Authentic unit responses using VocType
+//===========================================================================
+
+// Forward declarations (include voice_types.h for full definitions)
+enum class VocType : int16_t;
+enum class VoiceVariant : int8_t;
+enum class ResponseType;
+
+/**
+ * Play a voice/sound effect by VocType.
+ * Loads and caches the sound on first use.
+ * @param voc      Sound effect type
+ * @param variant  House variant (Allied/Soviet for .V/.R files)
+ * @param volume   Volume (0-255)
+ * @param pan      Pan position (-128 left to 127 right)
+ */
+void Voice_Play(VocType voc, VoiceVariant variant, uint8_t volume, int8_t pan);
+
+/**
+ * Play a voice at world position with auto-pan.
+ * @param voc      Sound effect type
+ * @param variant  House variant
+ * @param worldX   World X position
+ * @param worldY   World Y position
+ * @param volume   Base volume (0-255)
+ */
+void Voice_PlayAt(VocType voc, VoiceVariant variant,
+                  int worldX, int worldY, uint8_t volume);
+
+/**
+ * Play a unit response (select, move, attack).
+ * Automatically selects appropriate voice for unit type.
+ * @param unitType    Infantry or vehicle type ID
+ * @param isInfantry  TRUE if infantry, FALSE if vehicle
+ * @param response    Response type (SELECT, MOVE, ATTACK)
+ * @param variant     House variant for voice selection
+ * @param volume      Volume (0-255)
+ * @param pan         Pan position
+ */
+void Voice_PlayResponse(int unitType, BOOL isInfantry, ResponseType response,
+                        VoiceVariant variant, uint8_t volume, int8_t pan);
+
+/**
+ * Play a unit response at world position.
+ */
+void Voice_PlayResponseAt(int unitType, BOOL isInfantry, ResponseType response,
+                          VoiceVariant variant,
+                          int worldX, int worldY, uint8_t volume);
+
+/**
+ * Preload common voice responses for faster playback.
+ * Call after Sounds_Init().
+ */
+void Voice_Preload(void);
+
+/**
+ * Get number of cached voice samples.
+ */
+int Voice_GetCachedCount(void);
+
 #ifdef __cplusplus
 }
 #endif

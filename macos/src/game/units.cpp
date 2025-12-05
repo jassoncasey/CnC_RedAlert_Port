@@ -7,7 +7,11 @@
 #include "mission.h"
 #include "sprites.h"
 #include "sounds.h"
+#include "voice_types.h"
 #include "graphics/metal/renderer.h"
+
+// Unit type accessor - avoid header conflicts with types.h
+extern "C" int Unit_GetPassengerCapacity(int unitType);
 
 // Rules accessor functions (avoid header conflicts with types.h)
 extern int Rules_GetGoldValue();
@@ -477,6 +481,14 @@ void Units_CommandMove(int unitId, int worldX, int worldY) {
         int facing = (int)((angle + M_PI) / (M_PI / 4.0)) % 8;
         unit->facing = (uint8_t)((facing + 2) % 8); // Adjust for N=0
     }
+
+    // Play move response voice (only for player units)
+    if (unit->team == TEAM_PLAYER && unit->selected) {
+        const UnitTypeDef* def = &g_unitTypes[unit->type];
+        VoiceVariant variant = VoiceVariant::ALLIED;
+        Voice_PlayResponseAt(unit->type, def->isInfantry, ResponseType::MOVE,
+                             variant, unit->worldX, unit->worldY, 180);
+    }
 }
 
 void Units_CommandAttack(int unitId, int targetUnitId) {
@@ -486,6 +498,14 @@ void Units_CommandAttack(int unitId, int targetUnitId) {
 
     unit->targetUnit = (int16_t)targetUnitId;
     unit->state = STATE_ATTACKING;
+
+    // Play attack response voice (only for player units)
+    if (unit->team == TEAM_PLAYER && unit->selected) {
+        const UnitTypeDef* def = &g_unitTypes[unit->type];
+        VoiceVariant variant = VoiceVariant::ALLIED;
+        Voice_PlayResponseAt(unit->type, def->isInfantry, ResponseType::ATTACK,
+                             variant, unit->worldX, unit->worldY, 180);
+    }
 }
 
 void Units_CommandStop(int unitId) {
@@ -520,6 +540,14 @@ void Units_CommandAttackMove(int unitId, int worldX, int worldY) {
         double angle = atan2((double)dy, (double)dx);
         int facing = (int)((angle + M_PI) / (M_PI / 4.0)) % 8;
         unit->facing = (uint8_t)((facing + 2) % 8);
+    }
+
+    // Play attack response voice for attack-move
+    if (unit->team == TEAM_PLAYER && unit->selected) {
+        const UnitTypeDef* def = &g_unitTypes[unit->type];
+        VoiceVariant variant = VoiceVariant::ALLIED;
+        Voice_PlayResponseAt(unit->type, def->isInfantry, ResponseType::ATTACK,
+                             variant, unit->worldX, unit->worldY, 180);
     }
 }
 
@@ -567,6 +595,14 @@ void Units_CommandForceAttack(int unitId, int worldX, int worldY) {
         unit->targetUnit = -1;
         unit->state = STATE_MOVING;
         unit->pathLength = 0;
+    }
+
+    // Play attack response voice for force attack
+    if (unit->team == TEAM_PLAYER && unit->selected) {
+        const UnitTypeDef* def = &g_unitTypes[unit->type];
+        VoiceVariant variant = VoiceVariant::ALLIED;
+        Voice_PlayResponseAt(unit->type, def->isInfantry, ResponseType::ATTACK,
+                             variant, unit->worldX, unit->worldY, 180);
     }
 }
 
@@ -717,8 +753,11 @@ void Units_Select(int unitId, BOOL addToSelection) {
     Unit* unit = Units_Get(unitId);
     if (unit && unit->team == TEAM_PLAYER) {
         unit->selected = 1;
-        // Play selection sound
-        Sounds_PlayAt(SFX_UNIT_SELECT, unit->worldX, unit->worldY, 150);
+        // Play selection voice response
+        const UnitTypeDef* def = &g_unitTypes[unit->type];
+        VoiceVariant variant = VoiceVariant::ALLIED;  // TODO: get from house
+        Voice_PlayResponseAt(unit->type, def->isInfantry, ResponseType::SELECT,
+                             variant, unit->worldX, unit->worldY, 180);
     }
 }
 
@@ -1113,9 +1152,9 @@ static void UpdateUnitMovement(Unit* unit, int unitId) {
         BOOL canCrush = CanCrushInfantry(unit);
         int wcx = waypointCellX, wcy = waypointCellY;
         if (IsCellOccupiedForTeam(wcx, wcy, unitId, unit->team, canCrush)) {
-            // Cell occupied - clear path and go idle to trigger retry
+            // Cell occupied - clear path to trigger re-pathfinding next frame
+            // Keep moving state so unit continues to try reaching destination
             unit->pathLength = 0;
-            unit->state = STATE_IDLE;
             return;
         }
     }
@@ -2030,9 +2069,8 @@ void Buildings_DestroyByTrigger(const char* triggerName) {
 // ============================================================================
 
 int Units_IsTransport(UnitType type) {
-    // Transports: Chinook (TRAN), APC, LST naval transport
-    return (type == UNIT_CHINOOK || type == UNIT_APC ||
-            type == UNIT_TRANSPORT);
+    // Check type data for passenger capacity (data-driven)
+    return Unit_GetPassengerCapacity(static_cast<int>(type)) > 0;
 }
 
 int Units_IsLoadable(UnitType type) {
